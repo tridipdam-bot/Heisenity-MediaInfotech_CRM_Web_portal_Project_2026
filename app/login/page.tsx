@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { Suspense } from "react";
 import LoginPage from "@/components/LoginPage";
 import { useRouter, useSearchParams } from "next/navigation";
