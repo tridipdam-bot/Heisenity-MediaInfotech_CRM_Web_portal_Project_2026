@@ -21,7 +21,6 @@ import {
   User,
   Settings,
   LogOut,
-  Bell,
 } from "lucide-react"
 
 interface LandingPageProps {
