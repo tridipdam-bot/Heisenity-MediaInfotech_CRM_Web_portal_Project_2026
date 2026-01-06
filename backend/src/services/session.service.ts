@@ -7,30 +7,45 @@ export class SessionService {
     const sessionToken = randomBytes(32).toString('hex')
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
 
+    const sessionData: any = {
+      sessionToken,
+      userType,
+      deviceInfo,
+      ipAddress,
+      expiresAt
+    }
+
+    // Set the appropriate foreign key based on user type
+    if (userType === 'ADMIN') {
+      sessionData.adminId = userId
+    } else {
+      sessionData.employeeId = userId
+    }
+
     const session = await prisma.userSession.create({
-      data: {
-        sessionToken,
-        userId,
-        userType,
-        deviceInfo,
-        ipAddress,
-        expiresAt
-      }
+      data: sessionData
     })
 
     return session
   }
 
   // Get active sessions for a user
-  async getActiveSessions(userId: string) {
+  async getActiveSessions(userId: string, userType: 'ADMIN' | 'EMPLOYEE') {
+    const whereClause: any = {
+      isActive: true,
+      expiresAt: {
+        gt: new Date()
+      }
+    }
+
+    if (userType === 'ADMIN') {
+      whereClause.adminId = userId
+    } else {
+      whereClause.employeeId = userId
+    }
+
     return await prisma.userSession.findMany({
-      where: {
-        userId,
-        isActive: true,
-        expiresAt: {
-          gt: new Date()
-        }
-      },
+      where: whereClause,
       orderBy: {
         lastActivity: 'desc'
       }
@@ -74,9 +89,17 @@ export class SessionService {
   }
 
   // Invalidate all sessions for a user (logout from all devices)
-  async invalidateAllUserSessions(userId: string) {
+  async invalidateAllUserSessions(userId: string, userType: 'ADMIN' | 'EMPLOYEE') {
+    const whereClause: any = {}
+
+    if (userType === 'ADMIN') {
+      whereClause.adminId = userId
+    } else {
+      whereClause.employeeId = userId
+    }
+
     return await prisma.userSession.updateMany({
-      where: { userId },
+      where: whereClause,
       data: { isActive: false }
     })
   }
@@ -94,13 +117,20 @@ export class SessionService {
   }
 
   // Get session count for user
-  async getActiveSessionCount(userId: string) {
+  async getActiveSessionCount(userId: string, userType: 'ADMIN' | 'EMPLOYEE') {
+    const whereClause: any = {
+      isActive: true,
+      expiresAt: { gt: new Date() }
+    }
+
+    if (userType === 'ADMIN') {
+      whereClause.adminId = userId
+    } else {
+      whereClause.employeeId = userId
+    }
+
     return await prisma.userSession.count({
-      where: {
-        userId,
-        isActive: true,
-        expiresAt: { gt: new Date() }
-      }
+      where: whereClause
     })
   }
 }

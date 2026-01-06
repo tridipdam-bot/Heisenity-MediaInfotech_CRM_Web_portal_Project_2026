@@ -165,7 +165,8 @@ enum AttemptCount {
 model UserSession {
   id           String        @id @default(cuid())
   sessionToken String        @unique
-  userId       String
+  adminId      String?
+  employeeId   String?
   userType     UserType
   deviceInfo   String?
   ipAddress    String?
@@ -175,10 +176,11 @@ model UserSession {
   expiresAt    DateTime
   
   // Relations
-  admin        Admin?        @relation(fields: [userId], references: [id], onDelete: Cascade, map: "user_sessions_admin_fkey")
-  employee     FieldEngineer? @relation(fields: [userId], references: [id], onDelete: Cascade, map: "user_sessions_employee_fkey")
+  admin        Admin?        @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  employee     FieldEngineer? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([adminId])
+  @@index([employeeId])
   @@index([sessionToken])
   @@index([isActive])
   @@map("user_sessions")

@@ -30,7 +30,8 @@ export default function ActiveSessions() {
 
   const fetchSessions = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/sessions/${session?.user?.id}`)
+      const userType = (session?.user as any)?.userType
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/sessions/${session?.user?.id}?userType=${userType}`)
       if (response.ok) {
         const data = await response.json()
         setSessions(data)
@@ -62,12 +63,16 @@ export default function ActiveSessions() {
 
   const logoutAllSessions = async () => {
     try {
+      const userType = (session?.user as any)?.userType
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/logout-all`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId: session?.user?.id })
+        body: JSON.stringify({ 
+          userId: session?.user?.id,
+          userType: userType
+        })
       })
 
       if (response.ok) {

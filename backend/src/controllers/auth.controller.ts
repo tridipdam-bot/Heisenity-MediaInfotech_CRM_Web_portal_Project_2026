@@ -54,13 +54,13 @@ class AuthController {
 
   async logoutAll(req: Request, res: Response) {
     try {
-      const { userId } = req.body
+      const { userId, userType } = req.body
 
-      if (!userId) {
-        return res.status(400).json({ error: 'User ID is required' })
+      if (!userId || !userType) {
+        return res.status(400).json({ error: 'User ID and user type are required' })
       }
 
-      await sessionService.invalidateAllUserSessions(userId)
+      await sessionService.invalidateAllUserSessions(userId, userType.toUpperCase())
       res.json({ message: 'Logged out from all devices successfully' })
     } catch (error) {
       console.error('Logout all error:', error)
@@ -71,12 +71,13 @@ class AuthController {
   async getSessions(req: Request, res: Response) {
     try {
       const { userId } = req.params
+      const { userType } = req.query
 
-      if (!userId) {
-        return res.status(400).json({ error: 'User ID is required' })
+      if (!userId || !userType) {
+        return res.status(400).json({ error: 'User ID and user type are required' })
       }
 
-      const sessions = await sessionService.getActiveSessions(userId)
+      const sessions = await sessionService.getActiveSessions(userId, userType.toString().toUpperCase() as 'ADMIN' | 'EMPLOYEE')
       res.json(sessions)
     } catch (error) {
       console.error('Get sessions error:', error)
