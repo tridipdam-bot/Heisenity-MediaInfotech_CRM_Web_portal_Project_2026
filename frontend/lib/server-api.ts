@@ -232,7 +232,8 @@ export type AssignedTask = {
 }
 
 export type CreateTaskRequest = {
-    employeeId: string
+    employeeId?: string
+    teamId?: string
     title: string
     description: string
     category?: string
@@ -244,7 +245,13 @@ export type CreateTaskRequest = {
 export type CreateTaskResponse = {
     success: boolean
     message: string
-    data?: AssignedTask
+    data?: {
+        type: 'individual' | 'team'
+        task?: AssignedTask
+        teamName?: string
+        memberCount?: number
+        tasks?: AssignedTask[]
+    }
     error?: string
 }
 
@@ -295,6 +302,32 @@ export async function getAttendanceRecords(params?: {
         return response
     } catch (error) {
         console.error('getAttendanceRecords error:', error)
+        throw error
+    }
+}
+
+export type DeleteAttendanceResponse = {
+    success: boolean
+    message: string
+    error?: string
+}
+
+export async function deleteAttendanceRecord(id: string): Promise<DeleteAttendanceResponse> {
+    try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/${id}`, {
+            method: 'DELETE',
+            cache: 'no-store'
+        })
+
+        const response = await res.json()
+
+        if (!res.ok) {
+            throw new Error(response.error || `Failed to delete attendance record: ${res.status}`)
+        }
+
+        return response
+    } catch (error) {
+        console.error('deleteAttendanceRecord error:', error)
         throw error
     }
 }
@@ -778,6 +811,160 @@ export async function assignTask(task: CreateTaskRequest): Promise<CreateTaskRes
     return response
   } catch (error) {
     console.error('assignTask error:', error)
+    throw error
+  }
+}
+
+// Team API Types
+export type TeamMember = {
+  id: string
+  name: string
+  employeeId: string
+  email: string
+  isTeamLeader: boolean
+}
+
+export type Team = {
+  id: string
+  name: string
+  description: string | null
+  createdAt: string
+  updatedAt: string
+  members: TeamMember[]
+  teamLeader?: TeamMember
+}
+
+export type TeamWithMembers = Team
+
+export type GetTeamsResponse = {
+  success: boolean
+  data?: Team[]
+  error?: string
+}
+
+export type GetTeamResponse = {
+  success: boolean
+  data?: Team
+  error?: string
+}
+
+export type CreateTeamRequest = {
+  name: string
+  description?: string
+  memberIds?: string[]
+  teamLeaderId?: string
+}
+
+export type CreateTeamResponse = {
+  success: boolean
+  data?: Team | TeamWithMembers
+  message?: string
+  error?: string
+}
+
+export type UpdateTeamMembersRequest = {
+  memberIds: string[]
+  teamLeaderId?: string
+}
+
+export type UpdateTeamMembersResponse = {
+  success: boolean
+  data?: TeamWithMembers
+  message?: string
+  error?: string
+}
+
+// Team API Functions
+export async function getAllTeams(): Promise<GetTeamsResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/teams`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || `Failed to fetch teams: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('getAllTeams error:', error)
+    throw error
+  }
+}
+
+export async function getTeamById(teamId: string): Promise<GetTeamResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/teams/${teamId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || `Failed to fetch team: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('getTeamById error:', error)
+    throw error
+  }
+}
+
+export async function createTeam(teamData: CreateTeamRequest): Promise<CreateTeamResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/teams`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(teamData),
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || `Failed to create team: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('createTeam error:', error)
+    throw error
+  }
+}
+
+export async function updateTeamMembers(teamId: string, updateData: UpdateTeamMembersRequest): Promise<UpdateTeamMembersResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/teams/${teamId}/members`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData),
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || `Failed to update team members: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('updateTeamMembers error:', error)
     throw error
   }
 }

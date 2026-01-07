@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AddAttendanceRecord } from "@/components/AddAttendanceRecord"
 import { AssignTaskPage } from "@/components/AssignTaskPage"
 import { DateRangePicker } from "@/components/DateRangePicker"
@@ -28,11 +29,15 @@ import {
   X,
   UserPlus
 } from "lucide-react"
-import { getAttendanceRecords, getAllEmployees, AttendanceRecord, Employee } from "@/lib/server-api"
+import { getAttendanceRecords, getAllEmployees, AttendanceRecord, Employee, deleteAttendanceRecord } from "@/lib/server-api"
 
 interface DateRange {
   from: Date | null
   to: Date | null
+}
+
+interface ExtendedAttendanceRecord extends AttendanceRecord {
+  hasAttendance: boolean
 }
 
 const getStatusIcon = (status: string) => {
@@ -117,7 +122,7 @@ export function AttendancePage() {
     month: 'long',
     day: 'numeric'
   }))
-  const [combinedData, setCombinedData] = React.useState<(AttendanceRecord & { hasAttendance: boolean })[]>([])
+  const [combinedData, setCombinedData] = React.useState<ExtendedAttendanceRecord[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [pagination, setPagination] = React.useState({
@@ -132,6 +137,9 @@ export function AttendancePage() {
     dateRange: { from: new Date(), to: null } as DateRange
   })
   const [selectedEmployee, setSelectedEmployee] = React.useState<string | null>(null)
+  const [selectedRecord, setSelectedRecord] = React.useState<ExtendedAttendanceRecord | null>(null)
+  const [showViewDetails, setShowViewDetails] = React.useState(false)
+  const [deleteLoading, setDeleteLoading] = React.useState<string | null>(null)
 
   const fetchAttendanceData = React.useCallback(async () => {
     try {
@@ -276,6 +284,40 @@ export function AttendancePage() {
   const handleAssignTask = (employeeId: string) => {
     setSelectedEmployee(employeeId)
     setShowAssignPage(true)
+  }
+
+  const handleViewDetails = (record: ExtendedAttendanceRecord) => {
+    setSelectedRecord(record)
+    setShowViewDetails(true)
+  }
+
+  const handleDeleteRecord = async (record: ExtendedAttendanceRecord) => {
+    if (!record.hasAttendance) {
+      return // Can't delete placeholder records
+    }
+
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete the attendance record for ${record.employeeName} on ${new Date(record.date).toLocaleDateString()}?`
+    )
+
+    if (!confirmDelete) return
+
+    try {
+      setDeleteLoading(record.id)
+      const response = await deleteAttendanceRecord(record.id)
+      
+      if (response.success) {
+        // Refresh the data to reflect the deletion
+        fetchAttendanceData()
+      } else {
+        alert(response.error || 'Failed to delete attendance record')
+      }
+    } catch (error) {
+      console.error('Error deleting attendance record:', error)
+      alert('Failed to delete attendance record')
+    } finally {
+      setDeleteLoading(null)
+    }
   }
 
   const handleDateChange = (direction: 'prev' | 'next') => {
@@ -840,7 +882,7 @@ export function AttendancePage() {
                               {/* Display task location from attendance record */}
                               {record.taskLocation && (
                                 <div className="flex items-center gap-2 text-xs text-gray-600">
-                                  <MapPin className="h-3 w-3 flex-shrink-0" />
+                                  <MapPin className="h-3 w-3 shrink-0" />
                                   <span
                                     className="truncate max-w-[120px]"
                                     title={record.taskLocation}
@@ -856,7 +898,7 @@ export function AttendancePage() {
                         </TableCell>
                         <TableCell className="py-4 px-6 max-w-[180px]">
                           <div className="flex items-start gap-2 text-gray-600">
-                            <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                            <MapPin className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
                             <div className="min-w-0 flex-1">
                               {record.hasAttendance ? (
                                 <div className="space-y-1">
@@ -900,9 +942,24 @@ export function AttendancePage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>View Details</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleViewDetails(record)}>
+                                View Details
+                              </DropdownMenuItem>
                               {record.hasAttendance && (
-                                <DropdownMenuItem>Edit Record</DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeleteRecord(record)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  disabled={deleteLoading === record.id}
+                                >
+                                  {deleteLoading === record.id ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Deleting...
+                                    </>
+                                  ) : (
+                                    'Delete Record'
+                                  )}
+                                </DropdownMenuItem>
                               )}
                               <DropdownMenuItem onClick={() => handleAssignTask(record.employeeId)}>
                                 <UserPlus className="h-4 w-4 mr-2" />
@@ -979,6 +1036,200 @@ export function AttendancePage() {
           )}
         </div>
       )}
+
+      {/* View Details Modal */}
+      <Dialog open={showViewDetails} onOpenChange={setShowViewDetails}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Attendance Details</DialogTitle>
+          </DialogHeader>
+          {selectedRecord && (
+            <div className="space-y-6">
+              {/* Employee Information */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-gray-900">Employee Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Name</label>
+                    <p className="text-sm text-gray-900">{selectedRecord.employeeName}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Employee ID</label>
+                    <p className="text-sm text-gray-900">{selectedRecord.employeeId}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Email</label>
+                    <p className="text-sm text-gray-900">{selectedRecord.email}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Phone</label>
+                    <p className="text-sm text-gray-900">{selectedRecord.phone || 'Not provided'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Attendance Information */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-gray-900">Attendance Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Date</label>
+                    <p className="text-sm text-gray-900">{new Date(selectedRecord.date).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Status</label>
+                    <div className="mt-1">
+                      {selectedRecord.hasAttendance ? getStatusBadge(selectedRecord.status) : (
+                        <Badge className="bg-gray-50 text-gray-500 border-gray-200">No Record</Badge>
+                      )}
+                    </div>
+                  </div>
+                  {selectedRecord.hasAttendance && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Clock In</label>
+                        <p className="text-sm text-gray-900">{selectedRecord.clockIn ? formatTime(selectedRecord.clockIn) : '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Clock Out</label>
+                        <p className="text-sm text-gray-900">{selectedRecord.clockOut ? formatTime(selectedRecord.clockOut) : 'Working...'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Work Hours</label>
+                        <p className="text-sm text-gray-900">{calculateWorkHours(selectedRecord.clockIn, selectedRecord.clockOut).worked}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Overtime</label>
+                        <p className="text-sm text-gray-900">{calculateWorkHours(selectedRecord.clockIn, selectedRecord.clockOut).overtime}</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {selectedRecord.hasAttendance && (
+                <>
+                  <Separator />
+
+                  {/* Location Information */}
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-gray-900">Location Information</h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Location</label>
+                        <p className="text-sm text-gray-900">{selectedRecord.location || 'Not provided'}</p>
+                      </div>
+                      {selectedRecord.latitude && selectedRecord.longitude && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Coordinates</label>
+                          <p className="text-sm text-gray-900">{selectedRecord.latitude}, {selectedRecord.longitude}</p>
+                        </div>
+                      )}
+                      {selectedRecord.taskLocation && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Task Location</label>
+                          <p className="text-sm text-gray-900">{selectedRecord.taskLocation}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Technical Information */}
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-gray-900">Technical Information</h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Device Info</label>
+                        <p className="text-sm text-gray-900">{selectedRecord.deviceInfo || 'Not provided'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">IP Address</label>
+                        <p className="text-sm text-gray-900">{selectedRecord.ipAddress || 'Not provided'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Source</label>
+                        <p className="text-sm text-gray-900">{selectedRecord.source}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Created At</label>
+                        <p className="text-sm text-gray-900">{new Date(selectedRecord.createdAt).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Assigned Task Information */}
+              {selectedRecord.assignedTask && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-gray-900">Assigned Task</h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Title</label>
+                        <p className="text-sm text-gray-900">{selectedRecord.assignedTask.title}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Description</label>
+                        <p className="text-sm text-gray-900">{selectedRecord.assignedTask.description}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Category</label>
+                          <p className="text-sm text-gray-900">{selectedRecord.assignedTask.category || 'Not specified'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Status</label>
+                          <div className="mt-1">
+                            <Badge
+                              className={`text-xs ${selectedRecord.assignedTask.status === 'PENDING' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                                selectedRecord.assignedTask.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  selectedRecord.assignedTask.status === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-200' :
+                                    'bg-gray-50 text-gray-700 border-gray-200'
+                                }`}
+                            >
+                              {selectedRecord.assignedTask.status.toLowerCase().replace('_', ' ')}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                      {selectedRecord.assignedTask.location && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Task Location</label>
+                          <p className="text-sm text-gray-900">{selectedRecord.assignedTask.location}</p>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Start Time</label>
+                          <p className="text-sm text-gray-900">{selectedRecord.assignedTask.startTime || 'Not specified'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">End Time</label>
+                          <p className="text-sm text-gray-900">{selectedRecord.assignedTask.endTime || 'Not specified'}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Assigned By</label>
+                        <p className="text-sm text-gray-900">{selectedRecord.assignedTask.assignedBy}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Assigned At</label>
+                        <p className="text-sm text-gray-900">{new Date(selectedRecord.assignedTask.assignedAt).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

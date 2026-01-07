@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import attendanceRoutes from '@/modules/staffs/attendance/attendance.route';
 import employeeRoutes from '@/modules/staffs/employee/employee.route';
 import taskRoutes from '@/modules/staffs/tasks/task.route';
+import teamRoutes from '@/modules/staffs/teams/team.route';
 import { authRouter } from './auth.route';
 import employeeIdRoutes from './employeeId.route';
 import fieldEngineerRoutes from './fieldEngineer.route';
@@ -19,6 +20,9 @@ router.use('/employees', employeeRoutes);
 
 // Mount task routes
 router.use('/tasks', taskRoutes);
+
+// Mount team routes
+router.use('/teams', teamRoutes);
 
 // Mount employee ID generator routes
 router.use('/employee-id', employeeIdRoutes);

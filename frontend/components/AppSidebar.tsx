@@ -25,7 +25,8 @@ import {
     Building2,
     ChevronRight,
     LogOut,
-    DollarSign
+    DollarSign,
+    UsersRound
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -45,6 +46,13 @@ const navigationItems = [
         icon: Users,
         badge: "12",
         description: "Employee time tracking"
+    },
+    {
+        title: "Teams",
+        url: "/teams",
+        icon: UsersRound,
+        badge: null,
+        description: "Team management"
     },
     {
         title: "Payroll",

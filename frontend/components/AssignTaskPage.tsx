@@ -15,9 +15,10 @@ import {
   CheckCircle,
   Users,
   Search,
-  MapPin
+  MapPin,
+  Shield
 } from "lucide-react"
-import { getAllEmployees, Employee, assignTask, CreateTaskRequest } from "@/lib/server-api"
+import { getAllEmployees, Employee, assignTask, CreateTaskRequest, getAllTeams, Team } from "@/lib/server-api"
 
 interface AssignTaskPageProps {
   onBack: () => void
@@ -27,8 +28,11 @@ interface AssignTaskPageProps {
 
 export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned }: AssignTaskPageProps) {
   const [employees, setEmployees] = React.useState<Employee[]>([])
+  const [teams, setTeams] = React.useState<Team[]>([])
   const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState("")
+  const [assignmentType, setAssignmentType] = React.useState<'individual' | 'team'>('team')
+  const [selectedTeam, setSelectedTeam] = React.useState<string>("")
   const [selectedEmployee, setSelectedEmployee] = React.useState<string>(preSelectedEmployeeId || "")
   const [taskData, setTaskData] = React.useState({
     title: "",
@@ -40,42 +44,69 @@ export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned }
   })
   const [submitting, setSubmitting] = React.useState(false)
 
-  // Fetch employees on component mount
+  // Fetch employees and teams on component mount
   React.useEffect(() => {
-    const fetchEmployees = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true)
-        const response = await getAllEmployees({ limit: 1000 })
-        if (response.success && response.data) {
-          setEmployees(response.data.employees)
+        const [employeesResponse, teamsResponse] = await Promise.all([
+          getAllEmployees({ limit: 1000 }),
+          getAllTeams()
+        ])
+        
+        if (employeesResponse.success && employeesResponse.data) {
+          setEmployees(employeesResponse.data.employees)
+        }
+        
+        if (teamsResponse.success && teamsResponse.data) {
+          setTeams(teamsResponse.data)
         }
       } catch (error) {
-        console.error('Error fetching employees:', error)
+        console.error('Error fetching data:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchEmployees()
+    fetchData()
   }, [])
 
-  // Filter employees based on search term
+  // Filter employees based on search term and selected team (only for individual assignment)
   const filteredEmployees = React.useMemo(() => {
-    if (!searchTerm) return employees
-    return employees.filter(employee => 
-      employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.email.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  }, [employees, searchTerm])
+    if (assignmentType === 'team') return []
+    
+    let filtered = employees
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(employee => 
+        employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.email.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    return filtered
+  }, [employees, searchTerm, assignmentType])
 
   const selectedEmployeeData = employees.find(emp => emp.employeeId === selectedEmployee)
+  const selectedTeamData = teams.find(team => team.id === selectedTeam)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!selectedEmployee || !taskData.title || !taskData.description) {
+    if (!taskData.title || !taskData.description) {
       alert('Please fill in all required fields')
+      return
+    }
+
+    if (assignmentType === 'team' && !selectedTeam) {
+      alert('Please select a team')
+      return
+    }
+
+    if (assignmentType === 'individual' && !selectedEmployee) {
+      alert('Please select an employee')
       return
     }
 
@@ -83,7 +114,7 @@ export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned }
     
     try {
       const taskRequest: CreateTaskRequest = {
-        employeeId: selectedEmployee,
+        ...(assignmentType === 'team' ? { teamId: selectedTeam } : { employeeId: selectedEmployee }),
         title: taskData.title,
         description: taskData.description,
         category: taskData.category || undefined,
@@ -95,8 +126,12 @@ export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned }
       const response = await assignTask(taskRequest)
       
       if (response.success) {
-        alert('Task assigned successfully! Employee attendance status has been automatically updated to PRESENT.');
-        // Call the callback to refresh attendance data
+        if (assignmentType === 'team') {
+          alert(`Task assigned successfully to team "${response.data?.teamName}" with ${response.data?.memberCount} members! All team members' attendance status has been automatically updated to PRESENT.`)
+        } else {
+          alert('Task assigned successfully! Employee attendance status has been automatically updated to PRESENT.')
+        }
+        
         if (onTaskAssigned) {
           onTaskAssigned()
         }
@@ -142,64 +177,175 @@ export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned }
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Employee Selection */}
+          {/* Assignment Type & Selection */}
           <div className="lg:col-span-1">
             <Card className="bg-white shadow-sm border-gray-200">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <Users className="h-5 w-5 text-blue-600" />
-                  Select Employee
+                  Assignment Target
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Search */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search employees..."
-                    className="pl-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-
-                {/* Employee Dropdown */}
+                {/* Assignment Type Selection */}
                 <div className="space-y-2">
-                  <Label htmlFor="employee-select">Employee *</Label>
-                  <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                  <Label>Assignment Type</Label>
+                  <Select value={assignmentType} onValueChange={(value: 'individual' | 'team') => {
+                    setAssignmentType(value)
+                    setSelectedTeam("")
+                    setSelectedEmployee("")
+                  }}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choose an employee..." />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {loading ? (
-                        <SelectItem value="loading" disabled>
-                          Loading employees...
-                        </SelectItem>
-                      ) : filteredEmployees.length === 0 ? (
-                        <SelectItem value="no-results" disabled>
-                          No employees found
-                        </SelectItem>
-                      ) : (
-                        filteredEmployees.map((employee) => (
-                          <SelectItem key={employee.employeeId} value={employee.employeeId}>
-                            <div className="flex items-center gap-3 py-1">
-                              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-xs">
-                                {employee.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-gray-900 truncate">{employee.name}</p>
-                                <p className="text-xs text-gray-500 truncate">{employee.employeeId} • {employee.email}</p>
-                              </div>
-                            </div>
-                          </SelectItem>
-                        ))
-                      )}
+                      <SelectItem value="team">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-blue-500" />
+                          <span>Assign to Team</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="individual">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-green-500" />
+                          <span>Assign to Individual</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Selected Employee Preview */}
-                {selectedEmployeeData && (
+                {/* Team Selection */}
+                {assignmentType === 'team' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="team-select">Select Team *</Label>
+                    <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Choose a team..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loading ? (
+                          <SelectItem value="loading" disabled>
+                            Loading teams...
+                          </SelectItem>
+                        ) : teams.length === 0 ? (
+                          <SelectItem value="no-teams" disabled>
+                            No teams found
+                          </SelectItem>
+                        ) : (
+                          teams.map((team) => (
+                            <SelectItem key={team.id} value={team.id}>
+                              <div className="flex items-center gap-3 py-1">
+                                <Users className="h-4 w-4 text-blue-500" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-gray-900 truncate">{team.name}</p>
+                                  <p className="text-xs text-gray-500 truncate">
+                                    {team.members.length} member{team.members.length !== 1 ? 's' : ''}
+                                    {team.teamLeader && ` • Leader: ${team.teamLeader.name}`}
+                                  </p>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Individual Employee Selection */}
+                {assignmentType === 'individual' && (
+                  <>
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search employees..."
+                        className="pl-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Employee Dropdown */}
+                    <div className="space-y-2">
+                      <Label htmlFor="employee-select">Employee *</Label>
+                      <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Choose an employee..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {loading ? (
+                            <SelectItem value="loading" disabled>
+                              Loading employees...
+                            </SelectItem>
+                          ) : filteredEmployees.length === 0 ? (
+                            <SelectItem value="no-results" disabled>
+                              No employees found
+                            </SelectItem>
+                          ) : (
+                            filteredEmployees.map((employee) => (
+                              <SelectItem key={employee.employeeId} value={employee.employeeId}>
+                                <div className="flex items-center gap-3 py-1">
+                                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-xs">
+                                    {employee.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-gray-900 truncate">{employee.name}</p>
+                                    <p className="text-xs text-gray-500 truncate">{employee.employeeId} • {employee.email}</p>
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+
+                {/* Selection Preview */}
+                {assignmentType === 'team' && selectedTeamData && (
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <Users className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">{selectedTeamData.name}</p>
+                        {selectedTeamData.description && (
+                          <p className="text-sm text-gray-600 mt-1">{selectedTeamData.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
+                            {selectedTeamData.members.length} Members
+                          </Badge>
+                          {selectedTeamData.teamLeader && (
+                            <Badge className="bg-green-100 text-green-700 border-green-200 text-xs flex items-center gap-1">
+                              <Shield className="h-3 w-3" />
+                              Leader: {selectedTeamData.teamLeader.name}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="mt-2">
+                          <p className="text-xs font-medium text-gray-500 mb-1">Team Members:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {selectedTeamData.members.slice(0, 3).map((member) => (
+                              <span key={member.id} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                                {member.name}
+                              </span>
+                            ))}
+                            {selectedTeamData.members.length > 3 && (
+                              <span className="text-xs text-gray-500">
+                                +{selectedTeamData.members.length - 3} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {assignmentType === 'individual' && selectedEmployeeData && (
                   <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
@@ -209,11 +355,19 @@ export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned }
                         <p className="font-semibold text-gray-900">{selectedEmployeeData.name}</p>
                         <p className="text-sm text-gray-600">{selectedEmployeeData.employeeId}</p>
                         <p className="text-xs text-gray-500">{selectedEmployeeData.email}</p>
-                        {selectedEmployeeData.isTeamLeader && (
-                          <Badge className="mt-1 bg-green-50 text-green-700 border-green-200 text-xs">
-                            Team Leader
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          {selectedEmployeeData.isTeamLeader && (
+                            <Badge className="bg-green-50 text-green-700 border-green-200 text-xs flex items-center gap-1">
+                              <Shield className="h-3 w-3" />
+                              Team Leader
+                            </Badge>
+                          )}
+                          {selectedEmployeeData.teamId && (
+                            <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+                              {teams.find(t => t.id === selectedEmployeeData.teamId)?.name || 'Team Member'}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -340,7 +494,13 @@ export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned }
                       <Button 
                         type="submit" 
                         className="bg-blue-600 hover:bg-blue-700"
-                        disabled={submitting || !selectedEmployee || !taskData.title || !taskData.description}
+                        disabled={
+                          submitting || 
+                          !taskData.title || 
+                          !taskData.description || 
+                          (assignmentType === 'team' && !selectedTeam) ||
+                          (assignmentType === 'individual' && !selectedEmployee)
+                        }
                       >
                         {submitting ? (
                           <>
@@ -350,7 +510,7 @@ export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned }
                         ) : (
                           <>
                             <CheckCircle className="h-4 w-4 mr-2" />
-                            Assign Task
+                            {assignmentType === 'team' ? 'Assign to Team' : 'Assign to Employee'}
                           </>
                         )}
                       </Button>

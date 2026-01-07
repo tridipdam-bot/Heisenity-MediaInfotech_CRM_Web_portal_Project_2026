@@ -24,6 +24,17 @@ model Admin {
   @@map("admins")
 }
 
+model Team {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  members     FieldEngineer[]
+
+  @@map("teams")
+}
+
 model FieldEngineer {
   id                  String               @id @default(cuid())
   name                String
@@ -41,9 +52,11 @@ model FieldEngineer {
   attendances         Attendance[]
   attendanceOverrides AttendanceOverride[]
   tasks               Task[]
+  team                Team?                @relation(fields: [teamId], references: [id])
   assignedAdmin       Admin?               @relation("AdminAssignedTeamLeaders", fields: [assignedBy], references: [id])
   sessions            UserSession[]
 
+  @@index([teamId])
   @@index([assignedBy], map: "field_engineers_assignedBy_fkey")
   @@map("field_engineers")
 }

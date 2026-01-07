@@ -89,7 +89,7 @@ function UserLoginCard() {
         </div>
         <CardTitle className="text-2xl font-bold text-gray-900">User Login</CardTitle>
         <CardDescription className="text-gray-600 text-sm">
-          Access your dashboard and basic features
+          Access your dashboard 
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -522,70 +522,11 @@ export default function LandingPage({ onGetStarted, isLoggedIn = false, userProf
             <div className="w-8 h-8 bg-linear-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
               <Package className="h-4 w-4 text-white" />
             </div>
-            <span className="font-bold text-foreground">Mediacomputer</span>
+            <span className="font-bold text-foreground">Mediainfotech</span>
           </div>
           <div className="hidden md:flex space-x-6 text-sm">
-            <a href="#features" className="text-muted-foreground hover:text-blue-600 transition-colors">Features</a>
             <a href="#login" className="text-muted-foreground hover:text-blue-600 transition-colors">Login</a>
             <a href="#contact" className="text-muted-foreground hover:text-blue-600 transition-colors">Contact</a>
-            <a href="/employee-attendance" className="text-muted-foreground hover:text-blue-600 transition-colors">Attendance</a>
-          </div>
-          <div className="flex items-center gap-3">
-            {isLoggedIn && userProfile ? (
-              <div className="flex items-center gap-3">
-                {/* Profile Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={userProfile.avatar} alt={userProfile.name} />
-                        <AvatarFallback className="bg-blue-100 text-blue-600">
-                          {userProfile.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
-                    <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{userProfile.name}</p>
-                        <p className="text-xs leading-none text-muted-foreground">
-                          {userProfile.email}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="secondary" className="w-fit text-xs">
-                            {userProfile.role}
-                          </Badge>
-                          {userProfile.employeeId && (
-                            <Badge variant="outline" className="w-fit text-xs">
-                              ID: {userProfile.employeeId}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Settings</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-red-600" onClick={handleLogout}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ) : (
-              <Button onClick={() => onGetStarted()} className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6">
-                Access Portal
-              </Button>
-            )}
           </div>
         </div>
       </nav>

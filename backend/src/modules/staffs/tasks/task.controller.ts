@@ -1,23 +1,63 @@
 import { Request, Response } from 'express';
 import { createTask, getEmployeeTasks, updateTaskStatus, getAllTasks, CreateTaskData, TaskStatus, updateAttendanceStatus, resetAttendanceAttempts, fixDailyLocationTimes } from './task.service';
+import { createTeamTask } from '../teams/team.service';
 
-// Assign a new task to an employee
+// Assign a new task to an employee or team
 export const assignTask = async (req: Request, res: Response) => {
   try {
-    const { employeeId, title, description, category, location, startTime, endTime } = req.body;
+    const { employeeId, teamId, title, description, category, location, startTime, endTime } = req.body;
 
     // Validate required fields
-    if (!employeeId || !title || !description) {
+    if (!title || !description) {
       return res.status(400).json({
         success: false,
-        error: 'Employee ID, title, and description are required'
+        error: 'Title and description are required'
       });
     }
 
-    // For now, we'll use a default assignedBy value
-    // In a real application, this would come from the authenticated admin/user
+    // Must have either employeeId or teamId, but not both
+    if (!employeeId && !teamId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Either employeeId or teamId is required'
+      });
+    }
+
+    if (employeeId && teamId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot assign to both individual employee and team simultaneously'
+      });
+    }
+
     const assignedBy = 'admin'; // This should be replaced with actual admin ID from auth
 
+    // Team assignment
+    if (teamId) {
+      const result = await createTeamTask(
+        teamId,
+        title,
+        description,
+        category,
+        location,
+        startTime,
+        endTime,
+        assignedBy
+      );
+
+      return res.status(201).json({
+        success: true,
+        message: `Task assigned to team "${result.teamName}" with ${result.memberCount} members`,
+        data: {
+          type: 'team',
+          teamName: result.teamName,
+          memberCount: result.memberCount,
+          tasks: result.tasks
+        }
+      });
+    }
+
+    // Individual employee assignment
     const taskData: CreateTaskData = {
       employeeId,
       title,
@@ -34,7 +74,10 @@ export const assignTask = async (req: Request, res: Response) => {
     return res.status(201).json({
       success: true,
       message: 'Task assigned successfully and attendance status updated automatically',
-      data: task
+      data: {
+        type: 'individual',
+        task
+      }
     });
   } catch (error) {
     console.error('Error assigning task:', error);

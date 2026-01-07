@@ -8,6 +8,7 @@ import {
   checkRemainingAttempts,
   getAssignedLocation,
   getAttendanceRecords,
+  deleteAttendanceRecord,
 } from "@/modules/staffs/attendance/attendance.controller";
 
 const router = Router();
@@ -25,6 +26,10 @@ router.get("/", getAttendanceRecords);
 // Mark attendance (with location validation)
 // POST /attendance
 router.post("/", createAttendance);
+
+// Delete attendance record
+// DELETE /attendance/:id
+router.delete("/:id", deleteAttendanceRecord);
 
 // Detect device (browser, OS, etc.)
 // GET /attendance/device

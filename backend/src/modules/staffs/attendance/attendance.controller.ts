@@ -309,6 +309,53 @@ export const detectDevice = async (req: Request, res: Response) => {
   }
 }
 
+export const deleteAttendanceRecord = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+
+    if (!id) {
+      return res.status(400).json({ success: false, error: 'Attendance record ID is required' })
+    }
+
+    // Check if the attendance record exists
+    const existingRecord = await prisma.attendance.findUnique({
+      where: { id },
+      include: {
+        employee: {
+          select: {
+            name: true,
+            employeeId: true
+          }
+        }
+      }
+    })
+
+    if (!existingRecord) {
+      return res.status(404).json({ success: false, error: 'Attendance record not found' })
+    }
+
+    // Delete the attendance record
+    await prisma.attendance.delete({
+      where: { id }
+    })
+
+    console.info({ 
+      event: 'delete_attendance_record', 
+      recordId: id, 
+      employeeId: existingRecord.employee.employeeId,
+      employeeName: existingRecord.employee.name
+    })
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Attendance record deleted successfully' 
+    })
+  } catch (error) {
+    console.error({ event: 'delete_attendance_record_error', error: error instanceof Error ? error.message : error })
+    return res.status(500).json({ success: false, error: 'Failed to delete attendance record' })
+  }
+}
+
 export const createAttendance = async (req: Request, res: Response) => {
   try {
     const { employeeId, latitude, longitude, photo, status = 'PRESENT', location, bypassLocationValidation, action } = req.body
