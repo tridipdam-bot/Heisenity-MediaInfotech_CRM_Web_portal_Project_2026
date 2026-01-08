@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { getHumanReadableLocation, getCoordinatesFromLocation, calculateDistanceMeters } from '@/utils/geolocation';
+import { getHumanReadableLocation, getCoordinatesFromMapMyIndia, calculateDistanceMeters } from '@/utils/geolocation';
 import { getDeviceInfo } from '@/utils/deviceinfo';
 // Environment-configurable defaults
 const DEFAULT_ATTENDANCE_RADIUS_METERS = Number(process.env.DEFAULT_ATTENDANCE_RADIUS_METERS || 50);
@@ -91,9 +91,9 @@ async function validateLocationByGPS(userCoordinates, assignedCoordinates, allow
 // Area-based fallback: token matching (coarse)
 async function validateLocationByArea(userCoordinates, assignedLocationText) {
     try {
-        // Use reverse geocoding by calling getCoordinatesFromLocation with coordinate string
+        // Use reverse geocoding by calling getCoordinatesFromMapMyIndia with coordinate string
         const coordinatesString = `${userCoordinates.latitude},${userCoordinates.longitude}`;
-        const userLocation = await getCoordinatesFromLocation(coordinatesString);
+        const userLocation = await getCoordinatesFromMapMyIndia(coordinatesString);
         if (!userLocation) {
             return { isMatch: false, confidence: 'none', details: 'Could not reverse geocode user coordinates', code: 'LOCATION_SERVICE_ERROR' };
         }

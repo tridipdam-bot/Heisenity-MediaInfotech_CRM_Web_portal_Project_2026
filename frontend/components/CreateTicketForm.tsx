@@ -18,7 +18,7 @@ import {
   Save,
   X
 } from "lucide-react"
-import { Ticket as TicketType, generateId } from "@crmdemo/shared"
+import { generateId } from "@crmdemo/shared"
 import { showToast } from "@/lib/toast-utils"
 
 // Success popup component
