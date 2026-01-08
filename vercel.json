@@ -4,7 +4,6 @@
   "outputDirectory": "frontend/.next",
   "installCommand": "npm install",
   "framework": null,
-  "nodeVersion": "20.x",
   "env": {
     "NPM_CONFIG_INCLUDE": "dev"
   }
