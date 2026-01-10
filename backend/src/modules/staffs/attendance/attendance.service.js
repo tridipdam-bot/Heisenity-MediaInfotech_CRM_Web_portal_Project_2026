@@ -157,33 +157,44 @@ export async function validateEmployeeLocation(employeeId, coordinates) {
     const assignedLon = Number(dailyLocation.longitude);
     const assignedHasCoords = hasValidCoordinates({ latitude: assignedLat, longitude: assignedLon });
     const assignedAreaText = (dailyLocation.address || dailyLocation.city || '').toString().trim();
-    // Strict time enforcement for GPS-based assignments
-    if (assignedHasCoords) {
-        if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
-            return {
-                isValid: false,
-                details: `Attendance only allowed between ${dailyLocation.startTime.toLocaleTimeString()} and ${dailyLocation.endTime.toLocaleTimeString()}`,
-                code: 'TIME_WINDOW_VIOLATION',
-                allowedLocation: dailyLocation
-            };
+    
+    // Check if this is a task-based assignment (created by task service)
+    const isTaskBased = dailyLocation.state === "Task Location";
+    
+    // NO TIME RESTRICTIONS for task-based assignments - employees can check in anytime
+    if (isTaskBased) {
+        // Skip time validation entirely for task-based assignments
+        console.log(`Skipping time validation for task-based assignment for employee ${employeeId}`);
+    } else {
+        // Apply time restrictions only for non-task assignments
+        // Strict time enforcement for GPS-based assignments
+        if (assignedHasCoords) {
+            if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
+                return {
+                    isValid: false,
+                    details: `Attendance only allowed between ${dailyLocation.startTime.toLocaleTimeString()} and ${dailyLocation.endTime.toLocaleTimeString()}`,
+                    code: 'TIME_WINDOW_VIOLATION',
+                    allowedLocation: dailyLocation
+                };
+            }
         }
-    }
-    else {
-        // flexible window for area/task-based
-        const flex = DEFAULT_FLEXIBLE_WINDOW_MINUTES; // Remove flexibleWindowMinutes as it doesn't exist in schema
-        const flexStart = startMinutes - flex;
-        const flexEnd = Math.max(endMinutes, startMinutes) + flex;
-        if (currentMinutes < flexStart || currentMinutes > flexEnd) {
-            const s = new Date();
-            s.setHours(Math.floor(flexStart / 60), flexStart % 60, 0, 0);
-            const e = new Date();
-            e.setHours(Math.floor(flexEnd / 60), flexEnd % 60, 0, 0);
-            return {
-                isValid: false,
-                details: `Attendance allowed between ${s.toLocaleTimeString()} and ${e.toLocaleTimeString()} (flexible window)`,
-                code: 'TIME_WINDOW_VIOLATION',
-                allowedLocation: dailyLocation
-            };
+        else {
+            // flexible window for area-based assignments
+            const flex = DEFAULT_FLEXIBLE_WINDOW_MINUTES;
+            const flexStart = startMinutes - flex;
+            const flexEnd = Math.max(endMinutes, startMinutes) + flex;
+            if (currentMinutes < flexStart || currentMinutes > flexEnd) {
+                const s = new Date();
+                s.setHours(Math.floor(flexStart / 60), flexStart % 60, 0, 0);
+                const e = new Date();
+                e.setHours(Math.floor(flexEnd / 60), flexEnd % 60, 0, 0);
+                return {
+                    isValid: false,
+                    details: `Attendance allowed between ${s.toLocaleTimeString()} and ${e.toLocaleTimeString()} (flexible window)`,
+                    code: 'TIME_WINDOW_VIOLATION',
+                    allowedLocation: dailyLocation
+                };
+            }
         }
     }
     // If assigned coordinates exist, prefer them (authoritative)
@@ -562,6 +573,50 @@ export async function createAttendanceRecord(data) {
                 attemptCount: 'ZERO'
             }
         });
+    
+    // Auto-unassign vehicle on checkout
+    if (data.action === 'check-out') {
+        try {
+            const { VehicleService } = await import('../vehicles/vehicle.service.js');
+            const { NotificationService } = await import('../../notifications/notification.service.ts');
+            
+            const vehicleService = new VehicleService();
+            const notificationService = new NotificationService();
+            
+            // Get employee's assigned vehicle
+            const vehicleResult = await vehicleService.getEmployeeVehicle(data.employeeId);
+            
+            if (vehicleResult.success && vehicleResult.data) {
+                const vehicle = vehicleResult.data;
+                
+                // Unassign the vehicle
+                const unassignResult = await vehicleService.unassignVehicle(vehicle.id);
+                
+                if (unassignResult.success) {
+                    // Create admin notification
+                    await notificationService.createAdminNotification({
+                        type: 'VEHICLE_UNASSIGNED',
+                        title: 'Vehicle Auto-Unassigned',
+                        message: `Vehicle ${vehicle.vehicleNumber} (${vehicle.make} ${vehicle.model}) has been automatically unassigned from ${employee.name} (${data.employeeId}) after checkout.`,
+                        data: {
+                            vehicleId: vehicle.id,
+                            vehicleNumber: vehicle.vehicleNumber,
+                            employeeId: data.employeeId,
+                            employeeName: employee.name,
+                            checkoutTime: saved.clockOut?.toISOString(),
+                            location: saved.location
+                        }
+                    });
+                    
+                    console.log(`Vehicle ${vehicle.vehicleNumber} auto-unassigned from employee ${data.employeeId} after checkout`);
+                }
+            }
+        } catch (error) {
+            console.error('Error auto-unassigning vehicle on checkout:', error);
+            // Don't fail the checkout if vehicle unassignment fails
+        }
+    }
+    
     return {
         employeeId: data.employeeId,
         timestamp: saved.createdAt.toISOString(),

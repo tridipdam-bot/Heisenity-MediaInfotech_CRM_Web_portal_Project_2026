@@ -217,31 +217,41 @@ export async function validateEmployeeLocation(
   const assignedHasCoords = hasValidCoordinates({ latitude: assignedLat, longitude: assignedLon })
   const assignedAreaText = (dailyLocation.address || dailyLocation.city || '').toString().trim()
 
-  // Strict time enforcement for GPS-based assignments
-  if (assignedHasCoords) {
-    if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
-      return {
-        isValid: false,
-        details: `Attendance only allowed between ${dailyLocation.startTime.toLocaleTimeString()} and ${dailyLocation.endTime.toLocaleTimeString()}`,
-        code: 'TIME_WINDOW_VIOLATION',
-        allowedLocation: dailyLocation
-      }
-    }
+  // Check if this is a task-based assignment (created by task service)
+  const isTaskBased = dailyLocation.state === "Task Location"
+
+  // NO TIME RESTRICTIONS for task-based assignments - employees can check in anytime
+  if (isTaskBased) {
+    // Skip time validation entirely for task-based assignments
+    console.log(`Skipping time validation for task-based assignment for employee ${employeeId}`)
   } else {
-    // flexible window for area/task-based
-    const flex = DEFAULT_FLEXIBLE_WINDOW_MINUTES // Remove flexibleWindowMinutes as it doesn't exist in schema
-    const flexStart = startMinutes - flex
-    const flexEnd = Math.max(endMinutes, startMinutes) + flex
-    if (currentMinutes < flexStart || currentMinutes > flexEnd) {
-      const s = new Date()
-      s.setHours(Math.floor(flexStart / 60), flexStart % 60, 0, 0)
-      const e = new Date()
-      e.setHours(Math.floor(flexEnd / 60), flexEnd % 60, 0, 0)
-      return {
-        isValid: false,
-        details: `Attendance allowed between ${s.toLocaleTimeString()} and ${e.toLocaleTimeString()} (flexible window)`,
-        code: 'TIME_WINDOW_VIOLATION',
-        allowedLocation: dailyLocation
+    // Apply time restrictions only for non-task assignments
+    // Strict time enforcement for GPS-based assignments
+    if (assignedHasCoords) {
+      if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
+        return {
+          isValid: false,
+          details: `Attendance only allowed between ${dailyLocation.startTime.toLocaleTimeString()} and ${dailyLocation.endTime.toLocaleTimeString()}`,
+          code: 'TIME_WINDOW_VIOLATION',
+          allowedLocation: dailyLocation
+        }
+      }
+    } else {
+      // flexible window for area-based assignments
+      const flex = DEFAULT_FLEXIBLE_WINDOW_MINUTES
+      const flexStart = startMinutes - flex
+      const flexEnd = Math.max(endMinutes, startMinutes) + flex
+      if (currentMinutes < flexStart || currentMinutes > flexEnd) {
+        const s = new Date()
+        s.setHours(Math.floor(flexStart / 60), flexStart % 60, 0, 0)
+        const e = new Date()
+        e.setHours(Math.floor(flexEnd / 60), flexEnd % 60, 0, 0)
+        return {
+          isValid: false,
+          details: `Attendance allowed between ${s.toLocaleTimeString()} and ${e.toLocaleTimeString()} (flexible window)`,
+          code: 'TIME_WINDOW_VIOLATION',
+          allowedLocation: dailyLocation
+        }
       }
     }
   }
