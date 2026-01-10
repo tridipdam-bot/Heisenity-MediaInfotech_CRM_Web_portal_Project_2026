@@ -5,6 +5,7 @@ import "./globals.css";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AuthProvider } from "@/components/providers/session-provider";
+import { NotificationProvider } from "@/lib/notification-context";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Toaster } from "@/components/ui/toaster";
@@ -76,8 +77,10 @@ export default function RootLayout({
         className={`${inter.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <LayoutContent>{children}</LayoutContent>
-          <Toaster />
+          <NotificationProvider>
+            <LayoutContent>{children}</LayoutContent>
+            <Toaster />
+          </NotificationProvider>
         </AuthProvider>
       </body>
     </html>

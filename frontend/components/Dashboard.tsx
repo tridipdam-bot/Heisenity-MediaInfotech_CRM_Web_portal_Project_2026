@@ -4,6 +4,7 @@ import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { QRScanner } from "@/components/QRScanner"
+import { NotificationBell } from "@/components/NotificationBell"
 import { 
   Users, 
   Ticket, 
@@ -47,6 +48,7 @@ export function Dashboard() {
               <p className="text-gray-600">Welcome back! Here's what's happening in your organization.</p>
             </div>
             <div className="flex items-center gap-3">
+              <NotificationBell />
               <QRScanner onScan={handleProductScan} />
             </div>
           </div>

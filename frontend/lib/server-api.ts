@@ -1467,3 +1467,138 @@ export async function completeTask(taskId: string, employeeId: string): Promise<
     throw error
   }
 }
+
+// Admin Notification Types
+export type AdminNotification = {
+  id: string
+  type: 'VEHICLE_UNASSIGNED' | 'TASK_COMPLETED' | 'ATTENDANCE_ALERT'
+  title: string
+  message: string
+  data?: any
+  isRead: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type GetAdminNotificationsResponse = {
+  success: boolean
+  data?: AdminNotification[]
+  error?: string
+}
+
+export type GetUnreadCountResponse = {
+  success: boolean
+  data?: { count: number }
+  error?: string
+}
+
+export type NotificationActionResponse = {
+  success: boolean
+  message?: string
+  error?: string
+}
+
+// Admin Notification API Functions
+export async function getAdminNotifications(params?: {
+  isRead?: boolean
+  type?: string
+  limit?: number
+}): Promise<GetAdminNotificationsResponse> {
+  try {
+    const searchParams = new URLSearchParams()
+    if (params?.isRead !== undefined) searchParams.append('isRead', params.isRead.toString())
+    if (params?.type) searchParams.append('type', params.type)
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/admin/notifications?${searchParams}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    return await res.json()
+  } catch (error) {
+    console.error('Error fetching admin notifications:', error)
+    return {
+      success: false,
+      error: 'Failed to fetch notifications'
+    }
+  }
+}
+
+export async function getUnreadNotificationCount(): Promise<GetUnreadCountResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/admin/notifications/unread-count`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    return await res.json()
+  } catch (error) {
+    console.error('Error fetching unread count:', error)
+    return {
+      success: false,
+      error: 'Failed to fetch unread count'
+    }
+  }
+}
+
+export async function markNotificationAsRead(notificationId: string): Promise<NotificationActionResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/admin/notifications/${notificationId}/read`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    return await res.json()
+  } catch (error) {
+    console.error('Error marking notification as read:', error)
+    return {
+      success: false,
+      error: 'Failed to mark notification as read'
+    }
+  }
+}
+
+export async function markAllNotificationsAsRead(): Promise<NotificationActionResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/admin/notifications/read-all`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    return await res.json()
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error)
+    return {
+      success: false,
+      error: 'Failed to mark all notifications as read'
+    }
+  }
+}
+
+export async function deleteNotification(notificationId: string): Promise<NotificationActionResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/admin/notifications/${notificationId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    return await res.json()
+  } catch (error) {
+    console.error('Error deleting notification:', error)
+    return {
+      success: false,
+      error: 'Failed to delete notification'
+    }
+  }
+}
