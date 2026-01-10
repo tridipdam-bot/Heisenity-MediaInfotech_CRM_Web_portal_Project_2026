@@ -8,7 +8,7 @@ export type CreateAttendanceRequest = {
     photo?: string
     status?: 'PRESENT' | 'LATE'
     location?: string // Add location text field
-    action?: 'check-in' | 'check-out' // Add action parameter
+    action?: 'check-in' | 'check-out' | 'task-checkout' // Add task-checkout action
 }
 
 export type CreateAttendanceResponse = {
@@ -1441,6 +1441,29 @@ export async function approvePetrolBill(billId: string, data: ApprovePetrolBillR
     return response
   } catch (error) {
     console.error('approvePetrolBill error:', error)
+    throw error
+  }
+}
+// Complete a task (updates task end time without affecting attendance clock out)
+export async function completeTask(taskId: string, employeeId: string): Promise<{ success: boolean; message: string; error?: string }> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tasks/${taskId}/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ employeeId }),
+      cache: 'no-store'
+    })
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || `Failed to complete task: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('completeTask error:', error)
     throw error
   }
 }

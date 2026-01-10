@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Separator } from "@/components/ui/separator"
 import { DateRangePicker } from "@/components/DateRangePicker"
 import { showToast, showConfirm } from "@/lib/toast-utils"
+
 import {
   ChevronLeft,
   ChevronRight,
@@ -141,6 +142,7 @@ export function AttendanceManagementPage() {
     dateRange: { from: new Date(), to: null } as DateRange
   })
   const [deleteLoading, setDeleteLoading] = React.useState<string | null>(null)
+  const [deletedRecords, setDeletedRecords] = React.useState<Set<string>>(new Set())
   const [exportLoading, setExportLoading] = React.useState<'excel' | 'pdf' | null>(null)
 
   const fetchAttendanceData = React.useCallback(async () => {
@@ -150,7 +152,7 @@ export function AttendanceManagementPage() {
 
       // Fetch all employees first
       const employeesResponse = await getAllEmployees({ limit: 1000 })
-      
+
       let employees: Employee[] = []
       if (employeesResponse.success && employeesResponse.data) {
         employees = employeesResponse.data.employees
@@ -201,6 +203,11 @@ export function AttendanceManagementPage() {
               hasAttendance: true
             }
           } else {
+
+            if (deletedRecords.has(employee.employeeId)) {
+              return null
+            }
+
             // Create a placeholder record for employees without attendance
             return {
               id: `placeholder-${employee.id}`,
@@ -227,13 +234,13 @@ export function AttendanceManagementPage() {
               hasAttendance: false
             }
           }
-        })
+        }).filter(Boolean)
 
         // Apply client-side search filter if needed
-        let filteredCombined = combined
+        let filteredCombined = combined.filter((record): record is ExtendedAttendanceRecord => record !== null)
         if (filters.search) {
           const searchLower = filters.search.toLowerCase()
-          filteredCombined = combined.filter(record =>
+          filteredCombined = filteredCombined.filter(record =>
             record.employeeName.toLowerCase().includes(searchLower) ||
             record.employeeId.toLowerCase().includes(searchLower) ||
             record.email.toLowerCase().includes(searchLower)
@@ -276,9 +283,7 @@ export function AttendanceManagementPage() {
   }
 
   const handleDeleteRecord = async (record: ExtendedAttendanceRecord) => {
-    if (!record.hasAttendance) {
-      return // Can't delete placeholder records
-    }
+    if (!record.hasAttendance) return
 
     showConfirm(
       `Are you sure you want to delete the attendance record for ${record.employeeName} on ${new Date(record.date).toLocaleDateString()}?`,
@@ -286,7 +291,7 @@ export function AttendanceManagementPage() {
         try {
           setDeleteLoading(record.id)
           const response = await deleteAttendanceRecord(record.id)
-          
+
           if (response.success) {
             fetchAttendanceData()
             showToast.success('Attendance record deleted successfully')
@@ -307,27 +312,27 @@ export function AttendanceManagementPage() {
   const handleExport = async (format: 'excel' | 'pdf') => {
     try {
       setExportLoading(format)
-      
+
       const exportParams: ExportParams = {}
-      
+
       if (filters.dateRange.from) {
         exportParams.dateFrom = filters.dateRange.from.toISOString().split('T')[0]
       }
-      
+
       if (filters.dateRange.to) {
         exportParams.dateTo = filters.dateRange.to.toISOString().split('T')[0]
       }
-      
+
       if (filters.dateRange.from && !filters.dateRange.to) {
         const singleDate = filters.dateRange.from.toISOString().split('T')[0]
         exportParams.dateFrom = singleDate
         exportParams.dateTo = singleDate
       }
-      
+
       if (!filters.dateRange.from && !filters.dateRange.to) {
         exportParams.date = new Date().toISOString().split('T')[0]
       }
-      
+
       if (filters.status) {
         exportParams.status = filters.status
       }
@@ -377,6 +382,7 @@ export function AttendanceManagementPage() {
 
   const handleDateRangeChange = (range: DateRange) => {
     setFilters(prev => ({ ...prev, dateRange: range }))
+    setDeletedRecords(new Set())
 
     if (range.from) {
       if (range.to && range.from.toDateString() !== range.to.toDateString()) {
@@ -425,11 +431,11 @@ export function AttendanceManagementPage() {
         return acc + Math.max(0, diffHours)
       }, 0) / Math.max(1, combinedData.filter(r => r.clockIn && r.hasAttendance).length)
 
-    return { 
-      total, 
-      present, 
-      late, 
-      absent, 
+    return {
+      total,
+      present,
+      late,
+      absent,
       avgHours,
       totalOvertimeHours: totalOvertimeMinutes / 60
     }
@@ -457,8 +463,8 @@ export function AttendanceManagementPage() {
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="border-gray-300 hover:bg-gray-50"
                     disabled={exportLoading !== null}
                   >
@@ -471,14 +477,14 @@ export function AttendanceManagementPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => handleExport('excel')}
                     disabled={exportLoading !== null}
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Export to Excel
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => handleExport('pdf')}
                     disabled={exportLoading !== null}
                   >
@@ -853,8 +859,8 @@ export function AttendanceManagementPage() {
                         <div className="flex items-center gap-2">
                           <ClockIcon className="h-4 w-4 text-orange-600" />
                           <span className="text-sm font-semibold text-orange-600">
-                            {record.hasAttendance && record.clockOut ? formatTime(record.clockOut) : 
-                             (record.hasAttendance && record.clockIn ? 'Working...' : '-')}
+                            {record.hasAttendance && record.clockOut ? formatTime(record.clockOut) :
+                              (record.hasAttendance && record.clockIn ? 'Working...' : '-')}
                           </span>
                         </div>
                       </TableCell>
@@ -886,7 +892,7 @@ export function AttendanceManagementPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {record.hasAttendance && (
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handleDeleteRecord(record)}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                 disabled={deleteLoading === record.id}

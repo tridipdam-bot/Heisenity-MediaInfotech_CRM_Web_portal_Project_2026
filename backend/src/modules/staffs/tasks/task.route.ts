@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { assignTask, getTasksForEmployee, updateTask, getTasks, updateEmployeeAttendanceStatus, resetEmployeeAttendanceAttempts, fixLocationTimes } from './task.controller';
+import { assignTask, getTasksForEmployee, updateTask, getTasks, updateEmployeeAttendanceStatus, resetEmployeeAttendanceAttempts, fixLocationTimes, completeTaskEndpoint } from './task.controller';
 
 const router = Router();
 
@@ -21,6 +21,11 @@ router.get('/employee/:employeeId', (req: Request, res: Response) => {
 // Update task status
 router.put('/:taskId', (req: Request, res: Response) => {
   return updateTask(req, res);
+});
+
+// Complete a task (updates task end time without affecting attendance clock out)
+router.post('/:taskId/complete', (req: Request, res: Response) => {
+  return completeTaskEndpoint(req, res);
 });
 
 // Update attendance status for an employee

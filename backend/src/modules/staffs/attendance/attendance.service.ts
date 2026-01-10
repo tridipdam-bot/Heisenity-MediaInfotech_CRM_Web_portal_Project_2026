@@ -126,7 +126,7 @@ async function validateLocationByArea(
     // Use reverse geocoding by calling getCoordinatesFromMapMyIndia with coordinate string
     const coordinatesString = `${userCoordinates.latitude},${userCoordinates.longitude}`
     const userLocation = await getCoordinatesFromMapMyIndia(coordinatesString)
-    
+
     if (!userLocation) {
       return { isMatch: false, confidence: 'none', details: 'Could not reverse geocode user coordinates', code: 'LOCATION_SERVICE_ERROR' }
     }
@@ -313,7 +313,7 @@ export async function createAttendanceRecord(data: {
   status: 'PRESENT' | 'LATE'
   locationText?: string
   bypassLocationValidation?: boolean
-  action?: 'check-in' | 'check-out' // Add action parameter
+  action?: 'check-in' | 'check-out' | 'task-checkout' // Add task-checkout action
 }): Promise<AttendanceRecord> {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -345,7 +345,7 @@ export async function createAttendanceRecord(data: {
     const deviceString = `${deviceInfo.os} - ${deviceInfo.browser} - ${deviceInfo.device}`
     // Upsert admin-provided attendance immediately (admin trusting)
     if (existing && existing.locked) throw new Error('ATTENDANCE_LOCKED')
-    
+
     const updateData: any = {
       location: data.locationText,
       ipAddress: data.ipAddress,
@@ -370,33 +370,33 @@ export async function createAttendanceRecord(data: {
 
     const saved = existing
       ? await prisma.attendance.update({
-          where: { id: existing.id },
-          data: {
-            ...updateData,
-            // Preserve existing clockIn/clockOut when updating unless explicitly setting them
-            clockIn: updateData.clockIn !== undefined ? updateData.clockIn : existing.clockIn,
-            clockOut: updateData.clockOut !== undefined ? updateData.clockOut : existing.clockOut
-          }
-        })
+        where: { id: existing.id },
+        data: {
+          ...updateData,
+          // Preserve existing clockIn/clockOut when updating unless explicitly setting them
+          clockIn: updateData.clockIn !== undefined ? updateData.clockIn : existing.clockIn,
+          clockOut: updateData.clockOut !== undefined ? updateData.clockOut : existing.clockOut
+        }
+      })
       : await prisma.attendance.create({
-          data: {
-            employeeId: employee.id,
-            date: today,
-            clockIn: updateData.clockIn || (data.status === 'PRESENT' || data.status === 'LATE' ? new Date() : null),
-            clockOut: updateData.clockOut || null,
-            latitude: null,
-            longitude: null,
-            location: data.locationText,
-            ipAddress: data.ipAddress,
-            deviceInfo: deviceString,
-            photo: data.photo,
-            status: data.status,
-            source: 'ADMIN', // Mark as admin-created
-            lockedReason: '',
-            locked: false,
-            attemptCount: 'ZERO'
-          }
-        })
+        data: {
+          employeeId: employee.id,
+          date: today,
+          clockIn: updateData.clockIn || (data.status === 'PRESENT' || data.status === 'LATE' ? new Date() : null),
+          clockOut: updateData.clockOut || null,
+          latitude: null,
+          longitude: null,
+          location: data.locationText,
+          ipAddress: data.ipAddress,
+          deviceInfo: deviceString,
+          photo: data.photo,
+          status: data.status,
+          source: 'ADMIN', // Mark as admin-created
+          lockedReason: '',
+          locked: false,
+          attemptCount: 'ZERO'
+        }
+      })
 
     return {
       employeeId: data.employeeId,
@@ -415,12 +415,12 @@ export async function createAttendanceRecord(data: {
   }
 
   // If bypass requested or check-out action, create or update without validation
-  if (data.bypassLocationValidation || data.action === 'check-out') {
+  if (data.bypassLocationValidation || data.action === 'check-out' || data.action === 'task-checkout') {
     const human = data.coordinates ? await getHumanReadableLocation(data.coordinates) : data.locationText ?? (data.action === 'check-out' ? 'Clock-out location' : 'Bypass')
     const deviceInfo = getDeviceInfo(data.userAgent)
     const deviceString = `${deviceInfo.os} - ${deviceInfo.browser} - ${deviceInfo.device}`
     if (existing && existing.locked) throw new Error('ATTENDANCE_LOCKED')
-    
+
     const updateData: any = {
       latitude: data.coordinates ? data.coordinates.latitude : existing?.latitude,
       longitude: data.coordinates ? data.coordinates.longitude : existing?.longitude,
@@ -441,6 +441,15 @@ export async function createAttendanceRecord(data: {
       }
     } else if (data.action === 'check-out') {
       updateData.clockOut = new Date()
+    } else if (data.action === 'task-checkout') {
+      // Task checkout - only update taskEndTime, not clockOut
+      const taskCheckoutTime = new Date().toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+      updateData.taskEndTime = taskCheckoutTime
+      // Don't update clockOut
     } else {
       // Default behavior - set clockIn if not exists and status is PRESENT/LATE
       if (!existing?.clockIn && (data.status === 'PRESENT' || data.status === 'LATE')) {
@@ -450,33 +459,33 @@ export async function createAttendanceRecord(data: {
 
     const saved = existing
       ? await prisma.attendance.update({
-          where: { id: existing.id },
-          data: {
-            ...updateData,
-            // Preserve existing clockIn/clockOut when updating unless explicitly setting them
-            clockIn: updateData.clockIn !== undefined ? updateData.clockIn : existing.clockIn,
-            clockOut: updateData.clockOut !== undefined ? updateData.clockOut : existing.clockOut
-          }
-        })
+        where: { id: existing.id },
+        data: {
+          ...updateData,
+          // Preserve existing clockIn/clockOut when updating unless explicitly setting them
+          clockIn: updateData.clockIn !== undefined ? updateData.clockIn : existing.clockIn,
+          clockOut: updateData.clockOut !== undefined ? updateData.clockOut : existing.clockOut
+        }
+      })
       : await prisma.attendance.create({
-          data: {
-            employeeId: employee.id,
-            date: today,
-            clockIn: updateData.clockIn || (data.status === 'PRESENT' || data.status === 'LATE' ? new Date() : null),
-            clockOut: updateData.clockOut || null,
-            latitude: data.coordinates ? data.coordinates.latitude : null,
-            longitude: data.coordinates ? data.coordinates.longitude : null,
-            location: human,
-            ipAddress: data.ipAddress,
-            deviceInfo: deviceString,
-            photo: data.photo,
-            status: data.status,
-            source: data.action === 'check-out' ? 'SELF' : 'ADMIN', // Mark check-out as SELF, bypass as ADMIN
-            lockedReason: '',
-            locked: false,
-            attemptCount: 'ZERO'
-          }
-        })
+        data: {
+          employeeId: employee.id,
+          date: today,
+          clockIn: updateData.clockIn || (data.status === 'PRESENT' || data.status === 'LATE' ? new Date() : null),
+          clockOut: updateData.clockOut || null,
+          latitude: data.coordinates ? data.coordinates.latitude : null,
+          longitude: data.coordinates ? data.coordinates.longitude : null,
+          location: human,
+          ipAddress: data.ipAddress,
+          deviceInfo: deviceString,
+          photo: data.photo,
+          status: data.status,
+          source: data.action === 'check-out' ? 'SELF' : 'ADMIN', // Mark check-out as SELF, bypass as ADMIN
+          lockedReason: '',
+          locked: false,
+          attemptCount: 'ZERO'
+        }
+      })
 
     return {
       employeeId: data.employeeId,
@@ -489,8 +498,8 @@ export async function createAttendanceRecord(data: {
     }
   }
 
-  // Real validation: validate coordinates (skip for check-out)
-  const isCheckOut = (data.action as string) === 'check-out'
+  // Real validation: validate coordinates (skip for check-out and task-checkout)
+  const isCheckOut = (data.action as string) === 'check-out' || (data.action as string) === 'task-checkout'
   if (!isCheckOut) {
     const validation = await validateEmployeeLocation(data.employeeId, data.coordinates as GeolocationCoordinates)
 
@@ -509,60 +518,60 @@ export async function createAttendanceRecord(data: {
         if (nextAttempts >= MAX_ATTEMPTS) {
           const up = att
             ? await tx.attendance.update({
-                where: { id: att.id },
-                data: {
-                  status: 'ABSENT',
-                  attemptCount: numberToAttemptCount(nextAttempts),
-                  latitude: data.coordinates?.latitude ?? att.latitude,
-                  longitude: data.coordinates?.longitude ?? att.longitude,
-                  location: validation.details || att.location,
-                  ipAddress: data.ipAddress,
-                  deviceInfo: `${getDeviceInfo(data.userAgent).os} - ${getDeviceInfo(data.userAgent).browser} - ${getDeviceInfo(data.userAgent).device}`,
-                  lockedReason: 'Maximum location validation attempts exceeded',
-                  locked: true,
-                  updatedAt: new Date()
-                }
-              })
+              where: { id: att.id },
+              data: {
+                status: 'ABSENT',
+                attemptCount: numberToAttemptCount(nextAttempts),
+                latitude: data.coordinates?.latitude ?? att.latitude,
+                longitude: data.coordinates?.longitude ?? att.longitude,
+                location: validation.details || att.location,
+                ipAddress: data.ipAddress,
+                deviceInfo: `${getDeviceInfo(data.userAgent).os} - ${getDeviceInfo(data.userAgent).browser} - ${getDeviceInfo(data.userAgent).device}`,
+                lockedReason: 'Maximum location validation attempts exceeded',
+                locked: true,
+                updatedAt: new Date()
+              }
+            })
             : await tx.attendance.create({
-                data: {
-                  employeeId: employee.id,
-                  date: today,
-                  status: 'ABSENT',
-                  attemptCount: numberToAttemptCount(nextAttempts),
-                  latitude: data.coordinates?.latitude ?? null,
-                  longitude: data.coordinates?.longitude ?? null,
-                  location: validation.details,
-                  ipAddress: data.ipAddress,
-                  deviceInfo: `${getDeviceInfo(data.userAgent).os} - ${getDeviceInfo(data.userAgent).browser} - ${getDeviceInfo(data.userAgent).device}`,
-                  lockedReason: 'Maximum location validation attempts exceeded',
-                  locked: true
-                }
-              })
+              data: {
+                employeeId: employee.id,
+                date: today,
+                status: 'ABSENT',
+                attemptCount: numberToAttemptCount(nextAttempts),
+                latitude: data.coordinates?.latitude ?? null,
+                longitude: data.coordinates?.longitude ?? null,
+                location: validation.details,
+                ipAddress: data.ipAddress,
+                deviceInfo: `${getDeviceInfo(data.userAgent).os} - ${getDeviceInfo(data.userAgent).browser} - ${getDeviceInfo(data.userAgent).device}`,
+                lockedReason: 'Maximum location validation attempts exceeded',
+                locked: true
+              }
+            })
           return { action: 'locked', record: up, attempts: nextAttempts }
         }
 
         // Otherwise upsert with PRESENT status (not PENDING as it's not in enum)
         const up = att
           ? await tx.attendance.update({
-              where: { id: att.id },
-              data: {
-                attemptCount: numberToAttemptCount(nextAttempts),
-                updatedAt: new Date()
-              }
-            })
+            where: { id: att.id },
+            data: {
+              attemptCount: numberToAttemptCount(nextAttempts),
+              updatedAt: new Date()
+            }
+          })
           : await tx.attendance.create({
-              data: {
-                employeeId: employee.id,
-                date: today,
-                status: 'PRESENT', // Use PRESENT instead of PENDING
-                attemptCount: numberToAttemptCount(nextAttempts),
-                latitude: data.coordinates?.latitude ?? null,
-                longitude: data.coordinates?.longitude ?? null,
-                location: validation.details || '',
-                ipAddress: data.ipAddress,
-                deviceInfo: `${getDeviceInfo(data.userAgent).os} - ${getDeviceInfo(data.userAgent).browser} - ${getDeviceInfo(data.userAgent).device}`
-              }
-            })
+            data: {
+              employeeId: employee.id,
+              date: today,
+              status: 'PRESENT', // Use PRESENT instead of PENDING
+              attemptCount: numberToAttemptCount(nextAttempts),
+              latitude: data.coordinates?.latitude ?? null,
+              longitude: data.coordinates?.longitude ?? null,
+              location: validation.details || '',
+              ipAddress: data.ipAddress,
+              deviceInfo: `${getDeviceInfo(data.userAgent).os} - ${getDeviceInfo(data.userAgent).browser} - ${getDeviceInfo(data.userAgent).device}`
+            }
+          })
         return { action: 'attempt_incremented', record: up, attempts: nextAttempts }
       })
 
@@ -570,20 +579,20 @@ export async function createAttendanceRecord(data: {
       if (txResult.action === 'locked') {
         console.warn({ event: 'max_attempts_exceeded', employeeId: data.employeeId, attempts: txResult.attempts })
         const e = new Error(`Maximum attempts exceeded. Marked ABSENT. ${validation.details}`)
-        ;(e as any).code = 'MAX_ATTEMPTS_EXCEEDED'
+          ; (e as any).code = 'MAX_ATTEMPTS_EXCEEDED'
         throw e
       }
 
       // else inform user of failed validation and attempts left
       const attemptsLeft = Math.max(0, MAX_ATTEMPTS - (txResult as any).attempts)
-      const err = new Error(`${validation.details} Attempt ${ (txResult as any).attempts }/${MAX_ATTEMPTS}. ${attemptsLeft} attempt(s) remaining.`)
-      ;(err as any).code = validation.code || 'LOCATION_MISMATCH'
+      const err = new Error(`${validation.details} Attempt ${(txResult as any).attempts}/${MAX_ATTEMPTS}. ${attemptsLeft} attempt(s) remaining.`)
+        ; (err as any).code = validation.code || 'LOCATION_MISMATCH'
       throw err
     }
   }
 
-  // If validation is ok OR it's a check-out action -> persist as PRESENT (or given status)
-  const isCheckOutAction = (data.action as string) === 'check-out'
+  // If validation is ok OR it's a check-out/task-checkout action -> persist as PRESENT (or given status)
+  const isCheckOutAction = (data.action as string) === 'check-out' || (data.action as string) === 'task-checkout'
   const humanReadable = data.coordinates ? await getHumanReadableLocation(data.coordinates as GeolocationCoordinates) : (isCheckOutAction ? 'Clock-out location' : 'Unknown location')
   const deviceInfo = getDeviceInfo(data.userAgent)
   const deviceString = `${deviceInfo.os} - ${deviceInfo.browser} - ${deviceInfo.device}`
@@ -609,6 +618,7 @@ export async function createAttendanceRecord(data: {
   // Handle check-in/check-out logic
   // - check-in: Sets clockIn to current time ONLY if it's the very first check-in of the day from SELF source
   // - check-out: Sets clockOut to current time (preserves existing clockIn)
+  // - task-checkout: Sets taskEndTime to current time (does NOT set clockOut)
   // - no action: Sets clockIn if not exists and status is PRESENT/LATE (backward compatibility)
   if (data.action === 'check-in') {
     // Only set clockIn if there's NO existing clockIn time at all (first check-in of the day)
@@ -616,19 +626,50 @@ export async function createAttendanceRecord(data: {
     if (!existing?.clockIn) {
       updateData.clockIn = new Date()
     }
-    // If there's already a clockIn time, preserve it and don't update it
+    
+    // Always update taskStartTime when employee checks in (overwrite assigned time)
+    // This implements the requirement: "when a employee check in at many times it should update the time in time"
+    const taskCheckinTime = new Date().toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+    updateData.taskStartTime = taskCheckinTime // Update to actual check-in time
+    
     // Don't modify clockOut on check-in
     // If existing record is ADMIN-created, allow employee to override with their own check-in
     if (existing && existing.source === 'ADMIN' && !existing.clockIn) {
       updateData.clockOut = null // Reset clockOut for fresh employee check-in
     }
-  } else if (data.action === 'check-out') {
-    updateData.clockOut = new Date()
-    // Preserve existing clockIn - don't overwrite it
-    // Only allow check-out if employee has checked in themselves
+
+  }
+  else if (data.action === 'check-out') {
+    // Employee finishing entire day work (actual clock out)
+    const checkoutTime = new Date().toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+
+    updateData.clockOut = new Date() // Update clock out time for attendance
+    updateData.taskEndTime = checkoutTime // Also update task end time
+
     if (existing && existing.source === 'ADMIN' && !existing.clockIn) {
       throw new Error('CANNOT_CHECKOUT_WITHOUT_CHECKIN')
     }
+
+  } else if (data.action === 'task-checkout') {
+    // Employee finishing a specific task (not full day checkout)
+    const taskCheckoutTime = new Date().toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+
+    // Only update task end time, NOT clockOut (so attendance still shows "Working...")
+    updateData.taskEndTime = taskCheckoutTime
+    // Don't update clockOut - employee is still working, just finished this task
+
   } else {
     // Default behavior - set clockIn if not exists and status is PRESENT/LATE
     if (!existing?.clockIn && (data.status === 'PRESENT' || data.status === 'LATE')) {
@@ -638,33 +679,33 @@ export async function createAttendanceRecord(data: {
 
   const saved = existing
     ? await prisma.attendance.update({
-        where: { id: existing.id },
-        data: {
-          ...updateData,
-          // Preserve existing clockIn when updating unless explicitly setting it
-          clockIn: updateData.clockIn !== undefined ? updateData.clockIn : existing.clockIn,
-          clockOut: updateData.clockOut !== undefined ? updateData.clockOut : existing.clockOut
-        }
-      })
+      where: { id: existing.id },
+      data: {
+        ...updateData,
+        // Preserve existing clockIn when updating unless explicitly setting it
+        clockIn: updateData.clockIn !== undefined ? updateData.clockIn : existing.clockIn,
+        clockOut: updateData.clockOut !== undefined ? updateData.clockOut : existing.clockOut
+      }
+    })
     : await prisma.attendance.create({
-        data: {
-          employeeId: employee.id,
-          date: today,
-          clockIn: updateData.clockIn || (data.status === 'PRESENT' || data.status === 'LATE' ? new Date() : null),
-          clockOut: updateData.clockOut || null,
-          latitude: data.coordinates?.latitude ?? null,
-          longitude: data.coordinates?.longitude ?? null,
-          location: humanReadable,
-          ipAddress: data.ipAddress,
-          deviceInfo: deviceString,
-          photo: data.photo,
-          status: data.status,
-          source: 'SELF', // Mark as employee self-attendance
-          lockedReason: '',
-          locked: false,
-          attemptCount: 'ZERO'
-        }
-      })
+      data: {
+        employeeId: employee.id,
+        date: today,
+        clockIn: updateData.clockIn || (data.status === 'PRESENT' || data.status === 'LATE' ? new Date() : null),
+        clockOut: updateData.clockOut || null,
+        latitude: data.coordinates?.latitude ?? null,
+        longitude: data.coordinates?.longitude ?? null,
+        location: humanReadable,
+        ipAddress: data.ipAddress,
+        deviceInfo: deviceString,
+        photo: data.photo,
+        status: data.status,
+        source: 'SELF', // Mark as employee self-attendance
+        lockedReason: '',
+        locked: false,
+        attemptCount: 'ZERO'
+      }
+    })
 
   return {
     employeeId: data.employeeId,

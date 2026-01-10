@@ -464,22 +464,7 @@ export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned }
                       className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
-
-                  {/* End Time */}
-                  <div className="space-y-2">
-                    <Label htmlFor="end-time" className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-gray-500" />
-                      End Time (Optional)
-                    </Label>
-                    <Input
-                      id="end-time"
-                      type="time"
-                      value={taskData.endTime}
-                      onChange={(e) => handleInputChange('endTime', e.target.value)}
-                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-
+                  
                   {/* Vehicle Assignment (Only for individual assignments) */}
                   {assignmentType === 'individual' && (
                     <div className="space-y-2">

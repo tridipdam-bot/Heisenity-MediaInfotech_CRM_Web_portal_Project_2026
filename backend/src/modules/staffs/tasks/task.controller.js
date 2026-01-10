@@ -47,7 +47,6 @@ export const assignTask = async (req, res) => {
             category,
             location,
             startTime,
-            endTime,
             assignedBy
         };
         const task = await createTask(taskData);

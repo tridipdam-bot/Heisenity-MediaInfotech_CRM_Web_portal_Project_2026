@@ -24,7 +24,7 @@ export const getAttendanceRecords = async (req: Request, res: Response) => {
 
     // Build where clause
     const where: any = {}
-    
+
     if (employeeId) {
       // Find employee by employeeId first
       const employee = await prisma.fieldEngineer.findUnique({
@@ -167,28 +167,28 @@ export const getAttendanceRecords = async (req: Request, res: Response) => {
 export const checkRemainingAttempts = async (req: Request, res: Response) => {
   try {
     const { employeeId } = req.params
-    
+
     if (!employeeId) {
       return res.status(400).json({ success: false, error: 'Employee ID is required' })
     }
 
     const result = await getRemainingAttempts(employeeId)
-    
-    return res.status(200).json({ 
-      success: true, 
-      data: result 
+
+    return res.status(200).json({
+      success: true,
+      data: result
     })
   } catch (error) {
     console.error({ event: 'check_remaining_attempts_error', error: error instanceof Error ? error.message : error })
-    
+
     let errorMessage = 'Failed to check remaining attempts'
     let statusCode = 500
-    
+
     if (error instanceof Error && error.message === 'EMPLOYEE_NOT_FOUND') {
       statusCode = 404
       errorMessage = 'Employee not found'
     }
-    
+
     return res.status(statusCode).json({ success: false, error: errorMessage })
   }
 }
@@ -196,17 +196,17 @@ export const checkRemainingAttempts = async (req: Request, res: Response) => {
 export const getAssignedLocation = async (req: Request, res: Response) => {
   try {
     const { employeeId } = req.params
-    
+
     if (!employeeId) {
       return res.status(400).json({ success: false, error: 'Employee ID is required' })
     }
 
     const assignedLocation = await getTodayAssignedLocation(employeeId)
-    
+
     if (!assignedLocation) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'No assigned location found for today' 
+      return res.status(404).json({
+        success: false,
+        error: 'No assigned location found for today'
       })
     }
 
@@ -226,19 +226,19 @@ export const getAssignedLocation = async (req: Request, res: Response) => {
         assignedBy: assignedLocation.assignedBy
       }
     }
-    
+
     return res.status(200).json(response)
   } catch (error) {
     console.error({ event: 'get_assigned_location_error', error: error instanceof Error ? error.message : error })
-    
+
     let errorMessage = 'Failed to get assigned location'
     let statusCode = 500
-    
+
     if (error instanceof Error && error.message === 'EMPLOYEE_NOT_FOUND') {
       statusCode = 404
       errorMessage = 'Employee not found'
     }
-    
+
     return res.status(statusCode).json({ success: false, error: errorMessage })
   }
 }
@@ -252,11 +252,11 @@ export const getLocationData = async (req: Request, res: Response) => {
       // From query parameters or URL parameters
       const lat = req.query.latitude || req.params.latitude
       const lng = req.query.longitude || req.params.longitude
-      
+
       if (!lat || !lng) {
         return res.status(400).json({ success: false, error: 'Latitude and longitude are required' })
       }
-      
+
       latitude = parseFloat(lat as string)
       longitude = parseFloat(lng as string)
     } else if (req.method === 'POST') {
@@ -273,10 +273,10 @@ export const getLocationData = async (req: Request, res: Response) => {
     }
 
     const coordinates = { latitude, longitude }
-    
+
     // Get location data using geolocation utility (reverse geocoding)
     const humanReadableLocation = await getHumanReadableLocation(coordinates)
-    
+
     // For locationData, we can use the coordinates string format for forward geocoding if needed
     const coordinatesString = `${latitude},${longitude}`
     const locationData = await getCoordinatesFromMapMyIndia(coordinatesString)
@@ -304,7 +304,7 @@ export const detectDevice = async (req: Request, res: Response) => {
   try {
     const userAgent = req.headers['user-agent'] || ''
     const device = getDeviceInfo(userAgent)
-    
+
     return res.status(200).json({ success: true, device })
   } catch (error) {
     console.error({ event: 'detect_device_error', error: error instanceof Error ? error.message : error })
@@ -337,21 +337,20 @@ export const deleteAttendanceRecord = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: 'Attendance record not found' })
     }
 
-    // Delete the attendance record
+    // Delete all attendance records for this employee
     await prisma.attendance.delete({
       where: { id }
     })
 
-    console.info({ 
-      event: 'delete_attendance_record', 
-      recordId: id, 
-      employeeId: existingRecord.employee.employeeId,
-      employeeName: existingRecord.employee.name
+    // Delete the employee from field_engineer table
+    await prisma.fieldEngineer.delete({
+      where: { id: existingRecord.employeeId }
     })
 
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Attendance record deleted successfully' 
+
+    return res.status(200).json({
+      success: true,
+      message: 'Attendance record deleted successfully'
     })
   } catch (error) {
     console.error({ event: 'delete_attendance_record_error', error: error instanceof Error ? error.message : error })
@@ -368,8 +367,8 @@ export const createAttendance = async (req: Request, res: Response) => {
     }
 
     // Validate action parameter
-    if (action && !['check-in', 'check-out'].includes(action)) {
-      return res.status(400).json({ success: false, error: 'Invalid action. Must be "check-in" or "check-out"' })
+    if (action && !['check-in', 'check-out', 'task-checkout'].includes(action)) {
+      return res.status(400).json({ success: false, error: 'Invalid action. Must be "check-in", "check-out", or "task-checkout"' })
     }
 
     const ipAddress = req.ip || req.connection.remoteAddress || 'unknown'
@@ -406,7 +405,7 @@ export const createAttendance = async (req: Request, res: Response) => {
       status: status as 'PRESENT' | 'LATE',
       locationText: location,
       bypassLocationValidation: bypassLocationValidation === true || bypassLocationValidation === 'true',
-      action: action as 'check-in' | 'check-out' | undefined
+      action: action as 'check-in' | 'check-out' | 'task-checkout' | undefined
     })
 
     return res.status(201).json({ success: true, message: 'Attendance recorded successfully', data: attendance })

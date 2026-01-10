@@ -987,7 +987,7 @@ export function AttendancePage() {
                               {(() => {
                                 return (
                                   <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm ${
-                                    record.teamId ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                                    record.teamId ? 'bg-linear-to-br from-blue-500 to-blue-600' : 'bg-linear-to-br from-gray-400 to-gray-500'
                                   }`}>
                                     {record.employeeName.split(' ').map(n => n[0]).join('').toUpperCase()}
                                   </div>
@@ -1042,14 +1042,16 @@ export function AttendancePage() {
                         <TableCell className="py-4 px-6">
                           <div className="space-y-1">
                             {/* Show task timing if available, otherwise show clock in/out times */}
-                            {record.taskStartTime && record.taskEndTime ? (
+                            {record.taskStartTime ? (
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-semibold text-green-600">
                                   {record.taskStartTime}
                                 </span>
                                 <span className="text-gray-400">→</span>
                                 <span className="text-sm font-semibold text-orange-600">
-                                  {record.taskEndTime}
+                                  {record.taskEndTime || 
+                                   (record.hasAttendance && record.clockOut ? formatTime(record.clockOut) : 
+                                    (record.hasAttendance && record.clockIn ? 'Working...' : '-'))}
                                 </span>
                               </div>
                             ) : (
@@ -1213,22 +1215,6 @@ export function AttendancePage() {
                               <DropdownMenuItem onClick={() => handleViewDetails(record)}>
                                 View Details
                               </DropdownMenuItem>
-                              {record.hasAttendance && (
-                                <DropdownMenuItem 
-                                  onClick={() => handleDeleteRecord(record)}
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  disabled={deleteLoading === record.id}
-                                >
-                                  {deleteLoading === record.id ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      Deleting...
-                                    </>
-                                  ) : (
-                                    'Delete Record'
-                                  )}
-                                </DropdownMenuItem>
-                              )}
                               <DropdownMenuItem onClick={() => handleAssignTask(record.employeeId)}>
                                 <UserPlus className="h-4 w-4 mr-2" />
                                 Assign Task
@@ -1482,14 +1468,31 @@ export function AttendancePage() {
                       )}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="text-sm font-medium text-gray-500">Start Time</label>
+                          <label className="text-sm font-medium text-gray-500">Assigned Start Time</label>
                           <p className="text-sm text-gray-900">{selectedRecord.assignedTask.startTime || 'Not specified'}</p>
                         </div>
                         <div>
-                          <label className="text-sm font-medium text-gray-500">End Time</label>
+                          <label className="text-sm font-medium text-gray-500">Assigned End Time</label>
                           <p className="text-sm text-gray-900">{selectedRecord.assignedTask.endTime || 'Not specified'}</p>
                         </div>
                       </div>
+                      {/* Show actual task timing if different from assigned times */}
+                      {(selectedRecord.taskStartTime || selectedRecord.taskEndTime) && (
+                        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Actual Start Time</label>
+                            <p className="text-sm text-gray-900 font-semibold text-green-600">
+                              {selectedRecord.taskStartTime || 'Not started'}
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Actual End Time</label>
+                            <p className="text-sm text-gray-900 font-semibold text-orange-600">
+                              {selectedRecord.taskEndTime || 'Not finished'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                       <div>
                         <label className="text-sm font-medium text-gray-500">Assigned By</label>
                         <p className="text-sm text-gray-900">{selectedRecord.assignedTask.assignedBy}</p>

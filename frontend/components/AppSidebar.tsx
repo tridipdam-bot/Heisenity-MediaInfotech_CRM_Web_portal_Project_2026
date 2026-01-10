@@ -224,7 +224,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             </span>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-muted-foreground truncate">
-                                    {(session.user as any).userType === 'admin' ? 'Administrator' : 'Employee'}
+                                    {(session.user as any).userType === 'admin' ? 'Admin' : 'Employee'}
                                 </span>
                                 {((session.user as any).employeeId || (session.user as any).adminId) && (
                                     <Badge variant="outline" className="text-xs px-1.5 py-0.5">

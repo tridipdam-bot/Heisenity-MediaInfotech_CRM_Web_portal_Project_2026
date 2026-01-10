@@ -500,7 +500,7 @@ export default function LandingPage({ onGetStarted, isLoggedIn = false, userProf
               <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-linear-to-br from-blue-50 to-blue-100">
                 <Image 
                   src="/Media_Infotech.webp" 
-                  alt="MediaTechInfo Logo" 
+                  alt="MediaInfoTech Logo" 
                   width={40} 
                   height={40}
                   className="rounded-lg object-contain"
@@ -576,14 +576,14 @@ export default function LandingPage({ onGetStarted, isLoggedIn = false, userProf
               <Phone className="h-12 w-12 text-blue-400 mx-auto mb-4" />
               <h3 className="text-xl font-bold mb-2">Phone Support</h3>
               <p className="text-gray-300 mb-4">Speak with our support team</p>
-              <p className="text-blue-400 font-semibold">+1 (555) 123-4567</p>
+              <p className="text-blue-400 font-semibold">0000000000</p>
             </div>
             
             <div className="text-center p-8 bg-gray-800/50 rounded-2xl border border-gray-700">
               <Mail className="h-12 w-12 text-blue-400 mx-auto mb-4" />
               <h3 className="text-xl font-bold mb-2">Email Us</h3>
               <p className="text-gray-300 mb-4">Send us your questions</p>
-              <p className="text-blue-400 font-semibold">support@businesshub.com</p>
+              <p className="text-blue-400 font-semibold">admin@mediainfotech@org</p>
             </div>
             
             <div className="text-center p-8 bg-gray-800/50 rounded-2xl border border-gray-700">
@@ -605,14 +605,14 @@ export default function LandingPage({ onGetStarted, isLoggedIn = false, userProf
               <div className="w-10 h-10 rounded-lg flex items-center justify-center">
                 <Image 
                   src="/Media_Infotech.webp" 
-                  alt="MediaTechInfo Logo" 
+                  alt="MediaInfoTech Logo" 
                   width={40} 
                   height={40}
                   className="rounded-lg object-contain"
                   priority
                 />
               </div>
-              <span className="font-bold text-white">MediaTechInfo</span>
+              <span className="font-bold text-white">MediaInfoTech</span>
             </div>
             <div className="text-center md:text-right">
               <p>&copy; 2026 MediaInfoTech.</p>

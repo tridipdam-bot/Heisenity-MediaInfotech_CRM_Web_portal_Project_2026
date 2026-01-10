@@ -10,7 +10,6 @@ export interface CreateTaskData {
   category?: string;
   location?: string;
   startTime?: string;
-  endTime?: string;
   assignedBy: string;
 }
 
@@ -45,26 +44,29 @@ export async function createTask(data: CreateTaskData): Promise<TaskRecord> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    await prisma.attendance.updateMany({
+      where: {
+        employee: {
+          employeeId: data.employeeId
+        },
+        date: today
+      },
+      data: {
+        attemptCount: 'ZERO'
+      }
+    })
+
     // Create or update dailyLocation record for today (required for attendance validation)
-    if (data.location && data.startTime && data.endTime) {
+    if (data.location && data.startTime) {
       console.log(`Processing task location: "${data.location}" for employee ${data.employeeId}`);
-      
+
       // Parse start and end times
       const [startHour, startMinute] = data.startTime.split(':').map(Number);
-      const [endHour, endMinute] = data.endTime.split(':').map(Number);
 
       const startDateTime = new Date(today);
       startDateTime.setHours(startHour, startMinute, 0, 0);
 
-      const endDateTime = new Date(today);
-      endDateTime.setHours(endHour, endMinute, 0, 0);
-
-      // If start and end times are the same or end is before start, adjust end time
-      if (endDateTime <= startDateTime) {
-        // Set end time to 8 hours after start time (default work day)
-        endDateTime.setTime(startDateTime.getTime() + (8 * 60 * 60 * 1000));
-        console.log(`Adjusted end time for employee ${data.employeeId}: ${startDateTime.toLocaleTimeString()} - ${endDateTime.toLocaleTimeString()}`);
-      }
+      const endDateTime = new Date(startDateTime.getTime() + (8 * 60 * 60 * 1000));
 
       // Geocode location using MapMyIndia
       const geo = await getCoordinatesFromMapMyIndia(data.location);
@@ -79,15 +81,15 @@ export async function createTask(data: CreateTaskData): Promise<TaskRecord> {
       // Use dynamic radius based on geocoding accuracy
       // If we got exact coordinates, use smaller radius; if fallback/area-based, use larger radius
       let radius = geo.estimatedRadiusMeters || 100;
-      
+
       // For fallback coordinates (low confidence), use larger radius
       if (geo.importance && geo.importance < 0.5) {
         radius = Math.max(radius, 2000); // At least 2km for low confidence geocoding
       }
-      
+
       // Ensure minimum radius for practical GPS accuracy
       radius = Math.max(radius, 500); // Minimum 500m for real-world GPS variations
-      
+
       console.log(`Using radius: ${radius}m for location "${data.location}" (granularity: ${geo.granularity}, confidence: ${geo.importance})`);
 
       // Create or update daily location
@@ -137,7 +139,6 @@ export async function createTask(data: CreateTaskData): Promise<TaskRecord> {
         category: data.category,
         location: data.location,
         startTime: data.startTime,
-        endTime: data.endTime,
         assignedBy: data.assignedBy,
         status: 'PENDING'
       }
@@ -175,8 +176,8 @@ export async function createTask(data: CreateTaskData): Promise<TaskRecord> {
 
     const attendanceData = {
       taskId: task.id,
-      taskStartTime: data.startTime,
-      taskEndTime: data.endTime,
+      taskStartTime: data.startTime, // Initially set to assigned start time
+      taskEndTime: null, // Don't set task end time during assignment
       taskLocation: data.location,
       location: data.location || "Task Assignment",
       status: attendanceStatus, // This will be PRESENT or LATE
@@ -478,7 +479,53 @@ export async function updateAttendanceStatus(employeeId: string, status: 'PRESEN
     throw error;
   }
 }
-// Function to reset attendance attempts for an employee
+// Function to mark task as completed and update task end time (without affecting attendance clock out)
+export async function completeTask(taskId: string, employeeId: string): Promise<void> {
+  try {
+    const employee = await prisma.fieldEngineer.findUnique({
+      where: { employeeId }
+    });
+
+    if (!employee) {
+      throw new Error(`Employee with employee ID ${employeeId} not found`);
+    }
+
+    // Update task status to completed
+    await prisma.task.update({
+      where: { id: taskId },
+      data: {
+        status: 'COMPLETED',
+        updatedAt: new Date()
+      }
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Update attendance record with task completion time (but don't set clockOut)
+    await prisma.attendance.updateMany({
+      where: {
+        employeeId: employee.id,
+        date: today,
+        taskId: taskId
+      },
+      data: {
+        taskEndTime: new Date().toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        updatedAt: new Date()
+        // Note: We don't update clockOut here - that's only for full day checkout
+      }
+    });
+
+    console.log(`Task ${taskId} completed for employee ${employeeId}`);
+  } catch (error) {
+    console.error('Error completing task:', error);
+    throw error;
+  }
+}
 export async function resetAttendanceAttempts(employeeId: string): Promise<void> {
   try {
     const employee = await prisma.fieldEngineer.findUnique({

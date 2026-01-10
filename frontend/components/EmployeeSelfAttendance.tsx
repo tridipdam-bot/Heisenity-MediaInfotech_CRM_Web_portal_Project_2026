@@ -426,7 +426,7 @@ export function EmployeeSelfAttendance({ onAttendanceMarked, deviceInfo, locatio
         longitude: locationData?.coordinates.longitude,
         photo: photoData,
         status: type === 'check-in' ? 'PRESENT' : 'PRESENT',
-        action: type // Pass the action (check-in or check-out)
+        action: type === 'check-out' ? 'task-checkout' : type // Use task-checkout for task completion
       })
 
       if (response.success) {
