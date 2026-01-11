@@ -5,7 +5,8 @@ import {
   updateEmployee, 
   deleteEmployee, 
   getEmployeeById,
-  getNextEmployeeId
+  getNextEmployeeId,
+  getEmployeeByEmployeeId
 } from './employee.controller'
 
 const router = Router()
@@ -18,6 +19,11 @@ router.get('/', (req: Request, res: Response) => {
 // Get next employee ID - GET /employees/next-id
 router.get('/next-id', (req: Request, res: Response) => {
   return getNextEmployeeId(req, res)
+})
+
+// Get employee by employeeId - GET /employees/by-employee-id/:employeeId
+router.get('/by-employee-id/:employeeId', (req: Request, res: Response) => {
+  return getEmployeeByEmployeeId(req, res)
 })
 
 // Get employee by ID - GET /employees/:id

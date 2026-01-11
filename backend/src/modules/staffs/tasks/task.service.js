@@ -4,7 +4,7 @@ import { getCoordinatesFromMapMyIndia } from "@/utils/geolocation";
 export async function createTask(data) {
     try {
         // Find the employee by employeeId
-        const employee = await prisma.fieldEngineer.findUnique({
+        const employee = await prisma.employee.findUnique({
             where: { employeeId: data.employeeId }
         });
         if (!employee) {
@@ -12,22 +12,25 @@ export async function createTask(data) {
         }
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        await prisma.attendance.updateMany({
+            where: {
+                employee: {
+                    employeeId: data.employeeId
+                },
+                date: today
+            },
+            data: {
+                attemptCount: 'ZERO'
+            }
+        });
         // Create or update dailyLocation record for today (required for attendance validation)
-        if (data.location && data.startTime && data.endTime) {
+        if (data.location && data.startTime) {
             console.log(`Processing task location: "${data.location}" for employee ${data.employeeId}`);
             // Parse start and end times
             const [startHour, startMinute] = data.startTime.split(':').map(Number);
-            const [endHour, endMinute] = data.endTime.split(':').map(Number);
             const startDateTime = new Date(today);
             startDateTime.setHours(startHour, startMinute, 0, 0);
-            const endDateTime = new Date(today);
-            endDateTime.setHours(endHour, endMinute, 0, 0);
-            // If start and end times are the same or end is before start, adjust end time
-            if (endDateTime <= startDateTime) {
-                // Set end time to 8 hours after start time (default work day)
-                endDateTime.setTime(startDateTime.getTime() + (8 * 60 * 60 * 1000));
-                console.log(`Adjusted end time for employee ${data.employeeId}: ${startDateTime.toLocaleTimeString()} - ${endDateTime.toLocaleTimeString()}`);
-            }
+            const endDateTime = new Date(startDateTime.getTime() + (8 * 60 * 60 * 1000));
             // Geocode location using MapMyIndia
             const geo = await getCoordinatesFromMapMyIndia(data.location);
             if (!geo) {
@@ -90,7 +93,6 @@ export async function createTask(data) {
                 category: data.category,
                 location: data.location,
                 startTime: data.startTime,
-                endTime: data.endTime,
                 assignedBy: data.assignedBy,
                 status: 'PENDING'
             }
@@ -122,8 +124,8 @@ export async function createTask(data) {
         }
         const attendanceData = {
             taskId: task.id,
-            taskStartTime: data.startTime,
-            taskEndTime: data.endTime,
+            taskStartTime: data.startTime, // Initially set to assigned start time
+            taskEndTime: null, // Don't set task end time during assignment
             taskLocation: data.location,
             location: data.location || "Task Assignment",
             status: attendanceStatus, // This will be PRESENT or LATE
@@ -181,7 +183,7 @@ export async function createTask(data) {
 // Get tasks for an employee
 export async function getEmployeeTasks(employeeId, status) {
     try {
-        const employee = await prisma.fieldEngineer.findUnique({
+        const employee = await prisma.employee.findUnique({
             where: { employeeId }
         });
         if (!employee) {
@@ -368,7 +370,7 @@ export async function getAllTasks(page = 1, limit = 50, status) {
 // Function to manually update attendance status for an employee
 export async function updateAttendanceStatus(employeeId, status) {
     try {
-        const employee = await prisma.fieldEngineer.findUnique({
+        const employee = await prisma.employee.findUnique({
             where: { employeeId }
         });
         if (!employee) {
@@ -403,10 +405,52 @@ export async function updateAttendanceStatus(employeeId, status) {
         throw error;
     }
 }
-// Function to reset attendance attempts for an employee
+// Function to mark task as completed and update task end time (without affecting attendance clock out)
+export async function completeTask(taskId, employeeId) {
+    try {
+        const employee = await prisma.employee.findUnique({
+            where: { employeeId }
+        });
+        if (!employee) {
+            throw new Error(`Employee with employee ID ${employeeId} not found`);
+        }
+        // Update task status to completed
+        await prisma.task.update({
+            where: { id: taskId },
+            data: {
+                status: 'COMPLETED',
+                updatedAt: new Date()
+            }
+        });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        // Update attendance record with task completion time (but don't set clockOut)
+        await prisma.attendance.updateMany({
+            where: {
+                employeeId: employee.id,
+                date: today,
+                taskId: taskId
+            },
+            data: {
+                taskEndTime: new Date().toLocaleTimeString('en-US', {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }),
+                updatedAt: new Date()
+                // Note: We don't update clockOut here - that's only for full day checkout
+            }
+        });
+        console.log(`Task ${taskId} completed for employee ${employeeId}`);
+    }
+    catch (error) {
+        console.error('Error completing task:', error);
+        throw error;
+    }
+}
 export async function resetAttendanceAttempts(employeeId) {
     try {
-        const employee = await prisma.fieldEngineer.findUnique({
+        const employee = await prisma.employee.findUnique({
             where: { employeeId }
         });
         if (!employee) {

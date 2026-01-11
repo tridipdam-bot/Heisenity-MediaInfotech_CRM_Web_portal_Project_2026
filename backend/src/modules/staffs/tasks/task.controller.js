@@ -1,4 +1,4 @@
-import { createTask, getEmployeeTasks, updateTaskStatus, getAllTasks, updateAttendanceStatus, resetAttendanceAttempts, fixDailyLocationTimes } from './task.service';
+import { createTask, getEmployeeTasks, updateTaskStatus, getAllTasks, updateAttendanceStatus, resetAttendanceAttempts, fixDailyLocationTimes, completeTask } from './task.service';
 import { createTeamTask } from '../teams/team.service';
 // Assign a new task to an employee or team
 export const assignTask = async (req, res) => {
@@ -27,7 +27,7 @@ export const assignTask = async (req, res) => {
         const assignedBy = 'admin'; // This should be replaced with actual admin ID from auth
         // Team assignment
         if (teamId) {
-            const result = await createTeamTask(teamId, title, description, category, location, startTime, endTime, assignedBy);
+            const result = await createTeamTask(teamId, title, description, category, location, startTime, assignedBy);
             return res.status(201).json({
                 success: true,
                 message: `Task assigned to team "${result.teamName}" with ${result.memberCount} members`,
@@ -47,7 +47,7 @@ export const assignTask = async (req, res) => {
             category,
             location,
             startTime,
-            assignedBy
+            assignedBy,
         };
         const task = await createTask(taskData);
         return res.status(201).json({
@@ -221,6 +221,37 @@ export const fixLocationTimes = async (req, res) => {
         return res.status(500).json({
             success: false,
             error: error instanceof Error ? error.message : 'Failed to fix location times'
+        });
+    }
+};
+// Complete a task (updates task end time without affecting attendance clock out)
+export const completeTaskEndpoint = async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        const { employeeId } = req.body;
+        if (!taskId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Task ID is required'
+            });
+        }
+        if (!employeeId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Employee ID is required'
+            });
+        }
+        await completeTask(taskId, employeeId);
+        return res.status(200).json({
+            success: true,
+            message: 'Task completed successfully'
+        });
+    }
+    catch (error) {
+        console.error('Error completing task:', error);
+        return res.status(500).json({
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to complete task'
         });
     }
 };

@@ -31,7 +31,7 @@ class AuthService {
                 if (!employeeId) {
                     return null;
                 }
-                const employee = await prisma.fieldEngineer.findFirst({
+                const employee = await prisma.employee.findFirst({
                     where: {
                         AND: [
                             { email },
@@ -39,7 +39,7 @@ class AuthService {
                         ]
                     }
                 });
-                if (!employee || password !== employee.password) {
+                if (!employee || !await bcrypt.compare(password, employee.password)) {
                     return null;
                 }
                 // Create session for employee
@@ -107,7 +107,7 @@ class AuthService {
     async registerEmployee(name, employeeId, email, password, phone, teamId) {
         try {
             // Check if employee already exists
-            const existingEmployee = await prisma.fieldEngineer.findFirst({
+            const existingEmployee = await prisma.employee.findFirst({
                 where: {
                     OR: [
                         { email },
@@ -123,13 +123,15 @@ class AuthService {
                     throw new Error('Employee with this ID already exists');
                 }
             }
-            // Create employee (password is stored as plain text for now)
-            const employee = await prisma.fieldEngineer.create({
+            // Hash password
+            const hashedPassword = await bcrypt.hash(password, 12);
+            // Create employee
+            const employee = await prisma.employee.create({
                 data: {
                     name,
                     employeeId,
                     email,
-                    password, // Store as plain text for now
+                    password: hashedPassword, // Store hashed password
                     phone,
                     teamId
                 }

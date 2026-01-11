@@ -4,9 +4,12 @@ import employeeRoutes from '@/modules/staffs/employee/employee.route';
 import taskRoutes from '@/modules/staffs/tasks/task.route';
 import teamRoutes from '@/modules/staffs/teams/team.route';
 import vehicleRoutes from '@/modules/staffs/vehicles/vehicle.route';
+import notificationRoutes from '@/modules/notifications/notification.routes';
+import databaseRoutes from './database.route';
 import { authRouter } from './auth.route';
 import employeeIdRoutes from './employeeId.route';
 import fieldEngineerRoutes from './fieldEngineer.route';
+import systemConfigRoutes from './systemConfig.route';
 const router = Router();
 // Mount auth routes
 router.use('/auth', authRouter);
@@ -20,10 +23,16 @@ router.use('/tasks', taskRoutes);
 router.use('/teams', teamRoutes);
 // Mount vehicle routes
 router.use('/', vehicleRoutes);
+// Mount notification routes
+router.use('/', notificationRoutes);
+// Mount database management routes (development only)
+router.use('/api', databaseRoutes);
 // Mount employee ID generator routes
 router.use('/employee-id', employeeIdRoutes);
 // Mount field engineer routes
 router.use('/field-engineers', fieldEngineerRoutes);
+// Mount system configuration routes
+router.use('/system-config', systemConfigRoutes);
 // Health check
 router.get('/health', (_req, res) => {
     res.json({

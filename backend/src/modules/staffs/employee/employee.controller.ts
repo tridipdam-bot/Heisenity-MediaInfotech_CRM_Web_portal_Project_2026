@@ -391,3 +391,58 @@ export const getNextEmployeeId = async (req: Request, res: Response) => {
     })
   }
 }
+
+// Get employee by employeeId (not internal ID)
+export const getEmployeeByEmployeeId = async (req: Request, res: Response) => {
+  try {
+    const { employeeId } = req.params
+
+    if (!employeeId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Employee ID is required'
+      })
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { employeeId },
+      select: {
+        id: true,
+        name: true,
+        employeeId: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        teamId: true,
+        isTeamLeader: true,
+        createdAt: true,
+        updatedAt: true,
+        team: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    })
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found'
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: employee
+    })
+  } catch (error) {
+    console.error('Error getting employee by employeeId:', error)
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to get employee'
+    })
+  }
+}

@@ -159,7 +159,7 @@ export class VehicleService {
                 };
             }
             // Check if employee exists - look up by employeeId (display ID)
-            const employee = await prisma.fieldEngineer.findUnique({
+            const employee = await prisma.employee.findUnique({
                 where: { employeeId: data.employeeId }
             });
             if (!employee) {
@@ -248,7 +248,7 @@ export class VehicleService {
     async getEmployeeVehicle(employeeId) {
         try {
             // First, find the employee by their display ID to get the database ID
-            const employee = await prisma.fieldEngineer.findUnique({
+            const employee = await prisma.employee.findUnique({
                 where: { employeeId: employeeId }
             });
             if (!employee) {
@@ -345,7 +345,7 @@ export class VehicleService {
     async createPetrolBill(employeeId, data) {
         try {
             // First, find the employee by their display ID to get the database ID
-            const employee = await prisma.fieldEngineer.findUnique({
+            const employee = await prisma.employee.findUnique({
                 where: { employeeId: employeeId }
             });
             if (!employee) {

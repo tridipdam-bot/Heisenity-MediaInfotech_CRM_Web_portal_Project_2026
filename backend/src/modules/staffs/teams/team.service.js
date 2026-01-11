@@ -80,7 +80,7 @@ export async function createTeamWithMembers(name, description, memberIds, teamLe
     });
     // Update employees to assign them to this team
     if (memberIds.length > 0) {
-        await prisma.fieldEngineer.updateMany({
+        await prisma.employee.updateMany({
             where: {
                 id: {
                     in: memberIds
@@ -93,7 +93,7 @@ export async function createTeamWithMembers(name, description, memberIds, teamLe
         });
         // Set team leader if specified
         if (teamLeaderId && memberIds.includes(teamLeaderId)) {
-            await prisma.fieldEngineer.update({
+            await prisma.employee.update({
                 where: {
                     id: teamLeaderId
                 },
@@ -135,7 +135,6 @@ export async function createTeamTask(teamId, title, description, category, locat
                 category,
                 location,
                 startTime,
-                endTime,
                 assignedBy
             };
             const task = await createTask(taskData);
@@ -154,7 +153,7 @@ export async function createTeamTask(teamId, title, description, category, locat
 }
 export async function updateTeamMembers(teamId, memberIds, teamLeaderId) {
     // First, remove all current members from this team
-    await prisma.fieldEngineer.updateMany({
+    await prisma.employee.updateMany({
         where: {
             teamId: teamId
         },
@@ -165,7 +164,7 @@ export async function updateTeamMembers(teamId, memberIds, teamLeaderId) {
     });
     // Add new members to the team
     if (memberIds.length > 0) {
-        await prisma.fieldEngineer.updateMany({
+        await prisma.employee.updateMany({
             where: {
                 id: {
                     in: memberIds
@@ -178,7 +177,7 @@ export async function updateTeamMembers(teamId, memberIds, teamLeaderId) {
         });
         // Set team leader if specified
         if (teamLeaderId && memberIds.includes(teamLeaderId)) {
-            await prisma.fieldEngineer.update({
+            await prisma.employee.update({
                 where: {
                     id: teamLeaderId
                 },
@@ -193,7 +192,7 @@ export async function updateTeamMembers(teamId, memberIds, teamLeaderId) {
 export async function deleteTeam(teamId) {
     try {
         // First, remove all members from this team
-        await prisma.fieldEngineer.updateMany({
+        await prisma.employee.updateMany({
             where: {
                 teamId: teamId
             },

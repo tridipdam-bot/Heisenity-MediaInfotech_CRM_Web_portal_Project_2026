@@ -9,6 +9,7 @@ import databaseRoutes from './database.route';
 import { authRouter } from './auth.route';
 import employeeIdRoutes from './employeeId.route';
 import fieldEngineerRoutes from './fieldEngineer.route';
+import systemConfigRoutes from './systemConfig.route';
 
 const router = Router();
 
@@ -41,6 +42,9 @@ router.use('/employee-id', employeeIdRoutes);
 
 // Mount field engineer routes
 router.use('/field-engineers', fieldEngineerRoutes);
+
+// Mount system configuration routes
+router.use('/system-config', systemConfigRoutes);
 
 // Health check
 router.get('/health', (_req: Request, res: Response) => {

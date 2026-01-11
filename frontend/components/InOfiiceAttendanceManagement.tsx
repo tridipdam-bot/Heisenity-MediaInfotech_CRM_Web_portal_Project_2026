@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Separator } from "@/components/ui/separator"
 import { DateRangePicker } from "@/components/DateRangePicker"
 import { AddAttendanceRecord } from "@/components/AddAttendanceRecord"
+import { OfficeLocationSettings } from "@/components/OfficeLocationSettings"
 import { showToast, showConfirm } from "@/lib/toast-utils"
 
 import {
@@ -30,7 +31,8 @@ import {
   ClockIcon,
   Timer,
   Calendar,
-  Plus
+  Plus,
+  Settings
 } from "lucide-react"
 import { getAttendanceRecords, getAllEmployees, deleteAttendanceRecord, exportAttendanceToExcel, exportAttendanceToPDF, ExportParams, AttendanceRecord, Employee } from "@/lib/server-api"
 
@@ -124,6 +126,7 @@ const calculateWorkHours = (clockIn?: string, clockOut?: string) => {
 
 export function AttendanceManagementPage() {
   const [showAddForm, setShowAddForm] = React.useState(false)
+  const [showSettings, setShowSettings] = React.useState(false)
   const [currentDate, setCurrentDate] = React.useState(new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -458,6 +461,10 @@ export function AttendanceManagementPage() {
 
   return (
     <div className="min-h-screen bg-gray-50/30">
+      {showSettings && (
+        <OfficeLocationSettings onClose={() => setShowSettings(false)} />
+      )}
+      
       {showAddForm ? (
         <AddAttendanceRecord
           onRecordAdded={handleRecordAdded}
@@ -474,6 +481,14 @@ export function AttendanceManagementPage() {
               <p className="text-gray-600">Monitor in-office employee clock-in, clock-out, and overtime records</p>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="border-gray-300 hover:bg-gray-50"
+                onClick={() => setShowSettings(true)}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </Button>
               <Button
                 variant="outline"
                 className="border-gray-300 hover:bg-gray-50"

@@ -1,10 +1,11 @@
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { EmployeeIdGeneratorService } from '@/services/employeeIdGenerator.service';
 // Generate next employee ID
 export const generateEmployeeId = async () => {
     try {
         // Get the latest employee by employeeId
-        const latestEmployee = await prisma.fieldEngineer.findFirst({
+        const latestEmployee = await prisma.employee.findFirst({
             orderBy: {
                 employeeId: 'desc'
             }
@@ -26,7 +27,7 @@ export const generateEmployeeId = async () => {
 // Get all employees
 export const getAllEmployees = async (req, res) => {
     try {
-        const { page = '1', limit = '50', search, status } = req.query;
+        const { page = '1', limit = '50', search, status, role } = req.query;
         const pageNum = parseInt(page) || 1;
         const limitNum = parseInt(limit) || 50;
         const skip = (pageNum - 1) * limitNum;
@@ -42,7 +43,10 @@ export const getAllEmployees = async (req, res) => {
         if (status) {
             whereClause.status = status;
         }
-        const employees = await prisma.fieldEngineer.findMany({
+        if (role && (role === 'FIELD_ENGINEER' || role === 'IN_OFFICE')) {
+            whereClause.role = role;
+        }
+        const employees = await prisma.employee.findMany({
             where: whereClause,
             orderBy: {
                 createdAt: 'desc'
@@ -57,6 +61,7 @@ export const getAllEmployees = async (req, res) => {
                 phone: true,
                 teamId: true,
                 isTeamLeader: true,
+                role: true,
                 status: true,
                 createdAt: true,
                 updatedAt: true,
@@ -64,7 +69,7 @@ export const getAllEmployees = async (req, res) => {
             }
         });
         // Get total count for pagination
-        const totalCount = await prisma.fieldEngineer.count({
+        const totalCount = await prisma.employee.count({
             where: whereClause
         });
         return res.status(200).json({
@@ -91,7 +96,7 @@ export const getAllEmployees = async (req, res) => {
 // Create new employee
 export const createEmployee = async (req, res) => {
     try {
-        const { name, email, phone, teamId, isTeamLeader = false, assignedBy, password } = req.body;
+        const { name, email, phone, teamId, isTeamLeader = false, assignedBy, password, role = 'IN_OFFICE' } = req.body;
         // Validate required fields
         if (!name || !email || !password) {
             return res.status(400).json({
@@ -99,8 +104,15 @@ export const createEmployee = async (req, res) => {
                 error: 'Name, email, and password are required'
             });
         }
+        // Validate role
+        if (!['FIELD_ENGINEER', 'IN_OFFICE'].includes(role)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid role. Must be FIELD_ENGINEER or IN_OFFICE'
+            });
+        }
         // Check if email already exists
-        const existingEmployee = await prisma.fieldEngineer.findUnique({
+        const existingEmployee = await prisma.employee.findUnique({
             where: { email }
         });
         if (existingEmployee) {
@@ -109,12 +121,12 @@ export const createEmployee = async (req, res) => {
                 error: 'Employee with this email already exists'
             });
         }
-        // Generate employee ID
-        const employeeId = await generateEmployeeId();
+        // Generate role-based employee ID
+        const employeeId = await EmployeeIdGeneratorService.generateNextEmployeeId(role);
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 12);
         // Create employee
-        const employee = await prisma.fieldEngineer.create({
+        const employee = await prisma.employee.create({
             data: {
                 name,
                 employeeId,
@@ -124,6 +136,7 @@ export const createEmployee = async (req, res) => {
                 teamId: teamId || null,
                 isTeamLeader: Boolean(isTeamLeader),
                 assignedBy: assignedBy || null,
+                role: role,
                 status: 'ACTIVE'
             },
             select: {
@@ -134,6 +147,7 @@ export const createEmployee = async (req, res) => {
                 phone: true,
                 teamId: true,
                 isTeamLeader: true,
+                role: true,
                 status: true,
                 createdAt: true,
                 updatedAt: true
@@ -165,7 +179,7 @@ export const updateEmployee = async (req, res) => {
             });
         }
         // Check if employee exists
-        const existingEmployee = await prisma.fieldEngineer.findUnique({
+        const existingEmployee = await prisma.employee.findUnique({
             where: { id }
         });
         if (!existingEmployee) {
@@ -176,7 +190,7 @@ export const updateEmployee = async (req, res) => {
         }
         // Check if email is being changed and if it already exists
         if (email && email !== existingEmployee.email) {
-            const emailExists = await prisma.fieldEngineer.findUnique({
+            const emailExists = await prisma.employee.findUnique({
                 where: { email }
             });
             if (emailExists) {
@@ -204,7 +218,7 @@ export const updateEmployee = async (req, res) => {
             updateData.password = await bcrypt.hash(password, 12);
         }
         // Update employee
-        const updatedEmployee = await prisma.fieldEngineer.update({
+        const updatedEmployee = await prisma.employee.update({
             where: { id },
             data: updateData,
             select: {
@@ -215,6 +229,7 @@ export const updateEmployee = async (req, res) => {
                 phone: true,
                 teamId: true,
                 isTeamLeader: true,
+                role: true,
                 status: true,
                 createdAt: true,
                 updatedAt: true
@@ -245,7 +260,7 @@ export const deleteEmployee = async (req, res) => {
             });
         }
         // Check if employee exists
-        const existingEmployee = await prisma.fieldEngineer.findUnique({
+        const existingEmployee = await prisma.employee.findUnique({
             where: { id }
         });
         if (!existingEmployee) {
@@ -255,7 +270,7 @@ export const deleteEmployee = async (req, res) => {
             });
         }
         // Delete employee (this will cascade delete related records)
-        await prisma.fieldEngineer.delete({
+        await prisma.employee.delete({
             where: { id }
         });
         return res.status(200).json({
@@ -281,7 +296,7 @@ export const getEmployeeById = async (req, res) => {
                 error: 'Employee ID is required'
             });
         }
-        const employee = await prisma.fieldEngineer.findUnique({
+        const employee = await prisma.employee.findUnique({
             where: { id },
             select: {
                 id: true,
@@ -291,6 +306,7 @@ export const getEmployeeById = async (req, res) => {
                 phone: true,
                 teamId: true,
                 isTeamLeader: true,
+                role: true,
                 status: true,
                 createdAt: true,
                 updatedAt: true,
@@ -319,10 +335,18 @@ export const getEmployeeById = async (req, res) => {
 // Get next employee ID (for preview)
 export const getNextEmployeeId = async (req, res) => {
     try {
-        const nextId = await generateEmployeeId();
+        const { role = 'IN_OFFICE' } = req.query;
+        // Validate role
+        if (!['FIELD_ENGINEER', 'IN_OFFICE'].includes(role)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid role. Must be FIELD_ENGINEER or IN_OFFICE'
+            });
+        }
+        const nextId = await EmployeeIdGeneratorService.generateNextEmployeeId(role);
         return res.status(200).json({
             success: true,
-            data: { nextEmployeeId: nextId }
+            data: { nextEmployeeId: nextId, role: role }
         });
     }
     catch (error) {
@@ -330,6 +354,57 @@ export const getNextEmployeeId = async (req, res) => {
         return res.status(500).json({
             success: false,
             error: error instanceof Error ? error.message : 'Failed to get next employee ID'
+        });
+    }
+};
+// Get employee by employeeId (not internal ID)
+export const getEmployeeByEmployeeId = async (req, res) => {
+    try {
+        const { employeeId } = req.params;
+        if (!employeeId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Employee ID is required'
+            });
+        }
+        const employee = await prisma.employee.findUnique({
+            where: { employeeId },
+            select: {
+                id: true,
+                name: true,
+                employeeId: true,
+                email: true,
+                phone: true,
+                role: true,
+                status: true,
+                teamId: true,
+                isTeamLeader: true,
+                createdAt: true,
+                updatedAt: true,
+                team: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                }
+            }
+        });
+        if (!employee) {
+            return res.status(404).json({
+                success: false,
+                error: 'Employee not found'
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            data: employee
+        });
+    }
+    catch (error) {
+        console.error('Error getting employee by employeeId:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to get employee'
         });
     }
 };

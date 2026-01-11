@@ -1,4 +1,6 @@
 import { prisma } from '../lib/prisma';
+import { EmployeeIdGeneratorService } from '../services/employeeIdGenerator.service';
+import bcrypt from 'bcryptjs';
 export class FieldEngineerController {
     /**
      * Get all field engineers
@@ -17,8 +19,11 @@ export class FieldEngineerController {
                     { email: { contains: search } }
                 ];
             }
-            const fieldEngineers = await prisma.fieldEngineer.findMany({
-                where: whereClause,
+            const fieldEngineers = await prisma.employee.findMany({
+                where: {
+                    ...whereClause,
+                    role: 'FIELD_ENGINEER'
+                },
                 select: {
                     id: true,
                     name: true,
@@ -64,7 +69,7 @@ export class FieldEngineerController {
                     message: 'Employee ID is required'
                 });
             }
-            const fieldEngineer = await prisma.fieldEngineer.findUnique({
+            const fieldEngineer = await prisma.employee.findUnique({
                 where: {
                     employeeId: employeeId
                 },
@@ -77,11 +82,12 @@ export class FieldEngineerController {
                     teamId: true,
                     isTeamLeader: true,
                     status: true,
+                    role: true,
                     createdAt: true,
                     updatedAt: true
                 }
             });
-            if (!fieldEngineer) {
+            if (!fieldEngineer || fieldEngineer.role !== 'FIELD_ENGINEER') {
                 return res.status(404).json({
                     success: false,
                     message: 'Field engineer not found'
@@ -106,31 +112,30 @@ export class FieldEngineerController {
      */
     static async createFieldEngineer(req, res) {
         try {
-            const { name, employeeId, email, password, phone, teamId, isTeamLeader, assignedBy } = req.body;
+            const { name, email, password, phone, teamId, isTeamLeader, assignedBy } = req.body;
             // Validate required fields
-            if (!name || !employeeId || !email || !password) {
+            if (!name || !email || !password) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Name, employee ID, email, and password are required'
+                    message: 'Name, email, and password are required'
                 });
             }
-            // Check if employee ID or email already exists
-            const existingEmployee = await prisma.fieldEngineer.findFirst({
+            // Generate field engineer ID
+            const employeeId = await EmployeeIdGeneratorService.generateNextEmployeeId('FIELD_ENGINEER');
+            // Check if email already exists
+            const existingEmployee = await prisma.employee.findFirst({
                 where: {
-                    OR: [
-                        { employeeId: employeeId },
-                        { email: email }
-                    ]
+                    email: email
                 }
             });
             if (existingEmployee) {
                 return res.status(400).json({
                     success: false,
-                    message: existingEmployee.employeeId === employeeId
-                        ? 'Employee ID already exists'
-                        : 'Email already exists'
+                    message: 'Email already exists'
                 });
             }
+            // Hash password
+            const hashedPassword = await bcrypt.hash(password, 12);
             // If assignedBy is provided, verify the admin exists
             if (assignedBy) {
                 const adminExists = await prisma.admin.findUnique({
@@ -143,16 +148,17 @@ export class FieldEngineerController {
                     });
                 }
             }
-            const newFieldEngineer = await prisma.fieldEngineer.create({
+            const newFieldEngineer = await prisma.employee.create({
                 data: {
                     name,
                     employeeId,
                     email,
-                    password, // Note: In production, this should be hashed
+                    password: hashedPassword,
                     phone: phone || null,
                     teamId: teamId || null,
                     isTeamLeader: isTeamLeader || false,
-                    assignedBy: assignedBy || null
+                    assignedBy: assignedBy || null,
+                    role: 'FIELD_ENGINEER'
                 },
                 select: {
                     id: true,
@@ -164,6 +170,7 @@ export class FieldEngineerController {
                     isTeamLeader: true,
                     assignedBy: true,
                     status: true,
+                    role: true,
                     createdAt: true,
                     updatedAt: true
                 }

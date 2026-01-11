@@ -11,6 +11,7 @@ import {
 import { getDeviceInfo } from '@/utils/deviceinfo'
 import { VehicleService } from '../vehicles/vehicle.service'
 import { NotificationService } from '../../notifications/notification.service'
+import { SystemConfigService } from '../../../services/systemConfig.service'
 
 // Environment-configurable defaults
 const DEFAULT_ATTENDANCE_RADIUS_METERS = Number(process.env.DEFAULT_ATTENDANCE_RADIUS_METERS || 50)
@@ -196,11 +197,48 @@ export async function validateEmployeeLocation(
 
   // Role-based validation logic
   if (employee.role === 'IN_OFFICE') {
-    // For in-office employees, no location validation required
+    // For in-office employees, validate against office location coordinates
+    const officeCoordinates = await SystemConfigService.getOfficeCoordinates()
+    
+    if (!officeCoordinates) {
+      return {
+        isValid: false,
+        details: 'Office location not configured. Please contact administrator.',
+        code: 'OFFICE_LOCATION_NOT_CONFIGURED'
+      }
+    }
+
+    if (!coordinates) {
+      return {
+        isValid: false,
+        details: 'Location coordinates required for office employees',
+        code: 'COORDINATES_REQUIRED'
+      }
+    }
+
+    // Validate against office coordinates using the same logic as field engineers
+    const distance = calculateDistanceMeters(
+      coordinates.latitude,
+      coordinates.longitude,
+      officeCoordinates.latitude,
+      officeCoordinates.longitude
+    )
+
+    const isWithinRadius = distance <= officeCoordinates.radius
+
     return {
-      isValid: true,
-      details: 'In-office employee - no location validation required',
-      confidence: 'exact'
+      isValid: isWithinRadius,
+      details: isWithinRadius 
+        ? `Within office radius (${distance.toFixed(0)}m from office)`
+        : `Outside office radius (${distance.toFixed(0)}m from office, max ${officeCoordinates.radius}m)`,
+      distance,
+      radiusUsed: officeCoordinates.radius,
+      assignedCoords: {
+        latitude: officeCoordinates.latitude,
+        longitude: officeCoordinates.longitude
+      },
+      confidence: isWithinRadius ? 'exact' : 'nearby',
+      code: isWithinRadius ? undefined : 'LOCATION_MISMATCH'
     }
   }
 
@@ -350,9 +388,31 @@ export async function createAttendanceRecord(data: {
 
   // Role-based logic for attendance creation
   if (employee.role === 'IN_OFFICE') {
-    // For in-office employees, create attendance without location validation
+    // For in-office employees, validate location against office coordinates
+    const officeCoordinates = await SystemConfigService.getOfficeCoordinates()
+    
+    if (!officeCoordinates) {
+      throw new Error('OFFICE_LOCATION_NOT_CONFIGURED')
+    }
+
+    // Office employees must provide coordinates for validation
+    if (!data.coordinates && !data.bypassLocationValidation) {
+      throw new Error('MISSING_COORDINATES')
+    }
+
+    // Validate location if coordinates provided and not bypassed
+    if (data.coordinates && !data.bypassLocationValidation) {
+      const validation = await validateEmployeeLocation(data.employeeId, data.coordinates)
+      if (!validation.isValid) {
+        throw new Error('INVALID_COORDINATES')
+      }
+    }
+
     const deviceInfo = getDeviceInfo(data.userAgent)
     const deviceString = `${deviceInfo.os} - ${deviceInfo.browser} - ${deviceInfo.device}`
+    
+    // Get configurable office location name
+    const officeLocationName = await SystemConfigService.getOfficeLocation()
     
     // Check for existing attendance
     const existing = await prisma.attendance.findUnique({
@@ -362,9 +422,9 @@ export async function createAttendanceRecord(data: {
     if (existing && existing.locked) throw new Error('ATTENDANCE_LOCKED')
 
     const updateData: any = {
-      latitude: null, // In-office employees don't need coordinates
-      longitude: null,
-      location: data.locationText || 'Office',
+      latitude: data.coordinates?.latitude || null,
+      longitude: data.coordinates?.longitude || null,
+      location: data.locationText || officeLocationName,
       ipAddress: data.ipAddress,
       deviceInfo: deviceString,
       photo: data.photo ?? existing?.photo,
@@ -400,8 +460,8 @@ export async function createAttendanceRecord(data: {
             date: today,
             clockIn: updateData.clockIn || (data.status === 'PRESENT' || data.status === 'LATE' ? new Date() : null),
             clockOut: updateData.clockOut || null,
-            latitude: null,
-            longitude: null,
+            latitude: updateData.latitude,
+            longitude: updateData.longitude,
             location: updateData.location,
             ipAddress: data.ipAddress,
             deviceInfo: deviceString,
@@ -417,7 +477,7 @@ export async function createAttendanceRecord(data: {
     return {
       employeeId: data.employeeId,
       timestamp: saved.createdAt.toISOString(),
-      location: saved.location || 'Office',
+      location: saved.location || officeLocationName,
       ipAddress: saved.ipAddress || data.ipAddress || '',
       deviceInfo: saved.deviceInfo || deviceString || '',
       photo: saved.photo || data.photo || undefined,

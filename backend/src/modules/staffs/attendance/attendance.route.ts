@@ -9,6 +9,7 @@ import {
   getAssignedLocation,
   getAttendanceRecords,
   deleteAttendanceRecord,
+  getLocationName,
 } from "@/modules/staffs/attendance/attendance.controller";
 
 import {
@@ -51,6 +52,10 @@ router
   .post(getLocationData);
 
 router.get("/location/:latitude/:longitude", getLocationData);
+
+// Get location name from coordinates (for office location setup)
+// POST /attendance/get-location-name
+router.post("/get-location-name", getLocationName);
 
 /**
  * =========================

@@ -4,7 +4,7 @@ import { getHumanReadableLocation, getCoordinatesFromMapMyIndia } from '@/utils/
 import { createAttendanceRecord, getRemainingAttempts, getTodayAssignedLocation } from './attendance.service';
 export const getAttendanceRecords = async (req, res) => {
     try {
-        const { page = '1', limit = '50', date, dateFrom, dateTo, employeeId, status } = req.query;
+        const { page = '1', limit = '50', date, dateFrom, dateTo, employeeId, status, role } = req.query;
         const pageNum = parseInt(page, 10);
         const limitNum = parseInt(limit, 10);
         const skip = (pageNum - 1) * limitNum;
@@ -12,7 +12,7 @@ export const getAttendanceRecords = async (req, res) => {
         const where = {};
         if (employeeId) {
             // Find employee by employeeId first
-            const employee = await prisma.fieldEngineer.findUnique({
+            const employee = await prisma.employee.findUnique({
                 where: { employeeId: employeeId }
             });
             if (employee) {
@@ -59,7 +59,8 @@ export const getAttendanceRecords = async (req, res) => {
                         email: true,
                         phone: true,
                         teamId: true,
-                        isTeamLeader: true
+                        isTeamLeader: true,
+                        role: true
                     }
                 },
                 assignedTask: {
@@ -84,8 +85,13 @@ export const getAttendanceRecords = async (req, res) => {
             skip,
             take: limitNum
         });
+        // Filter by role if specified
+        let filteredAttendances = attendances;
+        if (role && (role === 'FIELD_ENGINEER' || role === 'IN_OFFICE')) {
+            filteredAttendances = attendances.filter(attendance => attendance.employee.role === role);
+        }
         // Transform the data to match frontend expectations
-        const records = attendances.map(attendance => ({
+        const records = filteredAttendances.map(attendance => ({
             id: attendance.id,
             employeeId: attendance.employee.employeeId,
             employeeName: attendance.employee.name,
@@ -93,6 +99,7 @@ export const getAttendanceRecords = async (req, res) => {
             phone: attendance.employee.phone,
             teamId: attendance.employee.teamId,
             isTeamLeader: attendance.employee.isTeamLeader,
+            role: attendance.employee.role,
             date: attendance.date.toISOString().split('T')[0],
             clockIn: attendance.clockIn?.toISOString(),
             clockOut: attendance.clockOut?.toISOString(),
@@ -125,7 +132,7 @@ export const getAttendanceRecords = async (req, res) => {
                 status: attendance.assignedTask.status
             } : undefined
         }));
-        const totalPages = Math.ceil(total / limitNum);
+        const totalPages = Math.ceil(filteredAttendances.length / limitNum);
         return res.status(200).json({
             success: true,
             data: {
@@ -133,7 +140,7 @@ export const getAttendanceRecords = async (req, res) => {
                 pagination: {
                     page: pageNum,
                     limit: limitNum,
-                    total,
+                    total: filteredAttendances.length,
                     totalPages
                 }
             }
@@ -291,15 +298,13 @@ export const deleteAttendanceRecord = async (req, res) => {
         if (!existingRecord) {
             return res.status(404).json({ success: false, error: 'Attendance record not found' });
         }
-        // Delete the attendance record
+        // Delete all attendance records for this employee
         await prisma.attendance.delete({
             where: { id }
         });
-        console.info({
-            event: 'delete_attendance_record',
-            recordId: id,
-            employeeId: existingRecord.employee.employeeId,
-            employeeName: existingRecord.employee.name
+        // Delete the employee from employee table
+        await prisma.employee.delete({
+            where: { id: existingRecord.employeeId }
         });
         return res.status(200).json({
             success: true,
@@ -318,8 +323,8 @@ export const createAttendance = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
         }
         // Validate action parameter
-        if (action && !['check-in', 'check-out'].includes(action)) {
-            return res.status(400).json({ success: false, error: 'Invalid action. Must be "check-in" or "check-out"' });
+        if (action && !['check-in', 'check-out', 'task-checkout'].includes(action)) {
+            return res.status(400).json({ success: false, error: 'Invalid action. Must be "check-in", "check-out", or "task-checkout"' });
         }
         const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
         const userAgent = req.headers['user-agent'] || '';

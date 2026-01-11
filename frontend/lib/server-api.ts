@@ -1581,3 +1581,91 @@ export async function deleteNotification(notificationId: string): Promise<Notifi
     }
   }
 }
+
+// System Configuration API Functions
+export type GetOfficeLocationResponse = {
+  success: boolean
+  data?: { 
+    location: string
+    coordinates?: {
+      latitude: number
+      longitude: number
+      radius: number
+    }
+  }
+  error?: string
+}
+
+export type SetOfficeLocationRequest = {
+  location: string
+  latitude?: number
+  longitude?: number
+  radius?: number
+}
+
+export type SetOfficeLocationResponse = {
+  success: boolean
+  message?: string
+  error?: string
+}
+
+export async function getOfficeLocation(): Promise<GetOfficeLocationResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/system-config/office-location`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    const data = await res.json()
+    return data
+  } catch (error) {
+    console.error('Error getting office location:', error)
+    return {
+      success: false,
+      error: 'Failed to get office location'
+    }
+  }
+}
+
+export async function setOfficeLocation(data: SetOfficeLocationRequest): Promise<SetOfficeLocationResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/system-config/office-location`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    })
+
+    const response = await res.json()
+    return response
+  } catch (error) {
+    console.error('Error setting office location:', error)
+    return {
+      success: false,
+      error: 'Failed to set office location'
+    }
+  }
+}
+export async function getEmployeeByEmployeeId(employeeId: string): Promise<{ success: boolean; data?: Employee; error?: string }> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employees/by-employee-id/${employeeId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+    return response
+  } catch (error) {
+    console.error('getEmployeeByEmployeeId error:', error)
+    return {
+      success: false,
+      error: 'Failed to get employee details'
+    }
+  }
+}

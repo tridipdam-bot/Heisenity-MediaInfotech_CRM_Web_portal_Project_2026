@@ -30,7 +30,8 @@ import {
   getAttendanceRecords,
   getEmployeeTasks,
   AssignedLocationResponse,
-  AssignedTask
+  AssignedTask,
+  getEmployeeByEmployeeId
 } from "@/lib/server-api"
 
 interface CustomUser {
@@ -81,6 +82,7 @@ export function EmployeeSelfAttendance({ onAttendanceMarked, deviceInfo, locatio
   const [assignedLocation, setAssignedLocation] = useState<AssignedLocationResponse['data'] | null>(null)
   const [currentTasks, setCurrentTasks] = useState<AssignedTask[]>([])
   const [locationError, setLocationError] = useState<string>("")
+  const [employeeRole, setEmployeeRole] = useState<'FIELD_ENGINEER' | 'IN_OFFICE' | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
@@ -93,6 +95,23 @@ export function EmployeeSelfAttendance({ onAttendanceMarked, deviceInfo, locatio
       }
     }
   }, [session])
+
+  // Get employee role
+  const getEmployeeRole = async (empId: string) => {
+    if (!empId.trim()) return
+
+    try {
+      const response = await getEmployeeByEmployeeId(empId)
+      if (response.success && response.data) {
+        setEmployeeRole(response.data.role as 'FIELD_ENGINEER' | 'IN_OFFICE')
+      } else {
+        setEmployeeRole(null)
+      }
+    } catch (error) {
+      console.error('Error getting employee role:', error)
+      setEmployeeRole(null)
+    }
+  }
 
   // Get user's current location
   const getUserLocation = async () => {
@@ -262,12 +281,14 @@ export function EmployeeSelfAttendance({ onAttendanceMarked, deviceInfo, locatio
       checkAttempts(employeeId.trim())
       checkAssignedLocation(employeeId.trim())
       checkCurrentTasks(employeeId.trim())
+      getEmployeeRole(employeeId.trim())
     } else {
       setRemainingAttempts(3)
       setIsLocked(false)
       setAssignedLocation(null)
       setCurrentTasks([])
       setCurrentAttendanceStatus(null)
+      setEmployeeRole(null)
     }
   }, [employeeId])
 
@@ -920,7 +941,7 @@ export function EmployeeSelfAttendance({ onAttendanceMarked, deviceInfo, locatio
                   <MapPin className="h-6 w-6 text-blue-600" />
                 </div>
                 <h4 className="font-semibold text-gray-900">1. Get Location</h4>
-                <p className="text-sm text-gray-600">Allow location access and verify you&apos;re at the assigned location</p>
+                <p className="text-sm text-gray-600">Allow location access and verify you&apos;re at the correct location</p>
               </div>
               <div className="space-y-2">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
