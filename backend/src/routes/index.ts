@@ -12,6 +12,7 @@ import { authRouter } from './auth.route';
 import employeeIdRoutes from './employeeId.route';
 import fieldEngineerRoutes from './fieldEngineer.route';
 import systemConfigRoutes from './systemConfig.route';
+import projectRoutes from './project.route';
 
 const router = Router();
 
@@ -53,6 +54,9 @@ router.use('/field-engineers', fieldEngineerRoutes);
 
 // Mount system configuration routes
 router.use('/system-config', systemConfigRoutes);
+
+// Mount project management routes
+router.use('/projects', projectRoutes);
 
 // Health check
 router.get('/health', (_req: Request, res: Response) => {

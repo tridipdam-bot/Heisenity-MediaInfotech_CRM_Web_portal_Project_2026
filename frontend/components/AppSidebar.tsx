@@ -28,7 +28,8 @@ import {
     DollarSign,
     UsersRound,
     Clock,
-    FileText
+    FileText,
+    FolderOpen
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -69,6 +70,13 @@ const navigationItems = [
         icon: UsersRound,
         badge: null,
         description: "Team management"
+    },
+    {
+        title: "Project Management",
+        url: "/projects",
+        icon: FolderOpen,
+        badge: null,
+        description: "Manage ongoing projects and updates"
     },
     {
         title: "Docs. and Leave Management",

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { getAllVehicles, getAllPetrolBills, createVehicle, deleteVehicle, Vehicle, PetrolBill } from "@/lib/server-api"
+import { getAllVehicles, getAllPetrolBills, createVehicle, deleteVehicle, unassignVehicle, Vehicle, PetrolBill } from "@/lib/server-api"
 import { showToast, showConfirm } from "@/lib/toast-utils"
 import {
   Car,
@@ -25,7 +25,8 @@ import {
   Settings,
   FileText,
   Upload,
-  Eye
+  Eye,
+  UserX
 } from "lucide-react"
 
 const getStatusBadge = (status: string) => {
@@ -176,6 +177,29 @@ export function VehiclesPage() {
         }
       },
       'Delete Vehicle'
+    )
+  }
+
+  const handleUnassignVehicle = async (vehicleId: string, vehicleNumber: string, employeeName: string) => {
+    showConfirm(
+      `Are you sure you want to unassign vehicle ${vehicleNumber} from ${employeeName}?`,
+      async () => {
+        try {
+          const response = await unassignVehicle(vehicleId)
+          
+          if (response.success) {
+            // Refresh data
+            await fetchData()
+            showToast.success('Vehicle unassigned successfully!')
+          } else {
+            showToast.error(response.error || 'Failed to unassign vehicle')
+          }
+        } catch (error) {
+          console.error('Error unassigning vehicle:', error)
+          showToast.error('Failed to unassign vehicle: ' + (error instanceof Error ? error.message : 'Unknown error'))
+        }
+      },
+      'Unassign Vehicle'
     )
   }
 
@@ -449,15 +473,27 @@ export function VehiclesPage() {
                       {userType === 'admin' && (
                         <TableCell>
                           <div className="flex items-center gap-2">
+                            {vehicle.status === 'ASSIGNED' && vehicle.employeeName && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleUnassignVehicle(vehicle.id, vehicle.vehicleNumber, vehicle.employeeName)}
+                                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                title="Unassign vehicle"
+                              >
+                                <UserX className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button 
                               variant="ghost" 
                               size="sm"
                               onClick={() => handleDeleteVehicle(vehicle.id, vehicle.vehicleNumber)}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Delete vehicle"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" size="sm" title="Assign vehicle">
                               <User className="h-4 w-4" />
                             </Button>
                           </div>

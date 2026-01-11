@@ -431,3 +431,65 @@ model SystemConfiguration {
 
   @@map("system_configurations")
 }
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  clientName  String
+  startDate   DateTime      @db.Date
+  status      ProjectStatus @default(ONGOING)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  updates     ProjectUpdate[]
+  payments    ProjectPayment[]
+
+  @@map("projects")
+}
+
+model ProjectUpdate {
+  id          String   @id @default(cuid())
+  projectId   String
+  update      String   @db.Text
+  issues      String?  @db.Text
+  pendingTasks String? @db.Text
+  workProgress String? @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_updates")
+}
+
+model ProjectPayment {
+  id          String        @id @default(cuid())
+  projectId   String
+  status      PaymentStatus @default(FULL_DUE)
+  amountPaid  Decimal?      @db.Decimal(10, 2)
+  amountDue   Decimal?      @db.Decimal(10, 2)
+  remarks     String?       @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_payments")
+}
+
+enum ProjectStatus {
+  ONGOING
+  COMPLETED
+  ON_HOLD
+}
+
+enum PaymentStatus {
+  FULLY_PAID
+  PARTIALLY_PAID
+  FULL_DUE
+}

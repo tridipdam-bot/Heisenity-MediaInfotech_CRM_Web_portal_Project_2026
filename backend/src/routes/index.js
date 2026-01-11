@@ -4,12 +4,15 @@ import employeeRoutes from '@/modules/staffs/employee/employee.route';
 import taskRoutes from '@/modules/staffs/tasks/task.route';
 import teamRoutes from '@/modules/staffs/teams/team.route';
 import vehicleRoutes from '@/modules/staffs/vehicles/vehicle.route';
+import leaveRoutes from '@/modules/staffs/leave/leave.route';
+import documentRoutes from '@/modules/staffs/documents/document.route';
 import notificationRoutes from '@/modules/notifications/notification.routes';
 import databaseRoutes from './database.route';
 import { authRouter } from './auth.route';
 import employeeIdRoutes from './employeeId.route';
 import fieldEngineerRoutes from './fieldEngineer.route';
 import systemConfigRoutes from './systemConfig.route';
+import projectRoutes from './project.route';
 const router = Router();
 // Mount auth routes
 router.use('/auth', authRouter);
@@ -23,6 +26,10 @@ router.use('/tasks', taskRoutes);
 router.use('/teams', teamRoutes);
 // Mount vehicle routes
 router.use('/', vehicleRoutes);
+// Mount leave routes
+router.use('/leave', leaveRoutes);
+// Mount document routes
+router.use('/documents', documentRoutes);
 // Mount notification routes
 router.use('/', notificationRoutes);
 // Mount database management routes (development only)
@@ -33,6 +40,8 @@ router.use('/employee-id', employeeIdRoutes);
 router.use('/field-engineers', fieldEngineerRoutes);
 // Mount system configuration routes
 router.use('/system-config', systemConfigRoutes);
+// Mount project management routes
+router.use('/projects', projectRoutes);
 // Health check
 router.get('/health', (_req, res) => {
     res.json({

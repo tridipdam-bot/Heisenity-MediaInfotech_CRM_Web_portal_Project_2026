@@ -383,3 +383,37 @@ export const createAttendance = async (req, res) => {
         return res.status(statusCode).json({ success: false, error: errorMessage });
     }
 };
+export const getLocationName = async (req, res) => {
+    try {
+        const { latitude, longitude } = req.body;
+        if (!latitude || !longitude) {
+            return res.status(400).json({
+                success: false,
+                error: 'Latitude and longitude are required'
+            });
+        }
+        // Validate coordinates
+        const lat = parseFloat(latitude);
+        const lng = parseFloat(longitude);
+        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid coordinates provided'
+            });
+        }
+        const coordinates = { latitude: lat, longitude: lng };
+        // Get human-readable location name
+        const locationName = await getHumanReadableLocation(coordinates);
+        return res.status(200).json({
+            success: true,
+            locationName
+        });
+    }
+    catch (error) {
+        console.error('Error getting location name:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to get location name'
+        });
+    }
+};

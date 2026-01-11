@@ -1,6 +1,6 @@
 // modules/staffs/attendance/attendance.route.ts
 import { Router } from "express";
-import { createAttendance, detectDevice, getLocationData, checkRemainingAttempts, getAssignedLocation, getAttendanceRecords, deleteAttendanceRecord, } from "@/modules/staffs/attendance/attendance.controller";
+import { createAttendance, detectDevice, getLocationData, checkRemainingAttempts, getAssignedLocation, getAttendanceRecords, deleteAttendanceRecord, getLocationName, } from "@/modules/staffs/attendance/attendance.controller";
 import { exportAttendanceToExcel, exportAttendanceToPDF, } from "@/modules/staffs/attendance/attendance.export";
 const router = Router();
 /**
@@ -30,6 +30,9 @@ router
     .get(getLocationData)
     .post(getLocationData);
 router.get("/location/:latitude/:longitude", getLocationData);
+// Get location name from coordinates (for office location setup)
+// POST /attendance/get-location-name
+router.post("/get-location-name", getLocationName);
 /**
  * =========================
  * Location & Validation
