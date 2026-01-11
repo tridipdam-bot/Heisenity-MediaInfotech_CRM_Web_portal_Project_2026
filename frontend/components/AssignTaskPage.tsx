@@ -54,7 +54,7 @@ export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned }
       try {
         setLoading(true)
         const [employeesResponse, teamsResponse, vehiclesResponse] = await Promise.all([
-          getAllEmployees({ limit: 1000 }),
+          getAllEmployees({ limit: 1000, role: 'FIELD_ENGINEER' }),
           getAllTeams(),
           getAllVehicles({ status: 'AVAILABLE' })
         ])

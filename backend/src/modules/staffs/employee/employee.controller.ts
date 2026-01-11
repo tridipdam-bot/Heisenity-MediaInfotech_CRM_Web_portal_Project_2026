@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { EmployeeIdGeneratorService } from '@/services/employeeIdGenerator.service'
 
 // Generate next employee ID
 export const generateEmployeeId = async (): Promise<string> => {
@@ -31,7 +32,7 @@ export const generateEmployeeId = async (): Promise<string> => {
 // Get all employees
 export const getAllEmployees = async (req: Request, res: Response) => {
   try {
-    const { page = '1', limit = '50', search, status } = req.query
+    const { page = '1', limit = '50', search, status, role } = req.query
 
     const pageNum = parseInt(page as string) || 1
     const limitNum = parseInt(limit as string) || 50
@@ -52,6 +53,10 @@ export const getAllEmployees = async (req: Request, res: Response) => {
       whereClause.status = status
     }
 
+    if (role && (role === 'FIELD_ENGINEER' || role === 'IN_OFFICE')) {
+      whereClause.role = role
+    }
+
     const employees = await prisma.employee.findMany({
       where: whereClause,
       orderBy: {
@@ -67,6 +72,7 @@ export const getAllEmployees = async (req: Request, res: Response) => {
         phone: true,
         teamId: true,
         isTeamLeader: true,
+        role: true,
         status: true,
         createdAt: true,
         updatedAt: true,
@@ -103,13 +109,21 @@ export const getAllEmployees = async (req: Request, res: Response) => {
 // Create new employee
 export const createEmployee = async (req: Request, res: Response) => {
   try {
-    const { name, email, phone, teamId, isTeamLeader = false, assignedBy, password } = req.body
+    const { name, email, phone, teamId, isTeamLeader = false, assignedBy, password, role = 'IN_OFFICE' } = req.body
 
     // Validate required fields
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
         error: 'Name, email, and password are required'
+      })
+    }
+
+    // Validate role
+    if (!['FIELD_ENGINEER', 'IN_OFFICE'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid role. Must be FIELD_ENGINEER or IN_OFFICE'
       })
     }
 
@@ -125,8 +139,8 @@ export const createEmployee = async (req: Request, res: Response) => {
       })
     }
 
-    // Generate employee ID
-    const employeeId = await generateEmployeeId()
+    // Generate role-based employee ID
+    const employeeId = await EmployeeIdGeneratorService.generateNextEmployeeId(role)
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12)
@@ -142,6 +156,7 @@ export const createEmployee = async (req: Request, res: Response) => {
         teamId: teamId || null,
         isTeamLeader: Boolean(isTeamLeader),
         assignedBy: assignedBy || null,
+        role: role,
         status: 'ACTIVE'
       },
       select: {
@@ -152,6 +167,7 @@ export const createEmployee = async (req: Request, res: Response) => {
         phone: true,
         teamId: true,
         isTeamLeader: true,
+        role: true,
         status: true,
         createdAt: true,
         updatedAt: true
@@ -235,6 +251,7 @@ export const updateEmployee = async (req: Request, res: Response) => {
         phone: true,
         teamId: true,
         isTeamLeader: true,
+        role: true,
         status: true,
         createdAt: true,
         updatedAt: true
@@ -319,6 +336,7 @@ export const getEmployeeById = async (req: Request, res: Response) => {
         phone: true,
         teamId: true,
         isTeamLeader: true,
+        role: true,
         status: true,
         createdAt: true,
         updatedAt: true,
@@ -349,11 +367,21 @@ export const getEmployeeById = async (req: Request, res: Response) => {
 // Get next employee ID (for preview)
 export const getNextEmployeeId = async (req: Request, res: Response) => {
   try {
-    const nextId = await generateEmployeeId()
+    const { role = 'IN_OFFICE' } = req.query
+    
+    // Validate role
+    if (!['FIELD_ENGINEER', 'IN_OFFICE'].includes(role as string)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid role. Must be FIELD_ENGINEER or IN_OFFICE'
+      })
+    }
+    
+    const nextId = await EmployeeIdGeneratorService.generateNextEmployeeId(role as 'FIELD_ENGINEER' | 'IN_OFFICE')
     
     return res.status(200).json({
       success: true,
-      data: { nextEmployeeId: nextId }
+      data: { nextEmployeeId: nextId, role: role }
     })
   } catch (error) {
     console.error('Error getting next employee ID:', error)

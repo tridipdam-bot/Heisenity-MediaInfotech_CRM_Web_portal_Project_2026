@@ -277,6 +277,7 @@ export async function getAttendanceRecords(params?: {
     dateTo?: string
     employeeId?: string
     status?: string
+    role?: string
 }): Promise<GetAttendanceResponse> {
     try {
         const searchParams = new URLSearchParams()
@@ -284,8 +285,11 @@ export async function getAttendanceRecords(params?: {
         if (params?.page) searchParams.append('page', params.page.toString())
         if (params?.limit) searchParams.append('limit', params.limit.toString())
         if (params?.date) searchParams.append('date', params.date)
+        if (params?.dateFrom) searchParams.append('dateFrom', params.dateFrom)
+        if (params?.dateTo) searchParams.append('dateTo', params.dateTo)
         if (params?.employeeId) searchParams.append('employeeId', params.employeeId)
         if (params?.status) searchParams.append('status', params.status)
+        if (params?.role) searchParams.append('role', params.role)
 
         const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
         
@@ -370,90 +374,61 @@ export type ValidateEmployeeIdResponse = {
   error?: string
 }
 
-// Employee ID Generator API Functions
-export async function generateNextEmployeeId(): Promise<GenerateEmployeeIdResponse> {
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employee-id/generate`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
+// Employee ID Generator API Functions (Legacy - using new endpoint now)
+// export async function generateNextEmployeeId(): Promise<GenerateEmployeeIdResponse> {
+//   try {
+//     const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employee-id/generate`, {
+//       method: 'GET',
+//       headers: {
+//         'Content-Type': 'application/json',
+//       },
+//     })
 
-    const data = await response.json()
-    console.log('Generate ID response:', data)
-    return data
-  } catch (error) {
-    console.error('Error generating employee ID:', error)
-    return {
-      success: false,
-      message: 'Failed to generate employee ID',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }
-  }
-}
+//     const data = await response.json()
+//     console.log('Generate ID response:', data)
+//     return data
+//   } catch (error) {
+//     console.error('Error generating employee ID:', error)
+//     return {
+//       success: false,
+//       message: 'Failed to generate employee ID',
+//       error: error instanceof Error ? error.message : 'Unknown error'
+//     }
+//   }
+// }
 
 export async function checkEmployeeIdAvailability(employeeId: string): Promise<CheckEmployeeIdAvailabilityResponse> {
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employee-id/check/${employeeId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    const data = await response.json()
-    return data
-  } catch (error) {
-    console.error('Error checking employee ID availability:', error)
-    return {
-      success: false,
-      message: 'Failed to check employee ID availability',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }
+  // For now, just return available since the backend validation happens during creation
+  return {
+    success: true,
+    message: 'Available',
+    data: { available: true }
   }
 }
 
 export async function getNextAvailableEmployeeIds(count: number = 5): Promise<GetNextAvailableIdsResponse> {
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employee-id/preview?count=${count}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    const data = await response.json()
-    return data
-  } catch (error) {
-    console.error('Error getting next available employee IDs:', error)
-    return {
-      success: false,
-      message: 'Failed to get next available employee IDs',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }
+  // For now, return empty array since the component has fallback logic
+  return {
+    success: false,
+    message: 'Using fallback method',
+    error: 'Backend preview not available'
   }
 }
 
 export async function validateEmployeeIdFormat(employeeId: string): Promise<ValidateEmployeeIdResponse> {
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employee-id/validate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ employeeId })
-    })
-
-    const data = await response.json()
-    return data
-  } catch (error) {
-    console.error('Error validating employee ID format:', error)
-    return {
-      success: false,
-      message: 'Failed to validate employee ID format',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }
+  // Client-side validation for role-based IDs
+  const patterns = {
+    FIELD_ENGINEER: /^FE\d{3}$/,
+    IN_OFFICE: /^IO\d{3}$/,
+    LEGACY: /^EMP\d{3}$/
+  }
+  
+  const isValid = Object.values(patterns).some(pattern => pattern.test(employeeId))
+  
+  return {
+    success: true,
+    message: isValid ? 'Valid format' : 'Invalid format',
+    data: { valid: isValid }
   }
 }
 
@@ -616,6 +591,7 @@ export type CreateEmployeeRequest = {
   teamId?: string
   isTeamLeader?: boolean
   assignedBy?: string
+  role?: 'FIELD_ENGINEER' | 'IN_OFFICE'
 }
 
 export type CreateEmployeeResponse = {
@@ -646,6 +622,7 @@ export type GetNextEmployeeIdResponse = {
   success: boolean
   data?: {
     nextEmployeeId: string
+    role?: string
   }
   error?: string
 }
@@ -656,6 +633,7 @@ export async function getAllEmployees(params?: {
   limit?: number
   search?: string
   status?: string
+  role?: string
 }): Promise<GetEmployeesResponse> {
   try {
     const searchParams = new URLSearchParams()
@@ -664,6 +642,7 @@ export async function getAllEmployees(params?: {
     if (params?.limit) searchParams.append('limit', params.limit.toString())
     if (params?.search) searchParams.append('search', params.search)
     if (params?.status) searchParams.append('status', params.status)
+    if (params?.role) searchParams.append('role', params.role)
 
     const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/employees${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
     
@@ -771,9 +750,9 @@ export async function getEmployeeById(id: string): Promise<{ success: boolean; d
   }
 }
 
-export async function getNextEmployeeId(): Promise<GetNextEmployeeIdResponse> {
+export async function getNextEmployeeId(role: 'FIELD_ENGINEER' | 'IN_OFFICE' = 'IN_OFFICE'): Promise<GetNextEmployeeIdResponse> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employees/next-id`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employees/next-id?role=${role}`, {
       cache: 'no-store'
     })
 

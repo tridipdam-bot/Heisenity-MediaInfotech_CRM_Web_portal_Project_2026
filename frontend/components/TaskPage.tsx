@@ -7,11 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { AddAttendanceRecord } from "@/components/AddAttendanceRecord"
 import { AssignTaskPage } from "@/components/AssignTaskPage"
 import { DateRangePicker } from "@/components/DateRangePicker"
 import { VehiclesPage } from "@/components/VehiclesPage"
-import { showToast, showConfirm } from "@/lib/toast-utils"
+import { showToast } from "@/lib/toast-utils"
 import {
   ChevronLeft,
   ChevronRight,
@@ -27,12 +26,11 @@ import {
   MoreVertical,
   Loader2,
   RefreshCw,
-  Plus,
   X,
   UserPlus,
   Car
 } from "lucide-react"
-import { getAttendanceRecords, getAllEmployees, getAllTeams, getAllVehicles, AttendanceRecord, Employee, Team, Vehicle, deleteAttendanceRecord, exportAttendanceToExcel, exportAttendanceToPDF, ExportParams } from "@/lib/server-api"
+import { getAttendanceRecords, getAllEmployees, getAllTeams, getAllVehicles, AttendanceRecord, Employee, Team, Vehicle, exportAttendanceToExcel, exportAttendanceToPDF, ExportParams } from "@/lib/server-api"
 
 interface DateRange {
   from: Date | null
@@ -165,7 +163,6 @@ const calculateWorkHours = (clockIn?: string, clockOut?: string) => {
 
 
 export function AttendancePage() {
-  const [showAddForm, setShowAddForm] = React.useState(false)
   const [showAssignPage, setShowAssignPage] = React.useState(false)
   const [showVehiclePage, setShowVehiclePage] = React.useState(false)
   const [currentDate, setCurrentDate] = React.useState(new Date().toLocaleDateString('en-US', {
@@ -194,7 +191,6 @@ export function AttendancePage() {
   const [selectedEmployee, setSelectedEmployee] = React.useState<string | null>(null)
   const [selectedRecord, setSelectedRecord] = React.useState<ExtendedAttendanceRecord | null>(null)
   const [showViewDetails, setShowViewDetails] = React.useState(false)
-  const [deleteLoading, setDeleteLoading] = React.useState<string | null>(null)
   const [exportLoading, setExportLoading] = React.useState<'excel' | 'pdf' | null>(null)
 
   const fetchAttendanceData = React.useCallback(async () => {
@@ -204,7 +200,7 @@ export function AttendancePage() {
 
       // Fetch all employees, teams, and vehicles first
       const [employeesResponse, teamsResponse, vehiclesResponse] = await Promise.all([
-        getAllEmployees({ limit: 1000 }), // Get all employees
+        getAllEmployees({ limit: 1000, role: 'FIELD_ENGINEER' }), // Get only field engineers
         getAllTeams(), // Get all teams
         getAllVehicles() // Get all vehicles
       ])
@@ -346,15 +342,6 @@ export function AttendancePage() {
     setPagination(prev => ({ ...prev, page: 1 }))
   }, [filters.search, filters.status, filters.teamId, filters.dateRange.from, filters.dateRange.to])
 
-  const handleRecordAdded = () => {
-    // Employee added - refresh the attendance data
-    setShowAddForm(false)
-    // Refresh data to show the new employee
-    setTimeout(() => {
-      fetchAttendanceData()
-    }, 1000)
-  }
-
   const handleRefresh = () => {
     fetchAttendanceData()
   }
@@ -367,36 +354,6 @@ export function AttendancePage() {
   const handleViewDetails = (record: ExtendedAttendanceRecord) => {
     setSelectedRecord(record)
     setShowViewDetails(true)
-  }
-
-  const handleDeleteRecord = async (record: ExtendedAttendanceRecord) => {
-    if (!record.hasAttendance) {
-      return // Can't delete placeholder records
-    }
-
-    showConfirm(
-      `Are you sure you want to delete the attendance record for ${record.employeeName} on ${new Date(record.date).toLocaleDateString()}?`,
-      async () => {
-        try {
-          setDeleteLoading(record.id)
-          const response = await deleteAttendanceRecord(record.id)
-          
-          if (response.success) {
-            // Refresh the data to reflect the deletion
-            fetchAttendanceData()
-            showToast.success('Attendance record deleted successfully')
-          } else {
-            showToast.error(response.error || 'Failed to delete attendance record')
-          }
-        } catch (error) {
-          console.error('Error deleting attendance record:', error)
-          showToast.error('Failed to delete attendance record')
-        } finally {
-          setDeleteLoading(null)
-        }
-      },
-      'Delete Attendance Record'
-    )
   }
 
   const handleExport = async (format: 'excel' | 'pdf') => {
@@ -526,12 +483,7 @@ export function AttendancePage() {
 
   return (
     <div className="min-h-screen bg-gray-50/30">
-      {showAddForm ? (
-        <AddAttendanceRecord
-          onRecordAdded={handleRecordAdded}
-          onBack={() => setShowAddForm(false)}
-        />
-      ) : showAssignPage ? (
+      {showAssignPage ? (
         <AssignTaskPage
           onBack={() => setShowAssignPage(false)}
           preSelectedEmployeeId={selectedEmployee || undefined}
@@ -620,13 +572,6 @@ export function AttendancePage() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button
-                  onClick={() => setShowAddForm(true)}
-                  className="bg-blue-600 hover:bg-blue-700 shadow-sm"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Employee
-                </Button>
               </div>
             </div>
 

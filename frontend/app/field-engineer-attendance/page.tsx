@@ -1,7 +1,5 @@
-"use client"
-
 import { AttendanceManagementPage } from "@/components/FieldEngineerAttendanceManagementPage"
 
-export default function AttendanceManagement() {
+export default function FieldEngineerAttendancePage() {
   return <AttendanceManagementPage />
 }

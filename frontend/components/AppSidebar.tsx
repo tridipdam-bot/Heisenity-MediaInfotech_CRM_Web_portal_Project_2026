@@ -42,18 +42,18 @@ const navigationItems = [
         description: "Overview and analytics"
     },
     {
-        title: "Staff Management",
+        title: "Task Management",
         url: "/attendance",
         icon: Users,
         badge: "12",
-        description: "Employee time tracking"
+        description: "Task tracking"
     },
     {
         title: "Field Engineer",
-        url: "/attendance-management",
+        url: "/field-engineer-attendance",
         icon: Clock,
         badge: null,
-        description: "Clock-in/out records"
+        description: "Field engineer attendance"
     },
     {
         title: "InOffice Employee",

@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import { DateRangePicker } from "@/components/DateRangePicker"
+import { AddAttendanceRecord } from "@/components/AddAttendanceRecord"
 import { showToast, showConfirm } from "@/lib/toast-utils"
 
 import {
@@ -28,7 +29,8 @@ import {
   X,
   ClockIcon,
   Timer,
-  Calendar
+  Calendar,
+  Plus
 } from "lucide-react"
 import { getAttendanceRecords, getAllEmployees, deleteAttendanceRecord, exportAttendanceToExcel, exportAttendanceToPDF, ExportParams, AttendanceRecord, Employee } from "@/lib/server-api"
 
@@ -121,6 +123,7 @@ const calculateWorkHours = (clockIn?: string, clockOut?: string) => {
 }
 
 export function AttendanceManagementPage() {
+  const [showAddForm, setShowAddForm] = React.useState(false)
   const [currentDate, setCurrentDate] = React.useState(new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -150,8 +153,8 @@ export function AttendanceManagementPage() {
       setLoading(true)
       setError(null)
 
-      // Fetch all employees first
-      const employeesResponse = await getAllEmployees({ limit: 1000 })
+      // Fetch all employees first (only IN_OFFICE employees)
+      const employeesResponse = await getAllEmployees({ limit: 1000, role: 'IN_OFFICE' })
 
       let employees: Employee[] = []
       if (employeesResponse.success && employeesResponse.data) {
@@ -187,6 +190,9 @@ export function AttendanceManagementPage() {
       if (filters.status) {
         params.status = filters.status
       }
+
+      // Add role filter for IN_OFFICE employees only
+      params.role = 'IN_OFFICE'
 
       const response = await getAttendanceRecords(params)
 
@@ -280,6 +286,15 @@ export function AttendanceManagementPage() {
 
   const handleRefresh = () => {
     fetchAttendanceData()
+  }
+
+  const handleRecordAdded = () => {
+    // Employee added - refresh the attendance data
+    setShowAddForm(false)
+    // Refresh data to show the new employee
+    setTimeout(() => {
+      fetchAttendanceData()
+    }, 1000)
   }
 
   const handleDeleteRecord = async (record: ExtendedAttendanceRecord) => {
@@ -443,13 +458,20 @@ export function AttendanceManagementPage() {
 
   return (
     <div className="min-h-screen bg-gray-50/30">
-      <div className="p-6 space-y-6">
+      {showAddForm ? (
+        <AddAttendanceRecord
+          onRecordAdded={handleRecordAdded}
+          onBack={() => setShowAddForm(false)}
+          role="IN_OFFICE"
+        />
+      ) : (
+        <div className="p-6 space-y-6">
         {/* Header Section */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="space-y-1">
-              <h1 className="text-2xl font-bold text-gray-900">Attendance Management</h1>
-              <p className="text-gray-600">Monitor employee clock-in, clock-out, and overtime records</p>
+              <h1 className="text-2xl font-bold text-gray-900">In-Office Attendance</h1>
+              <p className="text-gray-600">Monitor in-office employee clock-in, clock-out, and overtime records</p>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -493,6 +515,13 @@ export function AttendanceManagementPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <Button
+                onClick={() => setShowAddForm(true)}
+                className="bg-blue-600 hover:bg-blue-700 shadow-sm"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Office Employee
+              </Button>
             </div>
           </div>
 
@@ -554,7 +583,7 @@ export function AttendanceManagementPage() {
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-gray-900">{stats.present}</span>
                 </div>
-                <p className="text-xs text-gray-500">employees present</p>
+                <p className="text-xs text-gray-500">office employees present</p>
               </div>
             </CardContent>
           </Card>
@@ -592,7 +621,7 @@ export function AttendanceManagementPage() {
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-gray-900">{stats.absent}</span>
                 </div>
-                <p className="text-xs text-gray-500">employees absent</p>
+                <p className="text-xs text-gray-500">office employees absent</p>
               </div>
             </CardContent>
           </Card>
@@ -646,7 +675,7 @@ export function AttendanceManagementPage() {
                 <div className="relative flex-1 max-w-sm">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder="Search employees..."
+                    placeholder="Search office employees..."
                     className="pl-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                     value={filters.search}
                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
@@ -758,7 +787,7 @@ export function AttendanceManagementPage() {
 
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className="text-gray-600">
-                  {combinedData.length} employees found
+                  {combinedData.length} office employees found
                 </Badge>
               </div>
             </div>
@@ -791,7 +820,7 @@ export function AttendanceManagementPage() {
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600 font-medium">No employees found</p>
+                <p className="text-gray-600 font-medium">No office employees found</p>
                 <p className="text-gray-500 text-sm">Try adjusting your filters</p>
               </div>
             </div>
@@ -922,7 +951,7 @@ export function AttendanceManagementPage() {
         {!loading && !error && combinedData.length > 0 && (
           <div className="flex items-center justify-between text-sm text-gray-500 bg-white rounded-lg p-4 border border-gray-200">
             <div>
-              Showing {combinedData.length} of {pagination.total} employees
+              Showing {combinedData.length} of {pagination.total} office employees
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -976,6 +1005,7 @@ export function AttendanceManagementPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

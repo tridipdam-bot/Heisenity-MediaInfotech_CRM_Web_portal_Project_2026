@@ -9,15 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Clock, Loader2, CheckCircle, AlertCircle, User, Info, ArrowLeft, Save, Plus, Upload, Camera } from "lucide-react"
-import { createFieldEngineer } from "@/lib/server-api"
+import { createEmployee } from "@/lib/server-api"
 import { EmployeeIdGenerator } from "@/components/EmployeeIdGenerator"
 
 interface AddAttendanceRecordProps {
   onRecordAdded?: () => void // Changed to just notify without passing record
   onBack?: () => void
+  role?: 'FIELD_ENGINEER' | 'IN_OFFICE' // Add role prop
 }
 
-export function AddAttendanceRecord({ onRecordAdded, onBack }: AddAttendanceRecordProps) {
+export function AddAttendanceRecord({ onRecordAdded, onBack, role = 'FIELD_ENGINEER' }: AddAttendanceRecordProps) {
   const [loading, setLoading] = React.useState(false)
   const [showSuccess, setShowSuccess] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -64,20 +65,20 @@ export function AddAttendanceRecord({ onRecordAdded, onBack }: AddAttendanceReco
     setError(null)
 
     try {
-      // First, create the field engineer
-      const fieldEngineerData = {
+      // Create the employee with the specified role
+      const employeeData = {
         name: formData.employeeName.trim(),
-        employeeId: formData.employeeId.trim(),
         email: formData.email.trim(),
         password: formData.password.trim(),
         phone: formData.phone.trim() || undefined,
-        isTeamLeader: formData.isTeamLeader
+        isTeamLeader: formData.isTeamLeader,
+        role: role // Use the role prop
       }
 
-      const fieldEngineerResponse = await createFieldEngineer(fieldEngineerData)
+      const employeeResponse = await createEmployee(employeeData)
       
-      if (!fieldEngineerResponse.success) {
-        setError(fieldEngineerResponse.message || 'Failed to create field engineer')
+      if (!employeeResponse.success) {
+        setError(employeeResponse.error || 'Failed to create employee')
         return
       }
 
@@ -100,7 +101,7 @@ export function AddAttendanceRecord({ onRecordAdded, onBack }: AddAttendanceReco
         onBack?.()
       }, 2000)
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to create field engineer')
+      setError(error instanceof Error ? error.message : 'Failed to create employee')
     } finally {
       setLoading(false)
     }
@@ -141,7 +142,7 @@ export function AddAttendanceRecord({ onRecordAdded, onBack }: AddAttendanceReco
             </Button>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Add New Employee</h1>
-              <p className="text-gray-600 mt-1">Create a new field engineer account</p>
+              <p className="text-gray-600 mt-1">Create a new {role === 'FIELD_ENGINEER' ? 'field engineer' : 'office employee'} account</p>
             </div>
           </div>
         </div>
@@ -187,7 +188,7 @@ export function AddAttendanceRecord({ onRecordAdded, onBack }: AddAttendanceReco
                   <CardHeader className="pb-4">
                     <CardTitle className="flex items-center gap-2 text-lg text-green-900">
                       <Plus className="h-5 w-5" />
-                      Add New Field Engineer
+                      Add New {role === 'FIELD_ENGINEER' ? 'Field Engineer' : 'Office Employee'}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -271,6 +272,7 @@ export function AddAttendanceRecord({ onRecordAdded, onBack }: AddAttendanceReco
                           value={formData.employeeId}
                           onChange={(value) => setFormData(prev => ({ ...prev, employeeId: value }))}
                           disabled={loading}
+                          role={role}
                         />
                       </div>
 
@@ -324,7 +326,7 @@ export function AddAttendanceRecord({ onRecordAdded, onBack }: AddAttendanceReco
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="engineer">Field Engineer</SelectItem>
+                            <SelectItem value="engineer">{role === 'FIELD_ENGINEER' ? 'Field Engineer' : 'Office Employee'}</SelectItem>
                             <SelectItem value="leader">Team Leader</SelectItem>
                           </SelectContent>
                         </Select>
@@ -403,7 +405,7 @@ export function AddAttendanceRecord({ onRecordAdded, onBack }: AddAttendanceReco
                     <div className="flex justify-between">
                       <span className="text-gray-500">Role:</span>
                       <Badge className="bg-purple-100 text-purple-800">
-                        {formData.isTeamLeader ? 'Team Leader' : 'Field Engineer'}
+                        {formData.isTeamLeader ? 'Team Leader' : (role === 'FIELD_ENGINEER' ? 'Field Engineer' : 'Office Employee')}
                       </Badge>
                     </div>
                   </div>
@@ -428,7 +430,7 @@ export function AddAttendanceRecord({ onRecordAdded, onBack }: AddAttendanceReco
                         <User className="h-3 w-3 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-blue-900">New Field Engineer</p>
+                        <p className="text-sm font-medium text-blue-900">New {role === 'FIELD_ENGINEER' ? 'Field Engineer' : 'Office Employee'}</p>
                         <p className="text-xs text-blue-700 mt-1">Creates employee account only - no attendance</p>
                       </div>
                     </div>

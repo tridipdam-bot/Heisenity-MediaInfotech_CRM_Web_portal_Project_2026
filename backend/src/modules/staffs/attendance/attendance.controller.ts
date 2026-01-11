@@ -15,7 +15,8 @@ export const getAttendanceRecords = async (req: Request, res: Response) => {
       dateFrom,
       dateTo,
       employeeId,
-      status
+      status,
+      role
     } = req.query
 
     const pageNum = parseInt(page as string, 10)
@@ -103,8 +104,14 @@ export const getAttendanceRecords = async (req: Request, res: Response) => {
       take: limitNum
     })
 
+    // Filter by role if specified
+    let filteredAttendances = attendances
+    if (role && (role === 'FIELD_ENGINEER' || role === 'IN_OFFICE')) {
+      filteredAttendances = attendances.filter(attendance => attendance.employee.role === role)
+    }
+
     // Transform the data to match frontend expectations
-    const records = attendances.map(attendance => ({
+    const records = filteredAttendances.map(attendance => ({
       id: attendance.id,
       employeeId: attendance.employee.employeeId,
       employeeName: attendance.employee.name,
@@ -146,7 +153,7 @@ export const getAttendanceRecords = async (req: Request, res: Response) => {
       } : undefined
     }))
 
-    const totalPages = Math.ceil(total / limitNum)
+    const totalPages = Math.ceil(filteredAttendances.length / limitNum)
 
     return res.status(200).json({
       success: true,
@@ -155,7 +162,7 @@ export const getAttendanceRecords = async (req: Request, res: Response) => {
         pagination: {
           page: pageNum,
           limit: limitNum,
-          total,
+          total: filteredAttendances.length,
           totalPages
         }
       }

@@ -189,9 +189,24 @@ export async function validateEmployeeLocation(
   const now = new Date()
 
   // Find employee
-  const employee = await prisma.fieldEngineer.findUnique({ where: { employeeId } })
+  const employee = await prisma.employee.findUnique({ where: { employeeId } })
   if (!employee) {
     return { isValid: false, details: 'Employee not found', code: 'EMPLOYEE_NOT_FOUND' }
+  }
+
+  // Role-based validation logic
+  if (employee.role === 'IN_OFFICE') {
+    // For in-office employees, no location validation required
+    return {
+      isValid: true,
+      details: 'In-office employee - no location validation required',
+      confidence: 'exact'
+    }
+  }
+
+  // For field engineers, continue with existing validation logic
+  if (employee.role !== 'FIELD_ENGINEER') {
+    return { isValid: false, details: 'Unknown employee role', code: 'UNKNOWN_ROLE' }
   }
 
   // Find today's assignment
@@ -330,8 +345,90 @@ export async function createAttendanceRecord(data: {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const employee = await prisma.fieldEngineer.findUnique({ where: { employeeId: data.employeeId } })
+  const employee = await prisma.employee.findUnique({ where: { employeeId: data.employeeId } })
   if (!employee) throw new Error('EMPLOYEE_NOT_FOUND')
+
+  // Role-based logic for attendance creation
+  if (employee.role === 'IN_OFFICE') {
+    // For in-office employees, create attendance without location validation
+    const deviceInfo = getDeviceInfo(data.userAgent)
+    const deviceString = `${deviceInfo.os} - ${deviceInfo.browser} - ${deviceInfo.device}`
+    
+    // Check for existing attendance
+    const existing = await prisma.attendance.findUnique({
+      where: { employeeId_date: { employeeId: employee.id, date: today } }
+    })
+    
+    if (existing && existing.locked) throw new Error('ATTENDANCE_LOCKED')
+
+    const updateData: any = {
+      latitude: null, // In-office employees don't need coordinates
+      longitude: null,
+      location: data.locationText || 'Office',
+      ipAddress: data.ipAddress,
+      deviceInfo: deviceString,
+      photo: data.photo ?? existing?.photo,
+      status: data.status,
+      source: 'SELF',
+      updatedAt: new Date(),
+      attemptCount: 'ZERO'
+    }
+
+    // Handle check-in/check-out for in-office employees
+    if (data.action === 'check-in') {
+      updateData.clockIn = new Date()
+    } else if (data.action === 'check-out') {
+      updateData.clockOut = new Date()
+    } else {
+      if (!existing?.clockIn && (data.status === 'PRESENT' || data.status === 'LATE')) {
+        updateData.clockIn = new Date()
+      }
+    }
+
+    const saved = existing
+      ? await prisma.attendance.update({
+          where: { id: existing.id },
+          data: {
+            ...updateData,
+            clockIn: updateData.clockIn !== undefined ? updateData.clockIn : existing.clockIn,
+            clockOut: updateData.clockOut !== undefined ? updateData.clockOut : existing.clockOut
+          }
+        })
+      : await prisma.attendance.create({
+          data: {
+            employeeId: employee.id,
+            date: today,
+            clockIn: updateData.clockIn || (data.status === 'PRESENT' || data.status === 'LATE' ? new Date() : null),
+            clockOut: updateData.clockOut || null,
+            latitude: null,
+            longitude: null,
+            location: updateData.location,
+            ipAddress: data.ipAddress,
+            deviceInfo: deviceString,
+            photo: data.photo,
+            status: data.status,
+            source: 'SELF',
+            lockedReason: '',
+            locked: false,
+            attemptCount: 'ZERO'
+          }
+        })
+
+    return {
+      employeeId: data.employeeId,
+      timestamp: saved.createdAt.toISOString(),
+      location: saved.location || 'Office',
+      ipAddress: saved.ipAddress || data.ipAddress || '',
+      deviceInfo: saved.deviceInfo || deviceString || '',
+      photo: saved.photo || data.photo || undefined,
+      status: saved.status as any
+    }
+  }
+
+  // For field engineers, continue with existing validation logic
+  if (employee.role !== 'FIELD_ENGINEER') {
+    throw new Error('UNKNOWN_ROLE')
+  }
 
   // read existing attendance if any
   const existing = await prisma.attendance.findUnique({
@@ -774,7 +871,7 @@ export async function getRemainingAttempts(employeeId: string): Promise<{ remain
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const employee = await prisma.fieldEngineer.findUnique({ where: { employeeId } })
+  const employee = await prisma.employee.findUnique({ where: { employeeId } })
   if (!employee) throw new Error('EMPLOYEE_NOT_FOUND')
 
   const attendance = await prisma.attendance.findUnique({
@@ -797,7 +894,7 @@ export async function getRemainingAttempts(employeeId: string): Promise<{ remain
 export async function getTodayAssignedLocation(employeeId: string) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const employee = await prisma.fieldEngineer.findUnique({ where: { employeeId } })
+  const employee = await prisma.employee.findUnique({ where: { employeeId } })
   if (!employee) throw new Error('EMPLOYEE_NOT_FOUND')
   return await prisma.dailyLocation.findUnique({
     where: { employeeId_date: { employeeId: employee.id, date: today } }

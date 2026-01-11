@@ -27,9 +27,10 @@ interface EmployeeIdGeneratorProps {
   value: string
   onChange: (value: string) => void
   disabled?: boolean
+  role?: 'FIELD_ENGINEER' | 'IN_OFFICE'
 }
 
-export function EmployeeIdGenerator({ value, onChange, disabled }: EmployeeIdGeneratorProps) {
+export function EmployeeIdGenerator({ value, onChange, disabled, role = 'IN_OFFICE' }: EmployeeIdGeneratorProps) {
   const [loading, setLoading] = React.useState(false)
   const [checking, setChecking] = React.useState(false)
   const [showPreview, setShowPreview] = React.useState(false)
@@ -48,6 +49,9 @@ export function EmployeeIdGenerator({ value, onChange, disabled }: EmployeeIdGen
 
   // Simple client-side ID generator as fallback that follows proper sequence
   const generateFallbackId = async () => {
+    const prefix = role === 'FIELD_ENGINEER' ? 'FE' : 'IO'
+    const pattern = role === 'FIELD_ENGINEER' ? /^FE(\d+)$/ : /^IO(\d+)$/
+    
     try {
       // Try to get existing attendance records to find the highest employee ID
       const response = await fetch('/api/v1/attendance?limit=1000')
@@ -56,11 +60,11 @@ export function EmployeeIdGenerator({ value, onChange, disabled }: EmployeeIdGen
         if (data.success && data.data?.records) {
           const existingIds = data.data.records
             .map((record: any) => record.employeeId)
-            .filter((id: string) => id && id.startsWith('EMP'))
+            .filter((id: string) => id && id.startsWith(prefix))
           
           let highestNumber = 0
           for (const id of existingIds) {
-            const match = id.match(/^EMP(\d+)$/)
+            const match = id.match(pattern)
             if (match) {
               const number = parseInt(match[1], 10)
               if (number > highestNumber) {
@@ -70,15 +74,15 @@ export function EmployeeIdGenerator({ value, onChange, disabled }: EmployeeIdGen
           }
           
           const nextNumber = highestNumber + 1
-          return `EMP${nextNumber.toString().padStart(3, '0')}`
+          return `${prefix}${nextNumber.toString().padStart(3, '0')}`
         }
       }
     } catch (error) {
       console.log('Could not fetch existing records for fallback')
     }
     
-    // Ultimate fallback: start from EMP001
-    return 'EMP001'
+    // Ultimate fallback: start from 001
+    return `${prefix}001`
   }
 
   // Check availability when value changes
@@ -93,23 +97,23 @@ export function EmployeeIdGenerator({ value, onChange, disabled }: EmployeeIdGen
   const handleGenerateId = async () => {
     setLoading(true)
     try {
-      console.log('Generating employee ID...')
-      const response = await generateNextEmployeeId()
+      console.log('Generating employee ID for role:', role)
+      const response = await getNextEmployeeId(role)
       console.log('Generate ID response:', response)
       
       if (response.success && response.data) {
-        onChange(response.data.employeeId)
-        console.log('Generated ID:', response.data.employeeId)
+        onChange(response.data.nextEmployeeId)
+        console.log('Generated ID:', response.data.nextEmployeeId)
       } else {
-        console.error('Failed to generate ID:', response.message)
-        // Fallback: generate a proper sequential ID
+        console.error('Failed to generate ID:', response.error)
+        // Fallback: generate a proper sequential ID based on role
         const fallbackId = await generateFallbackId()
         onChange(fallbackId)
         console.log('Using fallback ID:', fallbackId)
       }
     } catch (error) {
       console.error('Error generating employee ID:', error)
-      // Fallback: generate a proper sequential ID
+      // Fallback: generate a proper sequential ID based on role
       const fallbackId = await generateFallbackId()
       onChange(fallbackId)
       console.log('Using fallback ID due to error:', fallbackId)
@@ -119,16 +123,22 @@ export function EmployeeIdGenerator({ value, onChange, disabled }: EmployeeIdGen
   }
 
   const checkAvailability = async (employeeId: string) => {
-    if (!employeeId || employeeId.length < 6) return
+    if (!employeeId || employeeId.length < 5) return
     
     setChecking(true)
     try {
-      // First validate format
-      const pattern = /^EMP\d{3}$/
+      // First validate format based on role
+      const patterns = {
+        FIELD_ENGINEER: /^FE\d{3}$/,
+        IN_OFFICE: /^IO\d{3}$/
+      }
+      
+      const pattern = patterns[role]
       if (!pattern.test(employeeId)) {
+        const example = role === 'FIELD_ENGINEER' ? 'FE001, FE002, etc.' : 'IO001, IO002, etc.'
         setAvailability({
           available: false,
-          message: 'Invalid format. Use EMP001, EMP002, etc.'
+          message: `Invalid format. Use ${example}`
         })
         return
       }
@@ -188,6 +198,9 @@ export function EmployeeIdGenerator({ value, onChange, disabled }: EmployeeIdGen
 
     setLoading(true)
     try {
+      const prefix = role === 'FIELD_ENGINEER' ? 'FE' : 'IO'
+      const pattern = role === 'FIELD_ENGINEER' ? /^FE(\d+)$/ : /^IO(\d+)$/
+      
       // Try backend first
       try {
         const response = await getNextAvailableEmployeeIds(5)
@@ -207,11 +220,11 @@ export function EmployeeIdGenerator({ value, onChange, disabled }: EmployeeIdGen
         if (data.success && data.data?.records) {
           const existingIds = data.data.records
             .map((record: any) => record.employeeId)
-            .filter((id: string) => id && id.startsWith('EMP'))
+            .filter((id: string) => id && id.startsWith(prefix))
           
           let highestNumber = 0
           for (const id of existingIds) {
-            const match = id.match(/^EMP(\d+)$/)
+            const match = id.match(pattern)
             if (match) {
               const number = parseInt(match[1], 10)
               if (number > highestNumber) {
@@ -223,7 +236,7 @@ export function EmployeeIdGenerator({ value, onChange, disabled }: EmployeeIdGen
           const previewIds = []
           for (let i = 1; i <= 5; i++) {
             const nextNumber = highestNumber + i
-            previewIds.push(`EMP${nextNumber.toString().padStart(3, '0')}`)
+            previewIds.push(`${prefix}${nextNumber.toString().padStart(3, '0')}`)
           }
           
           setNextIds(previewIds)
@@ -233,13 +246,22 @@ export function EmployeeIdGenerator({ value, onChange, disabled }: EmployeeIdGen
       }
 
       // Ultimate fallback
-      setNextIds(['EMP001', 'EMP002', 'EMP003', 'EMP004', 'EMP005'])
+      const fallbackIds = []
+      for (let i = 1; i <= 5; i++) {
+        fallbackIds.push(`${prefix}${i.toString().padStart(3, '0')}`)
+      }
+      setNextIds(fallbackIds)
       setShowPreview(true)
 
     } catch (error) {
       console.error('Error getting preview IDs:', error)
       // Show default preview
-      setNextIds(['EMP001', 'EMP002', 'EMP003', 'EMP004', 'EMP005'])
+      const prefix = role === 'FIELD_ENGINEER' ? 'FE' : 'IO'
+      const fallbackIds = []
+      for (let i = 1; i <= 5; i++) {
+        fallbackIds.push(`${prefix}${i.toString().padStart(3, '0')}`)
+      }
+      setNextIds(fallbackIds)
       setShowPreview(true)
     } finally {
       setLoading(false)
@@ -275,7 +297,7 @@ export function EmployeeIdGenerator({ value, onChange, disabled }: EmployeeIdGen
           <div className="relative flex-1">
             <Input
               id="employeeId"
-              placeholder="EMP001"
+              placeholder={role === 'FIELD_ENGINEER' ? 'FE001' : 'IO001'}
               value={value}
               onChange={(e) => onChange(e.target.value.toUpperCase())}
               disabled={disabled}
@@ -331,7 +353,9 @@ export function EmployeeIdGenerator({ value, onChange, disabled }: EmployeeIdGen
         {/* Help Text */}
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <Info className="h-3 w-3" />
-          <span>Format: EMP001, EMP002, etc. Click the wand to auto-generate.</span>
+          <span>
+            Format: {role === 'FIELD_ENGINEER' ? 'FE001, FE002, etc.' : 'IO001, IO002, etc.'} Click the wand to auto-generate.
+          </span>
         </div>
       </div>
 

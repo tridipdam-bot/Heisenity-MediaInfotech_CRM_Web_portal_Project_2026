@@ -44,7 +44,7 @@ class AuthService {
           }
         })
 
-        if (!employee || password !== employee.password) {
+        if (!employee || !await bcrypt.compare(password, employee.password)) {
           return null
         }
 
@@ -137,13 +137,16 @@ class AuthService {
         }
       }
 
-      // Create employee (password is stored as plain text for now)
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 12)
+
+      // Create employee
       const employee = await prisma.employee.create({
         data: {
           name,
           employeeId,
           email,
-          password, // Store as plain text for now
+          password: hashedPassword, // Store hashed password
           phone,
           teamId
         }

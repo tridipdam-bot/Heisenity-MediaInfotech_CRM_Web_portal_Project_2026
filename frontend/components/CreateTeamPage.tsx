@@ -42,7 +42,7 @@ export function CreateTeamPage({ onBack, onTeamCreated }: CreateTeamPageProps) {
     const fetchEmployees = async () => {
       try {
         setLoading(true)
-        const response = await getAllEmployees({ limit: 1000 })
+        const response = await getAllEmployees({ limit: 1000, role: 'FIELD_ENGINEER' })
         if (response.success && response.data) {
           setEmployees(response.data.employees)
         }

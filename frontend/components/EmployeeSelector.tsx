@@ -134,6 +134,7 @@ export function EmployeeSelector({
             value={selectedEmployeeId}
             onChange={(value) => onEmployeeChange(value)}
             disabled={disabled}
+            role="FIELD_ENGINEER"
           />
 
           {/* Add New Employee Button */}
@@ -186,6 +187,7 @@ export function EmployeeSelector({
                   value={newEmployee.employeeId}
                   onChange={(value) => setNewEmployee(prev => ({ ...prev, employeeId: value }))}
                   disabled={addingEmployee}
+                  role="FIELD_ENGINEER"
                 />
               </div>
 
