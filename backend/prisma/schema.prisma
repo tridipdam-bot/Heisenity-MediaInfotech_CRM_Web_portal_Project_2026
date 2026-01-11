@@ -63,6 +63,8 @@ model Employee {
   assignedVehicle     Vehicle?
   petrolBills         PetrolBill[]
   payrollRecords      PayrollRecord[]
+  leaveApplications   LeaveApplication[]
+  documents           EmployeeDocument[]
 
   /**
    * ---------- Relations ----------
@@ -351,6 +353,70 @@ enum AdminNotificationType {
   VEHICLE_UNASSIGNED
   TASK_COMPLETED
   ATTENDANCE_ALERT
+}
+
+model EmployeeDocument {
+  id          String   @id @default(cuid())
+  employeeId  String
+  title       String
+  description String?  @db.Text
+  fileName    String
+  filePath    String   @db.Text
+  fileSize    Int
+  mimeType    String
+  uploadedBy  String   // Admin ID
+  uploadedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([uploadedAt])
+  @@map("employee_documents")
+}
+
+model LeaveApplication {
+  id          String            @id @default(cuid())
+  employeeId  String
+  leaveType   LeaveType
+  startDate   DateTime          @db.Date
+  endDate     DateTime          @db.Date
+  reason      String            @db.Text
+  status      LeaveStatus       @default(PENDING)
+  appliedAt   DateTime          @default(now())
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?           @db.Text
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  employee    Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDate])
+  @@index([appliedAt])
+  @@map("leave_applications")
+}
+
+enum LeaveType {
+  SICK_LEAVE
+  CASUAL_LEAVE
+  ANNUAL_LEAVE
+  EMERGENCY_LEAVE
+  MATERNITY_LEAVE
+  PATERNITY_LEAVE
+  OTHER
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 model SystemConfiguration {

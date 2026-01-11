@@ -1,3 +1,7 @@
 # Enviornment 
 .dev.env
 /generated/prisma
+
+# Uploaded files (keep directory structure but ignore actual files)
+uploads/documents/*
+!uploads/documents/.gitkeep

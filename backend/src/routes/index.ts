@@ -4,6 +4,8 @@ import employeeRoutes from '@/modules/staffs/employee/employee.route';
 import taskRoutes from '@/modules/staffs/tasks/task.route';
 import teamRoutes from '@/modules/staffs/teams/team.route';
 import vehicleRoutes from '@/modules/staffs/vehicles/vehicle.route';
+import leaveRoutes from '@/modules/staffs/leave/leave.route';
+import documentRoutes from '@/modules/staffs/documents/document.route';
 import notificationRoutes from '@/modules/notifications/notification.routes';
 import databaseRoutes from './database.route';
 import { authRouter } from './auth.route';
@@ -30,6 +32,12 @@ router.use('/teams', teamRoutes);
 
 // Mount vehicle routes
 router.use('/', vehicleRoutes);
+
+// Mount leave routes
+router.use('/leave', leaveRoutes);
+
+// Mount document routes
+router.use('/documents', documentRoutes);
 
 // Mount notification routes
 router.use('/', notificationRoutes);

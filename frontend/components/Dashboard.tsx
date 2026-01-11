@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { QRScanner } from "@/components/QRScanner"
 import { NotificationBell } from "@/components/NotificationBell"
 import { 
@@ -17,17 +18,49 @@ import {
   XCircle,
   BarChart3,
   Truck,
-  ShoppingCart
+  ShoppingCart,
+  FileText,
+  Calendar,
+  Eye
 } from "lucide-react"
+import Link from "next/link"
 
 export function Dashboard() {
   const [lastScannedProduct, setLastScannedProduct] = React.useState<string | null>(null)
+  const [leaveApplications, setLeaveApplications] = React.useState<any[]>([])
+  const [loadingLeaves, setLoadingLeaves] = React.useState(true)
 
   const handleProductScan = (productId: string) => {
     setLastScannedProduct(productId)
     // Auto-hide notification after 5 seconds
     setTimeout(() => setLastScannedProduct(null), 5000)
   }
+
+  // Fetch recent leave applications
+  React.useEffect(() => {
+    const fetchLeaveApplications = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/leave/applications`)
+        const result = await response.json()
+        
+        if (result.success) {
+          // Get only pending applications, sorted by most recent
+          const pendingApplications = (result.data || [])
+            .filter((app: any) => app.status === 'PENDING')
+            .sort((a: any, b: any) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime())
+            .slice(0, 3) // Show only 3 most recent
+          
+          setLeaveApplications(pendingApplications)
+        }
+      } catch (error) {
+        console.error('Error fetching leave applications:', error)
+      } finally {
+        setLoadingLeaves(false)
+      }
+    }
+
+    fetchLeaveApplications()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50/30">
@@ -151,6 +184,57 @@ export function Dashboard() {
 
         {/* Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent Leave Applications */}
+          <Card className="bg-white shadow-sm border-gray-200">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-500" />
+                  Pending Leave Applications
+                </CardTitle>
+                <Link href="/leave-management">
+                  <Button variant="outline" size="sm">
+                    <Eye className="h-4 w-4 mr-2" />
+                    View All
+                  </Button>
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {loadingLeaves ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                </div>
+              ) : leaveApplications.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                  <p>No pending leave applications</p>
+                </div>
+              ) : (
+                leaveApplications.map((application) => (
+                  <div key={application.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-50 rounded-lg">
+                        <Calendar className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {application.employeeName} ({application.employeeId})
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {application.leaveType.replace('_', ' ')} - {new Date(application.startDate).toLocaleDateString()} to {new Date(application.endDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                      Pending
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
           {/* Recent Tickets */}
           <Card className="bg-white shadow-sm border-gray-200">
             <CardHeader>

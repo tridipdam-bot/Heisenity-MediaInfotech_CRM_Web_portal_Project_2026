@@ -26,6 +26,9 @@ import {
   ClockIcon
 } from "lucide-react"
 import { EmployeeSelfAttendance } from "./EmployeeSelfAttendance"
+import { LeaveApplicationForm } from "./LeaveApplicationForm"
+import { LeaveApplicationsList } from "./LeaveApplicationsList"
+import { EmployeeDocuments } from "./EmployeeDocuments"
 import { createAttendance } from "@/lib/server-api"
 import { showToast } from "@/lib/toast-utils"
 
@@ -59,8 +62,9 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
   const [employeeProfile, setEmployeeProfile] = useState<EmployeeProfile | null>(null)
   const [assignedVehicle, setAssignedVehicle] = useState<AssignedVehicle | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'attendance' | 'payroll' | 'vehicle'>('attendance')
+  const [activeTab, setActiveTab] = useState<'attendance' | 'leave' | 'documents' | 'payroll' | 'vehicle'>('attendance')
   const [clockOutLoading, setClockOutLoading] = useState(false)
+  const [leaveRefreshTrigger, setLeaveRefreshTrigger] = useState(0)
 
   useEffect(() => {
     if (status === "loading") return
@@ -308,6 +312,28 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
                 Attendance
               </button>
               <button
+                onClick={() => setActiveTab('leave')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'leave'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <FileText className="h-4 w-4 inline mr-2" />
+                Leave
+              </button>
+              <button
+                onClick={() => setActiveTab('documents')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'documents'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <FileText className="h-4 w-4 inline mr-2" />
+                Documents
+              </button>
+              <button
                 onClick={() => setActiveTab('payroll')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'payroll'
@@ -431,6 +457,24 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
                   <EmployeeSelfAttendance deviceInfo={deviceInfo} />
                 </CardContent>
               </Card>
+            )}
+
+            {activeTab === 'leave' && (
+              <div className="space-y-6">
+                <LeaveApplicationForm 
+                  employeeId={employeeProfile.employeeId}
+                  employeeName={employeeProfile.name}
+                  onSuccess={() => setLeaveRefreshTrigger(prev => prev + 1)}
+                />
+                <LeaveApplicationsList 
+                  employeeId={employeeProfile.employeeId}
+                  refreshTrigger={leaveRefreshTrigger}
+                />
+              </div>
+            )}
+
+            {activeTab === 'documents' && (
+              <EmployeeDocuments employeeId={employeeProfile.employeeId} />
             )}
 
             {activeTab === 'payroll' && (

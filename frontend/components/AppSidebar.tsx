@@ -27,7 +27,8 @@ import {
     LogOut,
     DollarSign,
     UsersRound,
-    Clock
+    Clock,
+    FileText
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -70,6 +71,14 @@ const navigationItems = [
         description: "Team management"
     },
     {
+        title: "Docs. and Leave Management",
+        url: "/leave-management",
+        icon: FileText,
+        badge: null,
+        description: "Employee leave and docs upload system",
+        dynamicBadge: true
+    },
+    {
         title: "Payroll",
         url: "/payroll",
         icon: DollarSign,
@@ -95,6 +104,32 @@ const navigationItems = [
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const pathname = usePathname()
     const { data: session } = useSession()
+    const [pendingLeaveCount, setPendingLeaveCount] = React.useState<number>(0)
+
+    // Fetch pending leave applications count for admin
+    React.useEffect(() => {
+        const fetchPendingLeaveCount = async () => {
+            if (!session?.user || (session.user as any).userType !== 'admin') return
+            
+            try {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/leave/applications`)
+                const result = await response.json()
+                
+                if (result.success) {
+                    const pendingCount = (result.data || []).filter((app: any) => app.status === 'PENDING').length
+                    setPendingLeaveCount(pendingCount)
+                }
+            } catch (error) {
+                console.error('Error fetching pending leave count:', error)
+            }
+        }
+
+        fetchPendingLeaveCount()
+        
+        // Refresh count every 30 seconds
+        const interval = setInterval(fetchPendingLeaveCount, 30000)
+        return () => clearInterval(interval)
+    }, [session])
 
     // Filter navigation items based on user type
     const getFilteredNavigationItems = () => {
@@ -188,7 +223,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                                     <span className="text-xs text-muted-foreground truncate">{item.description}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    {item.badge && (
+                                                    {item.dynamicBadge && item.title === "Leave Management" && pendingLeaveCount > 0 ? (
+                                                        <Badge 
+                                                            variant="secondary" 
+                                                            className={`
+                                                                text-xs px-2 py-0.5 font-medium bg-yellow-100 text-yellow-700
+                                                                ${isActive 
+                                                                    ? 'bg-blue-100 text-blue-700' 
+                                                                    : ''
+                                                                }
+                                                            `}
+                                                        >
+                                                            {pendingLeaveCount}
+                                                        </Badge>
+                                                    ) : item.badge && (
                                                         <Badge 
                                                             variant="secondary" 
                                                             className={`
