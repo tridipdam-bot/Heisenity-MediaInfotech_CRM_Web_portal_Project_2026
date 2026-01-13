@@ -71,7 +71,7 @@ export class EmployeeIdController {
                     message: 'Count must be between 1 and 20'
                 });
             }
-            const nextIds = await EmployeeIdGeneratorService.getNextAvailableIds(count);
+            const nextIds = await EmployeeIdGeneratorService.getNextAvailableIds('FIELD_ENGINEER', count);
             res.status(200).json({
                 success: true,
                 data: {

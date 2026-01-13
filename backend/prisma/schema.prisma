@@ -56,7 +56,6 @@ model Employee {
   isTeamLeader Boolean @default(false)
   assignedBy   String?
 
-  dailyLocations      DailyLocation[]
   attendances         Attendance[]
   attendanceOverrides AttendanceOverride[]
   tasks               Task[]
@@ -65,6 +64,11 @@ model Employee {
   payrollRecords      PayrollRecord[]
   leaveApplications   LeaveApplication[]
   documents           EmployeeDocument[]
+  assignedTickets     SupportTicket[]      @relation("TicketAssignee")
+  reportedTickets     SupportTicket[]      @relation("TicketReporter")
+  ticketComments      TicketComment[]
+  ticketAttachments   TicketAttachment[]
+  ticketHistory       TicketHistory[]
 
   /**
    * ---------- Relations ----------
@@ -84,26 +88,7 @@ enum EmployeeRole {
   IN_OFFICE
 }
 
-model DailyLocation {
-  id         String        @id @default(cuid())
-  employeeId String
-  date       DateTime      @db.Date
-  latitude   Decimal       @db.Decimal(10, 8)
-  longitude  Decimal       @db.Decimal(11, 8)
-  radius     Int           @default(100)
-  address    String?
-  city       String?
-  state      String?
-  startTime  DateTime
-  endTime    DateTime
-  assignedBy String
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  @@unique([employeeId, date])
-  @@map("daily_locations")
-}
 
 model Attendance {
   id            String           @id @default(cuid())
@@ -111,21 +96,21 @@ model Attendance {
   clockIn       DateTime?
   clockOut      DateTime?
   status        AttendanceStatus @default(PRESENT)
-  location      String?          @db.Text
+  location      String?          // Add location field
+  latitude      Decimal?         @db.Decimal(10, 8) // Add latitude field
+  longitude     Decimal?         @db.Decimal(11, 8) // Add longitude field
   ipAddress     String?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   attemptCount  AttemptCount     @default(ZERO)
   deviceInfo    String?
-  latitude      Decimal?         @db.Decimal(10, 8)
   locked        Boolean          @default(false)
   lockedReason  String?          @db.Text
-  longitude     Decimal?         @db.Decimal(11, 8)
   photo         String?          @db.LongText
   taskId        String?
   taskStartTime String?
   taskEndTime   String?
-  taskLocation  String?
+  taskLocation  String?          // Add task location field
   source        AttendanceSource @default(SELF)
   employeeId    String
   employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -174,7 +159,7 @@ model Task {
   title       String
   description String        @db.Text
   category    String?
-  location    String?
+  location    String?       // Add location field
   startTime   String?
   endTime     String?
   assignedBy  String
@@ -423,9 +408,6 @@ model SystemConfiguration {
   id        String   @id @default(cuid())
   key       String   @unique
   value     String   @db.Text
-  latitude  Decimal? @db.Decimal(10, 8)  // For office location coordinates
-  longitude Decimal? @db.Decimal(11, 8)  // For office location coordinates
-  radius    Int?     @default(100)       // Radius in meters for office location
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -440,10 +422,22 @@ model Project {
   status      ProjectStatus @default(ONGOING)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+  
+  // Enhanced enterprise fields
+  description String?       @db.Text
+  endDate     DateTime?     @db.Date
+  priority    ProjectPriority @default(MEDIUM)
+  budget      Decimal?      @db.Decimal(12, 2)
+  progress    Int?          @default(0) // Progress percentage 0-100
+  projectManager String?
+  clientEmail String?
+  clientPhone String?
+  tags        String?       @db.Text // JSON array of tags
 
   // Relations
   updates     ProjectUpdate[]
   payments    ProjectPayment[]
+  products    ProjectProduct[]
 
   @@map("projects")
 }
@@ -455,6 +449,8 @@ model ProjectUpdate {
   issues      String?  @db.Text
   pendingTasks String? @db.Text
   workProgress String? @db.Text
+  updatedBy   String?  // Who made the update
+  attachments String?  @db.Text // JSON array of attachment URLs
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -472,6 +468,8 @@ model ProjectPayment {
   amountPaid  Decimal?      @db.Decimal(10, 2)
   amountDue   Decimal?      @db.Decimal(10, 2)
   remarks     String?       @db.Text
+  dueDate     DateTime?     @db.Date
+  invoiceNumber String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -488,8 +486,167 @@ enum ProjectStatus {
   ON_HOLD
 }
 
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 enum PaymentStatus {
   FULLY_PAID
   PARTIALLY_PAID
   FULL_DUE
+}
+
+model ProjectProduct {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  category    String?
+  vendor      String?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_products")
+}
+
+// Support Ticket System Models
+model SupportTicket {
+  id             String           @id @default(cuid())
+  ticketId       String           @unique // TKT-001 format
+  title          String
+  description    String           @db.Text
+  category       TicketCategory
+  priority       TicketPriority
+  status         TicketStatus     @default(OPEN)
+  department     String?
+  assigneeId     String?
+  reporterId     String?
+  dueDate        DateTime?        @db.Date
+  estimatedHours Decimal?         @db.Decimal(5, 2)
+  tags           String?          @db.Text // JSON array of tags
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+
+  // Relations
+  assignee       Employee?        @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  reporter       Employee?        @relation("TicketReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  comments       TicketComment[]
+  attachments    TicketAttachment[]
+  history        TicketHistory[]
+
+  @@index([assigneeId])
+  @@index([reporterId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([createdAt])
+  @@map("support_tickets")
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String
+  content   String   @db.Text
+  isInternal Boolean @default(false) // Internal comments not visible to reporter
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    Employee      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("ticket_comments")
+}
+
+model TicketAttachment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  fileName  String
+  filePath  String   @db.Text
+  fileSize  Int
+  mimeType  String
+  uploadedBy String
+  uploadedAt DateTime @default(now())
+
+  // Relations
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploader  Employee      @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([uploadedBy])
+  @@map("ticket_attachments")
+}
+
+model TicketHistory {
+  id        String              @id @default(cuid())
+  ticketId  String
+  action    TicketHistoryAction
+  field     String?             // Field that was changed
+  oldValue  String?             @db.Text
+  newValue  String?             @db.Text
+  changedBy String
+  timestamp DateTime            @default(now())
+
+  // Relations
+  ticket    SupportTicket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user      Employee            @relation(fields: [changedBy], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([changedBy])
+  @@index([timestamp])
+  @@map("ticket_history")
+}
+
+enum TicketCategory {
+  AUTHENTICATION
+  HARDWARE
+  SOFTWARE
+  NETWORK
+  SECURITY
+  DATABASE
+  MAINTENANCE
+  SETUP
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING
+  SCHEDULED
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum TicketHistoryAction {
+  CREATED
+  UPDATED
+  ASSIGNED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  COMMENTED
+  RESOLVED
+  CLOSED
+  REOPENED
 }

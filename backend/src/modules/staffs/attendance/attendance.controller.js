@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { getDeviceInfo } from '@/utils/deviceinfo';
-import { getHumanReadableLocation, getCoordinatesFromMapMyIndia } from '@/utils/geolocation';
-import { createAttendanceRecord, getRemainingAttempts, getTodayAssignedLocation } from './attendance.service';
+import { createAttendanceRecord, getRemainingAttempts } from './attendance.service';
 export const getAttendanceRecords = async (req, res) => {
     try {
         const { page = '1', limit = '50', date, dateFrom, dateTo, employeeId, status, role } = req.query;
@@ -174,98 +173,6 @@ export const checkRemainingAttempts = async (req, res) => {
         return res.status(statusCode).json({ success: false, error: errorMessage });
     }
 };
-export const getAssignedLocation = async (req, res) => {
-    try {
-        const { employeeId } = req.params;
-        if (!employeeId) {
-            return res.status(400).json({ success: false, error: 'Employee ID is required' });
-        }
-        const assignedLocation = await getTodayAssignedLocation(employeeId);
-        if (!assignedLocation) {
-            return res.status(404).json({
-                success: false,
-                error: 'No assigned location found for today'
-            });
-        }
-        // Convert Decimal to number for JSON response
-        const response = {
-            success: true,
-            data: {
-                id: assignedLocation.id,
-                latitude: Number(assignedLocation.latitude),
-                longitude: Number(assignedLocation.longitude),
-                radius: assignedLocation.radius,
-                address: assignedLocation.address,
-                city: assignedLocation.city,
-                state: assignedLocation.state,
-                startTime: assignedLocation.startTime.toISOString(),
-                endTime: assignedLocation.endTime.toISOString(),
-                assignedBy: assignedLocation.assignedBy
-            }
-        };
-        return res.status(200).json(response);
-    }
-    catch (error) {
-        console.error({ event: 'get_assigned_location_error', error: error instanceof Error ? error.message : error });
-        let errorMessage = 'Failed to get assigned location';
-        let statusCode = 500;
-        if (error instanceof Error && error.message === 'EMPLOYEE_NOT_FOUND') {
-            statusCode = 404;
-            errorMessage = 'Employee not found';
-        }
-        return res.status(statusCode).json({ success: false, error: errorMessage });
-    }
-};
-export const getLocationData = async (req, res) => {
-    try {
-        let latitude, longitude;
-        // Handle different ways of receiving coordinates
-        if (req.method === 'GET') {
-            // From query parameters or URL parameters
-            const lat = req.query.latitude || req.params.latitude;
-            const lng = req.query.longitude || req.params.longitude;
-            if (!lat || !lng) {
-                return res.status(400).json({ success: false, error: 'Latitude and longitude are required' });
-            }
-            latitude = parseFloat(lat);
-            longitude = parseFloat(lng);
-        }
-        else if (req.method === 'POST') {
-            // From request body
-            latitude = req.body.latitude;
-            longitude = req.body.longitude;
-        }
-        else {
-            return res.status(405).json({ success: false, error: 'Method not allowed' });
-        }
-        // Validate coordinates
-        if (isNaN(latitude) || isNaN(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-            return res.status(400).json({ success: false, error: 'Invalid coordinates provided' });
-        }
-        const coordinates = { latitude, longitude };
-        // Get location data using geolocation utility (reverse geocoding)
-        const humanReadableLocation = await getHumanReadableLocation(coordinates);
-        // For locationData, we can use the coordinates string format for forward geocoding if needed
-        const coordinatesString = `${latitude},${longitude}`;
-        const locationData = await getCoordinatesFromMapMyIndia(coordinatesString);
-        const response = {
-            success: true,
-            coordinates,
-            location: locationData || {
-                address: '',
-                city: '',
-                state: ''
-            },
-            humanReadableLocation,
-            timestamp: new Date().toISOString()
-        };
-        return res.status(200).json(response);
-    }
-    catch (error) {
-        console.error({ event: 'get_location_data_error', error: error instanceof Error ? error.message : error });
-        return res.status(500).json({ success: false, error: 'Failed to get location data' });
-    }
-};
 export const detectDevice = async (req, res) => {
     try {
         const userAgent = req.headers['user-agent'] || '';
@@ -318,7 +225,7 @@ export const deleteAttendanceRecord = async (req, res) => {
 };
 export const createAttendance = async (req, res) => {
     try {
-        const { employeeId, latitude, longitude, photo, status = 'PRESENT', location, bypassLocationValidation, action } = req.body;
+        const { employeeId, photo, status = 'PRESENT', location, action } = req.body;
         if (!employeeId) {
             return res.status(400).json({ success: false, error: 'Employee ID is required' });
         }
@@ -328,49 +235,27 @@ export const createAttendance = async (req, res) => {
         }
         const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
         const userAgent = req.headers['user-agent'] || '';
-        let coordinates;
-        if (latitude !== undefined && longitude !== undefined) {
-            const lat = parseFloat(latitude);
-            const lng = parseFloat(longitude);
-            if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-                return res.status(400).json({ success: false, error: 'Invalid coordinates provided' });
-            }
-            // Never accept 0,0 as valid user-provided coordinates (placeholder).
-            const isZeroZero = lat === 0 && lng === 0;
-            const isAdminEntry = !!location || (bypassLocationValidation === true || bypassLocationValidation === 'true');
-            if (isZeroZero && !isAdminEntry) {
-                return res.status(400).json({ success: false, error: 'Invalid coordinates: placeholder coordinates (0,0) are not allowed' });
-            }
-            coordinates = { latitude: lat, longitude: lng };
-        }
-        console.info({ event: 'create_attendance_request', employeeId, hasCoordinates: !!coordinates, ipAddress, action });
-        // Call service (service handles atomic attempts and validation)
+        console.info({ event: 'create_attendance_request', employeeId, ipAddress, action });
+        // Call service (simplified without location validation)
         const attendance = await createAttendanceRecord({
             employeeId,
-            coordinates,
             ipAddress,
             userAgent,
             photo,
             status: status,
-            locationText: location,
-            bypassLocationValidation: bypassLocationValidation === true || bypassLocationValidation === 'true',
+            locationText: location || 'Office Location',
             action: action
         });
         return res.status(201).json({ success: true, message: 'Attendance recorded successfully', data: attendance });
     }
     catch (error) {
         console.error({ event: 'create_attendance_error', error: error instanceof Error ? error.message : error });
-        // Provide structured error codes where possible
         let errorMessage = 'Failed to create attendance record';
         let statusCode = 500;
         if (error instanceof Error) {
             if (error.message === 'EMPLOYEE_NOT_FOUND') {
                 statusCode = 404;
                 errorMessage = 'Employee not found';
-            }
-            else if (error.message === 'INVALID_COORDINATES' || error.message === 'MISSING_COORDINATES') {
-                statusCode = 400;
-                errorMessage = 'Invalid or missing coordinates';
             }
             else if (error.message === 'MAX_ATTEMPTS_EXCEEDED' || error.code === 'MAX_ATTEMPTS_EXCEEDED') {
                 statusCode = 403;
@@ -381,39 +266,5 @@ export const createAttendance = async (req, res) => {
             }
         }
         return res.status(statusCode).json({ success: false, error: errorMessage });
-    }
-};
-export const getLocationName = async (req, res) => {
-    try {
-        const { latitude, longitude } = req.body;
-        if (!latitude || !longitude) {
-            return res.status(400).json({
-                success: false,
-                error: 'Latitude and longitude are required'
-            });
-        }
-        // Validate coordinates
-        const lat = parseFloat(latitude);
-        const lng = parseFloat(longitude);
-        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid coordinates provided'
-            });
-        }
-        const coordinates = { latitude: lat, longitude: lng };
-        // Get human-readable location name
-        const locationName = await getHumanReadableLocation(coordinates);
-        return res.status(200).json({
-            success: true,
-            locationName
-        });
-    }
-    catch (error) {
-        console.error('Error getting location name:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to get location name'
-        });
     }
 };

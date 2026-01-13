@@ -1,6 +1,6 @@
 // modules/staffs/attendance/attendance.route.ts
 import { Router } from "express";
-import { createAttendance, detectDevice, getLocationData, checkRemainingAttempts, getAssignedLocation, getAttendanceRecords, deleteAttendanceRecord, getLocationName, } from "@/modules/staffs/attendance/attendance.controller";
+import { createAttendance, detectDevice, checkRemainingAttempts, getAttendanceRecords, deleteAttendanceRecord, } from "@/modules/staffs/attendance/attendance.controller";
 import { exportAttendanceToExcel, exportAttendanceToPDF, } from "@/modules/staffs/attendance/attendance.export";
 const router = Router();
 /**
@@ -11,7 +11,7 @@ const router = Router();
 // Get attendance records
 // GET /attendance
 router.get("/", getAttendanceRecords);
-// Mark attendance (with location validation)
+// Mark attendance (simplified without location validation)
 // POST /attendance
 router.post("/", createAttendance);
 // Delete attendance record
@@ -20,30 +20,14 @@ router.delete("/:id", deleteAttendanceRecord);
 // Detect device (browser, OS, etc.)
 // GET /attendance/device
 router.get("/device", detectDevice);
-// Resolve location data (lat/lng → address)
-// Supports:
-//  - GET /attendance/location?latitude=..&longitude=..
-//  - POST /attendance/location
-//  - GET /attendance/location/:latitude/:longitude
-router
-    .route("/location")
-    .get(getLocationData)
-    .post(getLocationData);
-router.get("/location/:latitude/:longitude", getLocationData);
-// Get location name from coordinates (for office location setup)
-// POST /attendance/get-location-name
-router.post("/get-location-name", getLocationName);
 /**
  * =========================
- * Location & Validation
+ * Validation
  * =========================
  */
-// Check remaining location validation attempts
+// Check remaining attempts
 // GET /attendance/attempts/:employeeId
 router.get("/attempts/:employeeId", checkRemainingAttempts);
-// Get assigned location for employee (today)
-// GET /attendance/assigned-location/:employeeId
-router.get("/assigned-location/:employeeId", getAssignedLocation);
 /**
  * =========================
  * Export Functions

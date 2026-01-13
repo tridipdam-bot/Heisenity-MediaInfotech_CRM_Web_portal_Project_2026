@@ -2,7 +2,7 @@
 import { Request, Response } from 'express'
 import ExcelJS from 'exceljs'
 import puppeteer from 'puppeteer'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '../../../lib/prisma'
 
 interface ExportFilters {
   dateFrom?: string
@@ -17,7 +17,7 @@ async function getAttendanceDataForExport(filters: ExportFilters) {
   const where: any = {}
   
   if (filters.employeeId) {
-    const employee = await prisma.fieldEngineer.findUnique({
+    const employee = await prisma.employee.findUnique({
       where: { employeeId: filters.employeeId }
     })
     if (employee) {

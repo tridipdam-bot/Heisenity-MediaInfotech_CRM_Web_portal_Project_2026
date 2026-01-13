@@ -32,46 +32,12 @@ export type DeviceInfo = {
   device: string
 }
 
-export type LocationData = {
-  address: string
-  city: string
-  state: string
-}
-
-export type LocationInfo = {
-  success: boolean
-  coordinates: {
-    latitude: number
-    longitude: number
-  }
-  location: LocationData
-  humanReadableLocation: string
-  timestamp: string
-}
-
 export type RemainingAttemptsResponse = {
   success: boolean
   data: {
     remainingAttempts: number
     isLocked: boolean
     status?: string
-  }
-  error?: string
-}
-
-export type AssignedLocationResponse = {
-  success: boolean
-  data?: {
-    id: string
-    latitude: number
-    longitude: number
-    radius: number
-    address?: string
-    city?: string
-    state?: string
-    startTime: string
-    endTime: string
-    assignedBy: string
   }
   error?: string
 }
@@ -100,35 +66,6 @@ export async function createAttendance(data: CreateAttendanceRequest): Promise<C
     }
 }
 
-export async function getLocationInfo(latitude: number, longitude: number): Promise<LocationInfo> {
-    try {
-        console.log('Making request to:', `${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/location?latitude=${latitude}&longitude=${longitude}`)
-        
-        const res = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/location?latitude=${latitude}&longitude=${longitude}`,
-            {
-                cache: 'no-store'
-            }
-        )
-
-        console.log('Response status:', res.status)
-        console.log('Response ok:', res.ok)
-
-        if (!res.ok) {
-            const errorText = await res.text()
-            console.error('Response error:', errorText)
-            throw new Error(`Failed to fetch location info: ${res.status} ${errorText}`)
-        }
-
-        const locationInfo = await res.json()
-        console.log('Location info response:', locationInfo)
-        return locationInfo
-    } catch (error) {
-        console.error('getLocationInfo error:', error)
-        throw error
-    }
-}
-
 export async function getRemainingAttempts(employeeId: string): Promise<RemainingAttemptsResponse> {
     try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/attempts/${employeeId}`, {
@@ -148,41 +85,44 @@ export async function getRemainingAttempts(employeeId: string): Promise<Remainin
     }
 }
 
-export async function getAssignedLocation(employeeId: string): Promise<AssignedLocationResponse> {
-    try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/assigned-location/${employeeId}`, {
-            cache: 'no-store'
-        })
-
-        const response = await res.json()
-
-        if (!res.ok) {
-            throw new Error(response.error || `Failed to get assigned location: ${res.status}`)
-        }
-
-        return response
-    } catch (error) {
-        console.error('getAssignedLocation error:', error)
-        throw error
-    }
-}
-
 export async function getDeviceInfo(): Promise<DeviceInfo> {
     try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/device`, {
-            cache: 'no-store'
-        })
-
-        const response = await res.json()
-
-        if (!res.ok) {
-            throw new Error(response.error || `Failed to get device info: ${res.status}`)
+        // Generate device info on client side
+        const userAgent = navigator.userAgent
+        
+        // Simple browser detection
+        let browser = 'Unknown'
+        if (userAgent.includes('Chrome')) browser = 'Chrome'
+        else if (userAgent.includes('Firefox')) browser = 'Firefox'
+        else if (userAgent.includes('Safari')) browser = 'Safari'
+        else if (userAgent.includes('Edge')) browser = 'Edge'
+        
+        // Simple OS detection
+        let os = 'Unknown'
+        if (userAgent.includes('Windows')) os = 'Windows'
+        else if (userAgent.includes('Mac')) os = 'macOS'
+        else if (userAgent.includes('Linux')) os = 'Linux'
+        else if (userAgent.includes('Android')) os = 'Android'
+        else if (userAgent.includes('iOS')) os = 'iOS'
+        
+        // Simple device detection
+        let device = 'Desktop'
+        if (userAgent.includes('Mobile')) device = 'Mobile'
+        else if (userAgent.includes('Tablet')) device = 'Tablet'
+        
+        return {
+            browser,
+            os,
+            device
         }
-
-        return response
     } catch (error) {
         console.error('getDeviceInfo error:', error)
-        throw error
+        // Return fallback device info
+        return {
+            browser: 'Unknown',
+            os: 'Unknown',
+            device: 'Unknown'
+        }
     }
 }
 
@@ -564,6 +504,7 @@ export type Employee = {
   teamId?: string
   isTeamLeader: boolean
   status: string
+  role?: string
   createdAt: string
   updatedAt: string
   assignedBy?: string
@@ -1582,73 +1523,6 @@ export async function deleteNotification(notificationId: string): Promise<Notifi
   }
 }
 
-// System Configuration API Functions
-export type GetOfficeLocationResponse = {
-  success: boolean
-  data?: { 
-    location: string
-    coordinates?: {
-      latitude: number
-      longitude: number
-      radius: number
-    }
-  }
-  error?: string
-}
-
-export type SetOfficeLocationRequest = {
-  location: string
-  latitude?: number
-  longitude?: number
-  radius?: number
-}
-
-export type SetOfficeLocationResponse = {
-  success: boolean
-  message?: string
-  error?: string
-}
-
-export async function getOfficeLocation(): Promise<GetOfficeLocationResponse> {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/system-config/office-location`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    const data = await res.json()
-    return data
-  } catch (error) {
-    console.error('Error getting office location:', error)
-    return {
-      success: false,
-      error: 'Failed to get office location'
-    }
-  }
-}
-
-export async function setOfficeLocation(data: SetOfficeLocationRequest): Promise<SetOfficeLocationResponse> {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/system-config/office-location`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data)
-    })
-
-    const response = await res.json()
-    return response
-  } catch (error) {
-    console.error('Error setting office location:', error)
-    return {
-      success: false,
-      error: 'Failed to set office location'
-    }
-  }
-}
 export async function getEmployeeByEmployeeId(employeeId: string): Promise<{ success: boolean; data?: Employee; error?: string }> {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employees/by-employee-id/${employeeId}`, {

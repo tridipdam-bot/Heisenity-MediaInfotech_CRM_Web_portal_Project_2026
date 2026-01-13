@@ -13,19 +13,3 @@ export interface AttendanceRecord {
   status: AttendanceStatus
   source?: 'SELF' | 'ADMIN'
 }
-
-export interface LocationData {
-  address: string
-  city: string
-  state: string
-}
-
-export interface GeolocationCoordinates {
-  latitude: number
-  longitude: number
-}
-
-export interface GeolocationCoordinates {
-  latitude: number
-  longitude: number
-}

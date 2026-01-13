@@ -62,6 +62,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "types": "./dist/index.d.ts"
 }

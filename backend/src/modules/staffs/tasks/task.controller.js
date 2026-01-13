@@ -1,4 +1,4 @@
-import { createTask, getEmployeeTasks, updateTaskStatus, getAllTasks, updateAttendanceStatus, resetAttendanceAttempts, fixDailyLocationTimes, completeTask } from './task.service';
+import { createTask, getEmployeeTasks, updateTaskStatus, getAllTasks, updateAttendanceStatus, resetAttendanceAttempts, completeTask } from './task.service';
 import { createTeamTask } from '../teams/team.service';
 // Assign a new task to an employee or team
 export const assignTask = async (req, res) => {
@@ -204,23 +204,6 @@ export const resetEmployeeAttendanceAttempts = async (req, res) => {
         return res.status(500).json({
             success: false,
             error: error instanceof Error ? error.message : 'Failed to reset attendance attempts'
-        });
-    }
-};
-// Fix daily location time issues
-export const fixLocationTimes = async (req, res) => {
-    try {
-        await fixDailyLocationTimes();
-        return res.status(200).json({
-            success: true,
-            message: 'Daily location times fixed successfully'
-        });
-    }
-    catch (error) {
-        console.error('Error fixing location times:', error);
-        return res.status(500).json({
-            success: false,
-            error: error instanceof Error ? error.message : 'Failed to fix location times'
         });
     }
 };

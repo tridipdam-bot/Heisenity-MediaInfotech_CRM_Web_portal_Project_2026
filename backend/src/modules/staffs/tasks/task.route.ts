@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { assignTask, getTasksForEmployee, updateTask, getTasks, updateEmployeeAttendanceStatus, resetEmployeeAttendanceAttempts, fixLocationTimes, completeTaskEndpoint } from './task.controller';
+import { assignTask, getTasksForEmployee, updateTask, getTasks, updateEmployeeAttendanceStatus, resetEmployeeAttendanceAttempts, completeTaskEndpoint } from './task.controller';
 
 const router = Router();
 
@@ -36,11 +36,6 @@ router.put('/attendance/:employeeId', (req: Request, res: Response) => {
 // Reset attendance attempts for an employee
 router.post('/reset-attempts/:employeeId', (req: Request, res: Response) => {
   return resetEmployeeAttendanceAttempts(req, res);
-});
-
-// Fix daily location time issues
-router.post('/fix-location-times', (req: Request, res: Response) => {
-  return fixLocationTimes(req, res);
 });
 
 export default router;

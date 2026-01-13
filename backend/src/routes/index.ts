@@ -1,20 +1,22 @@
 import { Router, Request, Response } from 'express';
-import attendanceRoutes from '@/modules/staffs/attendance/attendance.route';
-import employeeRoutes from '@/modules/staffs/employee/employee.route';
-import taskRoutes from '@/modules/staffs/tasks/task.route';
-import teamRoutes from '@/modules/staffs/teams/team.route';
-import vehicleRoutes from '@/modules/staffs/vehicles/vehicle.route';
-import leaveRoutes from '@/modules/staffs/leave/leave.route';
-import documentRoutes from '@/modules/staffs/documents/document.route';
-import notificationRoutes from '@/modules/notifications/notification.routes';
+import attendanceRoutes from '../modules/staffs/attendance/attendance.route';
+import employeeRoutes from '../modules/staffs/employee/employee.route';
+import taskRoutes from '../modules/staffs/tasks/task.route';
+import teamRoutes from '../modules/staffs/teams/team.route';
+import vehicleRoutes from '../modules/staffs/vehicles/vehicle.route';
+import leaveRoutes from '../modules/staffs/leave/leave.route';
+import documentRoutes from '../modules/staffs/documents/document.route';
+import notificationRoutes from '../modules/notifications/notification.routes';
 import databaseRoutes from './database.route';
 import { authRouter } from './auth.route';
 import employeeIdRoutes from './employeeId.route';
 import fieldEngineerRoutes from './fieldEngineer.route';
-import systemConfigRoutes from './systemConfig.route';
 import projectRoutes from './project.route';
+import { ProjectController } from '../controllers/project.controller';
 
 const router = Router();
+
+console.log('Routes index file loaded');
 
 // Mount auth routes
 router.use('/auth', authRouter);
@@ -51,9 +53,6 @@ router.use('/employee-id', employeeIdRoutes);
 
 // Mount field engineer routes
 router.use('/field-engineers', fieldEngineerRoutes);
-
-// Mount system configuration routes
-router.use('/system-config', systemConfigRoutes);
 
 // Mount project management routes
 router.use('/projects', projectRoutes);

@@ -12,6 +12,9 @@ export class ProjectController {
           },
           payments: {
             orderBy: { createdAt: 'desc' }
+          },
+          products: {
+            orderBy: { createdAt: 'desc' }
           }
         },
         orderBy: { createdAt: 'desc' }
@@ -43,6 +46,9 @@ export class ProjectController {
           },
           payments: {
             orderBy: { createdAt: 'desc' }
+          },
+          products: {
+            orderBy: { createdAt: 'desc' }
           }
         }
       });
@@ -70,7 +76,21 @@ export class ProjectController {
   // Create new project
   static async createProject(req: Request, res: Response) {
     try {
-      const { name, clientName, startDate, status } = req.body;
+      const { 
+        name, 
+        clientName, 
+        startDate, 
+        status,
+        description,
+        endDate,
+        priority,
+        budget,
+        progress,
+        projectManager,
+        clientEmail,
+        clientPhone,
+        tags
+      } = req.body;
 
       if (!name || !clientName || !startDate) {
         return res.status(400).json({
@@ -84,11 +104,21 @@ export class ProjectController {
           name,
           clientName,
           startDate: new Date(startDate),
-          status: status || 'ONGOING'
+          status: status || 'ONGOING',
+          description: description || null,
+          endDate: endDate ? new Date(endDate) : null,
+          priority: priority || 'MEDIUM',
+          budget: budget ? parseFloat(budget) : null,
+          progress: progress ? parseInt(progress) : 0,
+          projectManager: projectManager || null,
+          clientEmail: clientEmail || null,
+          clientPhone: clientPhone || null,
+          tags: tags ? JSON.stringify(tags) : null
         },
         include: {
           updates: true,
-          payments: true
+          payments: true,
+          products: true
         }
       });
 
@@ -110,21 +140,49 @@ export class ProjectController {
   static async updateProject(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { name, clientName, startDate, status } = req.body;
+      const { 
+        name, 
+        clientName, 
+        startDate, 
+        status,
+        description,
+        endDate,
+        priority,
+        budget,
+        progress,
+        projectManager,
+        clientEmail,
+        clientPhone,
+        tags
+      } = req.body;
+
+      const updateData: any = {};
+      
+      if (name) updateData.name = name;
+      if (clientName) updateData.clientName = clientName;
+      if (startDate) updateData.startDate = new Date(startDate);
+      if (status) updateData.status = status;
+      if (description !== undefined) updateData.description = description;
+      if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
+      if (priority) updateData.priority = priority;
+      if (budget !== undefined) updateData.budget = budget ? parseFloat(budget) : null;
+      if (progress !== undefined) updateData.progress = progress ? parseInt(progress) : null;
+      if (projectManager !== undefined) updateData.projectManager = projectManager;
+      if (clientEmail !== undefined) updateData.clientEmail = clientEmail;
+      if (clientPhone !== undefined) updateData.clientPhone = clientPhone;
+      if (tags !== undefined) updateData.tags = tags ? JSON.stringify(tags) : null;
 
       const project = await prisma.project.update({
         where: { id },
-        data: {
-          ...(name && { name }),
-          ...(clientName && { clientName }),
-          ...(startDate && { startDate: new Date(startDate) }),
-          ...(status && { status })
-        },
+        data: updateData,
         include: {
           updates: {
             orderBy: { createdAt: 'desc' }
           },
           payments: {
+            orderBy: { createdAt: 'desc' }
+          },
+          products: {
             orderBy: { createdAt: 'desc' }
           }
         }
@@ -170,7 +228,7 @@ export class ProjectController {
   static async addProjectUpdate(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { update, issues, pendingTasks, workProgress } = req.body;
+      const { update, issues, pendingTasks, workProgress, updatedBy, attachments } = req.body;
 
       if (!update) {
         return res.status(400).json({
@@ -185,7 +243,9 @@ export class ProjectController {
           update,
           issues: issues || null,
           pendingTasks: pendingTasks || null,
-          workProgress: workProgress || null
+          workProgress: workProgress || null,
+          updatedBy: updatedBy || null,
+          attachments: attachments ? JSON.stringify(attachments) : null
         }
       });
 
@@ -207,7 +267,7 @@ export class ProjectController {
   static async addProjectPayment(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { status, amountPaid, amountDue, remarks } = req.body;
+      const { status, amountPaid, amountDue, remarks, dueDate, invoiceNumber } = req.body;
 
       if (!status) {
         return res.status(400).json({
@@ -222,7 +282,9 @@ export class ProjectController {
           status,
           amountPaid: amountPaid || null,
           amountDue: amountDue || null,
-          remarks: remarks || null
+          remarks: remarks || null,
+          dueDate: dueDate ? new Date(dueDate) : null,
+          invoiceNumber: invoiceNumber || null
         }
       });
 
@@ -282,6 +344,91 @@ export class ProjectController {
       res.status(500).json({
         success: false,
         message: 'Failed to fetch project payments'
+      });
+    }
+  }
+
+  // Add project product
+  static async addProjectProduct(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { name, category, vendor, notes } = req.body;
+
+      if (!name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Product name is required'
+        });
+      }
+
+      const projectProduct = await prisma.projectProduct.create({
+        data: {
+          projectId: id,
+          name,
+          category: category || null,
+          vendor: vendor || null,
+          notes: notes || null
+        }
+      });
+
+      res.status(201).json({
+        success: true,
+        data: projectProduct,
+        message: 'Project product added successfully'
+      });
+    } catch (error) {
+      console.error('Error adding project product:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to add project product'
+      });
+    }
+  }
+
+  // Get project products
+  static async getProjectProducts(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      const products = await prisma.projectProduct.findMany({
+        where: { projectId: id },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      res.json({
+        success: true,
+        data: products
+      });
+    } catch (error) {
+      console.error('Error fetching project products:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch project products'
+      });
+    }
+  }
+
+  // Delete project product
+  static async deleteProjectProduct(req: Request, res: Response) {
+    try {
+      const { id, productId } = req.params;
+
+      await prisma.projectProduct.delete({
+        where: { 
+          id: productId,
+          projectId: id
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Project product deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting project product:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete project product'
       });
     }
   }

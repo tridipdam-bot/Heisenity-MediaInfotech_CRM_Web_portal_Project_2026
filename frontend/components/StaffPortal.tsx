@@ -7,33 +7,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { 
   Clock, 
   MapPin, 
   User, 
   Calendar, 
-  CheckCircle, 
-  XCircle,
   AlertCircle,
   LogOut,
-  Settings,
-  Home,
   FileText,
   DollarSign,
   Car,
-  Upload,
-  ClockIcon
+  Upload
 } from "lucide-react"
 import { EmployeeSelfAttendance } from "./EmployeeSelfAttendance"
 import { LeaveApplicationForm } from "./LeaveApplicationForm"
 import { LeaveApplicationsList } from "./LeaveApplicationsList"
 import { EmployeeDocuments } from "./EmployeeDocuments"
-import { createAttendance } from "@/lib/server-api"
-import { showToast } from "@/lib/toast-utils"
+import { getEmployeeTasks } from "@/lib/server-api"
 
 interface StaffPortalProps {
-  deviceInfo: any
+  deviceInfo: unknown
 }
 
 interface EmployeeProfile {
@@ -45,6 +38,7 @@ interface EmployeeProfile {
   teamId?: string
   isTeamLeader: boolean
   status: string
+  role?: string
 }
 
 interface AssignedVehicle {
@@ -56,20 +50,33 @@ interface AssignedVehicle {
   assignedAt: string
 }
 
+interface AssignedTask {
+  id: string
+  title: string
+  description: string
+  category?: string
+  location?: string
+  startTime?: string
+  endTime?: string
+  status: string
+  assignedAt: string
+  assignedBy: string
+}
+
 export function StaffPortal({ deviceInfo }: StaffPortalProps) {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [employeeProfile, setEmployeeProfile] = useState<EmployeeProfile | null>(null)
   const [assignedVehicle, setAssignedVehicle] = useState<AssignedVehicle | null>(null)
+  const [assignedTasks, setAssignedTasks] = useState<AssignedTask[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'attendance' | 'leave' | 'documents' | 'payroll' | 'vehicle'>('attendance')
-  const [clockOutLoading, setClockOutLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<'attendance' | 'leave' | 'documents' | 'payroll' | 'vehicle' | 'tasks'>('attendance')
   const [leaveRefreshTrigger, setLeaveRefreshTrigger] = useState(0)
 
   useEffect(() => {
     if (status === "loading") return
 
-    if (!session || (session.user as any)?.userType !== "employee") {
+    if (!session || (session.user as { userType?: string })?.userType !== "employee") {
       router.push("/")
       return
     }
@@ -81,15 +88,22 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
     try {
       if (!session?.user) return
 
-      const employeeId = (session.user as any).employeeId
+      const employeeId = (session.user as { employeeId?: string })?.employeeId
       if (!employeeId) return
 
-      // Fetch employee profile and assigned vehicle
-      const [profileResponse, vehicleResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/field-engineers/${employeeId}`),
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/vehicles/employee/${employeeId}`)
-      ])
+      // Try to fetch from employees endpoint first (works for both field engineers and in-office)
+      let profileResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employees/by-employee-id/${employeeId}`)
       
+      // If that fails, try field-engineers endpoint (for backward compatibility)
+      if (!profileResponse.ok) {
+        profileResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/field-engineers/${employeeId}`)
+      }
+
+      // Fetch assigned vehicle (only for field engineers)
+      const vehicleResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/vehicles/employee/${employeeId}`)
+      
+      // Fetch assigned tasks (only for field engineers)
+      let tasksData: AssignedTask[] = []
       if (profileResponse.ok) {
         const result = await profileResponse.json()
         if (result.success && result.data) {
@@ -101,8 +115,22 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
             phone: result.data.phone,
             teamId: result.data.teamId,
             isTeamLeader: result.data.isTeamLeader,
-            status: result.data.status
+            status: result.data.status,
+            role: result.data.role // Include role information
           })
+          
+          // Fetch tasks only for field engineers
+          if (result.data?.role === 'FIELD_ENGINEER') {
+            try {
+              const tasksResponse = await getEmployeeTasks(employeeId)
+              if (tasksResponse.success && tasksResponse.data?.tasks) {
+                tasksData = tasksResponse.data.tasks
+              }
+            } catch (error) {
+              console.error('Error fetching tasks:', error)
+            }
+          }
+          setAssignedTasks(tasksData)
         } else {
           // Fallback to session data
           setEmployeeProfile({
@@ -113,7 +141,8 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
             phone: undefined,
             teamId: undefined,
             isTeamLeader: false,
-            status: "ACTIVE"
+            status: "ACTIVE",
+            role: undefined
           })
         }
       } else {
@@ -126,11 +155,12 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
           phone: undefined,
           teamId: undefined,
           isTeamLeader: false,
-          status: "ACTIVE"
+          status: "ACTIVE",
+          role: undefined
         })
       }
 
-      // Fetch assigned vehicle
+      // Fetch assigned vehicle (only relevant for field engineers)
       if (vehicleResponse.ok) {
         const vehicleResult = await vehicleResponse.json()
         if (vehicleResult.success && vehicleResult.data) {
@@ -148,7 +178,7 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
       console.error("Error fetching employee profile:", error)
       // Fallback to session data
       if (session?.user) {
-        const employeeId = (session.user as any).employeeId
+        const employeeId = (session.user as { employeeId?: string })?.employeeId || ""
         setEmployeeProfile({
           id: session.user.id,
           name: session.user.name || "Employee",
@@ -157,7 +187,8 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
           phone: undefined,
           teamId: undefined,
           isTeamLeader: false,
-          status: "ACTIVE"
+          status: "ACTIVE",
+          role: undefined
         })
       }
     } finally {
@@ -170,34 +201,6 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
       callbackUrl: '/',
       redirect: true 
     })
-  }
-
-  const handleClockOut = async () => {
-    if (!employeeProfile?.employeeId) {
-      showToast.error('Employee ID not found')
-      return
-    }
-
-    setClockOutLoading(true)
-    try {
-      const response = await createAttendance({
-        employeeId: employeeProfile.employeeId,
-        status: 'PRESENT',
-        action: 'check-out'
-      })
-
-      if (response.success) {
-        showToast.success('Clock-out successful!', 'End of Day')
-      } else {
-        throw new Error(response.error || 'Failed to clock out')
-      }
-    } catch (error) {
-      console.error('Error clocking out:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      showToast.error(`Failed to clock out: ${errorMessage}`)
-    } finally {
-      setClockOutLoading(false)
-    }
   }
 
   const getInitials = (name: string) => {
@@ -255,25 +258,6 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
               <h1 className="text-xl font-semibold text-gray-900">Staff Portal</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClockOut}
-                disabled={clockOutLoading}
-                className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400"
-              >
-                {clockOutLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Clocking Out...
-                  </>
-                ) : (
-                  <>
-                    <ClockIcon className="h-4 w-4 mr-2" />
-                    Clock Out
-                  </>
-                )}
-              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -344,17 +328,32 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
                 <DollarSign className="h-4 w-4 inline mr-2" />
                 Payroll
               </button>
-              <button
-                onClick={() => setActiveTab('vehicle')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'vehicle'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <Car className="h-4 w-4 inline mr-2" />
-                Vehicle
-              </button>
+              {employeeProfile?.role === 'FIELD_ENGINEER' && (
+                <>
+                  <button
+                    onClick={() => setActiveTab('tasks')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'tasks'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <FileText className="h-4 w-4 inline mr-2" />
+                    Tasks
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('vehicle')}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'vehicle'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <Car className="h-4 w-4 inline mr-2" />
+                    Vehicle
+                  </button>
+                </>
+              )}
             </nav>
           </div>
         </div>
@@ -367,7 +366,7 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
             Welcome back, {employeeProfile.name}! 👋
           </h2>
           <p className="text-gray-600 mt-1">
-            Here's your staff portal dashboard. Manage your attendance and view your profile.
+            Here&apos;s your staff portal dashboard. Manage your attendance and view your profile.
           </p>
         </div>
 
@@ -417,7 +416,7 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
             {/* Quick Stats */}
             <Card className="mt-6">
               <CardHeader>
-                <CardTitle className="text-lg">Today's Overview</CardTitle>
+                <CardTitle className="text-lg">Today&apos;s Overview</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -450,11 +449,11 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
                     <span>Attendance Management</span>
                   </CardTitle>
                   <p className="text-gray-600">
-                    Mark your attendance and track your location
+                    Mark your attendance with photo verification
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <EmployeeSelfAttendance deviceInfo={deviceInfo} />
+                  <EmployeeSelfAttendance deviceInfo={deviceInfo as unknown} />
                 </CardContent>
               </Card>
             )}
@@ -513,7 +512,93 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
               </Card>
             )}
 
-            {activeTab === 'vehicle' && (
+            {activeTab === 'tasks' && employeeProfile?.role === 'FIELD_ENGINEER' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <FileText className="h-5 w-5 text-blue-500" />
+                    <span>Assigned Tasks</span>
+                  </CardTitle>
+                  <p className="text-gray-600">
+                    View your assigned tasks and their locations
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {assignedTasks.length > 0 ? (
+                      assignedTasks.map((task) => (
+                        <div key={task.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-gray-900 mb-1">{task.title}</h4>
+                              <p className="text-sm text-gray-600 mb-2">{task.description}</p>
+                              
+                              {/* Location Information */}
+                              {task.location && (
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <MapPin className="h-4 w-4 text-blue-500" />
+                                  <span className="text-sm text-gray-700 font-medium">Location:</span>
+                                  <span className="text-sm text-gray-600">{task.location}</span>
+                                </div>
+                              )}
+                              
+                              {/* Task Details */}
+                              <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                                {task.category && (
+                                  <span className="bg-gray-100 px-2 py-1 rounded">
+                                    {task.category}
+                                  </span>
+                                )}
+                                {task.startTime && (
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    <span>Start: {new Date(task.startTime).toLocaleTimeString()}</span>
+                                  </div>
+                                )}
+                                {task.endTime && (
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    <span>End: {new Date(task.endTime).toLocaleTimeString()}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end space-y-2">
+                              <Badge 
+                                className={
+                                  task.status === 'COMPLETED' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : task.status === 'IN_PROGRESS'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : task.status === 'CANCELLED'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }
+                              >
+                                {task.status.replace('_', ' ')}
+                              </Badge>
+                              <span className="text-xs text-gray-500">
+                                Assigned: {new Date(task.assignedAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-12">
+                        <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Tasks Assigned</h3>
+                        <p className="text-gray-600">
+                          You don&apos;t have any tasks assigned at the moment.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'vehicle' && employeeProfile?.role === 'FIELD_ENGINEER' && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">

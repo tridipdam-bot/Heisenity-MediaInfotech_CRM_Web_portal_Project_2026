@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { getCoordinatesFromMapMyIndia } from "@/utils/geolocation";
 // Create a new task and update attendance record
 export async function createTask(data) {
     try {
@@ -23,67 +22,6 @@ export async function createTask(data) {
                 attemptCount: 'ZERO'
             }
         });
-        // Create or update dailyLocation record for today (required for attendance validation)
-        if (data.location && data.startTime) {
-            console.log(`Processing task location: "${data.location}" for employee ${data.employeeId}`);
-            // Parse start and end times
-            const [startHour, startMinute] = data.startTime.split(':').map(Number);
-            const startDateTime = new Date(today);
-            startDateTime.setHours(startHour, startMinute, 0, 0);
-            const endDateTime = new Date(startDateTime.getTime() + (8 * 60 * 60 * 1000));
-            // Geocode location using MapMyIndia
-            const geo = await getCoordinatesFromMapMyIndia(data.location);
-            if (!geo) {
-                console.error(`MapMyIndia geocoding failed for location: "${data.location}"`);
-                throw new Error('UNABLE_TO_GEOCODE_TASK_LOCATION');
-            }
-            console.log(`Successfully geocoded "${data.location}" to coordinates: ${geo.latitude}, ${geo.longitude}`);
-            // Use dynamic radius based on geocoding accuracy
-            // If we got exact coordinates, use smaller radius; if fallback/area-based, use larger radius
-            let radius = geo.estimatedRadiusMeters || 100;
-            // For fallback coordinates (low confidence), use larger radius
-            if (geo.importance && geo.importance < 0.5) {
-                radius = Math.max(radius, 2000); // At least 2km for low confidence geocoding
-            }
-            // Ensure minimum radius for practical GPS accuracy
-            radius = Math.max(radius, 500); // Minimum 500m for real-world GPS variations
-            console.log(`Using radius: ${radius}m for location "${data.location}" (granularity: ${geo.granularity}, confidence: ${geo.importance})`);
-            // Create or update daily location
-            await prisma.dailyLocation.upsert({
-                where: {
-                    employeeId_date: {
-                        employeeId: employee.id,
-                        date: today
-                    }
-                },
-                update: {
-                    latitude: geo.latitude,
-                    longitude: geo.longitude,
-                    radius: radius,
-                    address: data.location,
-                    city: data.location,
-                    state: "Task Location",
-                    startTime: startDateTime,
-                    endTime: endDateTime,
-                    assignedBy: data.assignedBy,
-                    updatedAt: new Date()
-                },
-                create: {
-                    employeeId: employee.id,
-                    date: today,
-                    latitude: geo.latitude,
-                    longitude: geo.longitude,
-                    radius: radius,
-                    address: data.location,
-                    city: data.location,
-                    state: "Task Location",
-                    startTime: startDateTime,
-                    endTime: endDateTime,
-                    assignedBy: data.assignedBy
-                }
-            });
-            console.log(`Created/updated dailyLocation for employee ${data.employeeId} at ${data.location} (${startDateTime.toLocaleTimeString()} - ${endDateTime.toLocaleTimeString()})`);
-        }
         // Create the task
         const task = await prisma.task.create({
             data: {
@@ -91,7 +29,6 @@ export async function createTask(data) {
                 title: data.title,
                 description: data.description,
                 category: data.category,
-                location: data.location,
                 startTime: data.startTime,
                 assignedBy: data.assignedBy,
                 status: 'PENDING'
@@ -475,41 +412,6 @@ export async function resetAttendanceAttempts(employeeId) {
     }
     catch (error) {
         console.error('Error resetting attendance attempts:', error);
-        throw error;
-    }
-}
-// Function to fix daily locations with same start/end times
-export async function fixDailyLocationTimes() {
-    try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        // Find daily locations where start time equals end time
-        const problematicLocations = await prisma.dailyLocation.findMany({
-            where: {
-                date: today,
-                // This will find locations where start and end times are the same
-            }
-        });
-        for (const location of problematicLocations) {
-            const startTime = new Date(location.startTime);
-            const endTime = new Date(location.endTime);
-            if (endTime <= startTime) {
-                // Set end time to 8 hours after start time
-                const newEndTime = new Date(startTime.getTime() + (8 * 60 * 60 * 1000));
-                await prisma.dailyLocation.update({
-                    where: { id: location.id },
-                    data: {
-                        endTime: newEndTime,
-                        updatedAt: new Date()
-                    }
-                });
-                console.log(`Fixed daily location for employee: ${startTime.toLocaleTimeString()} - ${newEndTime.toLocaleTimeString()}`);
-            }
-        }
-        console.log(`Fixed ${problematicLocations.length} daily location time issues`);
-    }
-    catch (error) {
-        console.error('Error fixing daily location times:', error);
         throw error;
     }
 }

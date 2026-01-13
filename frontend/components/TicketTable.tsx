@@ -326,10 +326,6 @@ export function TicketTable() {
               <div className="space-y-2">
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-bold text-foreground">{openTickets}</span>
-                  <div className="flex items-center gap-1 text-red-600">
-                    <TrendingUp className="h-3 w-3" />
-                    <span className="text-sm font-medium">+2</span>
-                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground">need attention</p>
               </div>
@@ -349,10 +345,6 @@ export function TicketTable() {
               <div className="space-y-2">
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-bold text-foreground">{inProgressTickets}</span>
-                  <div className="flex items-center gap-1 text-blue-600">
-                    <TrendingUp className="h-3 w-3" />
-                    <span className="text-sm font-medium">+1</span>
-                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground">being worked on</p>
               </div>
@@ -372,10 +364,6 @@ export function TicketTable() {
               <div className="space-y-2">
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-bold text-foreground">{highPriorityTickets}</span>
-                  <div className="flex items-center gap-1 text-amber-600">
-                    <TrendingDown className="h-3 w-3" />
-                    <span className="text-sm font-medium">-1</span>
-                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground">urgent tickets</p>
               </div>
@@ -395,10 +383,6 @@ export function TicketTable() {
               <div className="space-y-2">
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-bold text-foreground">5</span>
-                  <div className="flex items-center gap-1 text-green-600">
-                    <TrendingUp className="h-3 w-3" />
-                    <span className="text-sm font-medium">+3</span>
-                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground">tickets completed</p>
               </div>
@@ -465,7 +449,6 @@ export function TicketTable() {
                 <TableHead className="w-[120px] py-4 px-6 font-semibold text-foreground">Priority</TableHead>
                 <TableHead className="w-[150px] py-4 px-6 font-semibold text-foreground">Assignee</TableHead>
                 <TableHead className="w-[120px] py-4 px-6 font-semibold text-foreground">Due Date</TableHead>
-                <TableHead className="w-[100px] py-4 px-6 font-semibold text-foreground">Comments</TableHead>
                 <TableHead className="py-4 px-6 font-semibold text-foreground">Department</TableHead>
                 <TableHead className="w-[60px] py-4 px-6"></TableHead>
               </TableRow>
@@ -518,12 +501,6 @@ export function TicketTable() {
                     <div className="text-sm">
                       <p className="font-medium text-foreground">{ticket.dueDate}</p>
                       <p className="text-xs text-muted-foreground">{ticket.estimatedHours}h estimated</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="py-4 px-6">
-                    <div className="flex items-center gap-1">
-                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium text-foreground">{ticket.comments}</span>
                     </div>
                   </TableCell>
                   <TableCell className="py-4 px-6">

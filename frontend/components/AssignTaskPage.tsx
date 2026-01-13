@@ -439,7 +439,7 @@ export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned }
                   <div className="space-y-2">
                     <Label htmlFor="location" className="flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-gray-500" />
-                      Location *
+                      Location
                     </Label>
                     <Input
                       id="location"
@@ -549,7 +549,6 @@ export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned }
                         disabled={
                           submitting || 
                           !taskData.title || 
-                          !taskData.location || 
                           !taskData.startTime ||
                           (assignmentType === 'team' && !selectedTeam) ||
                           (assignmentType === 'individual' && !selectedEmployee)

@@ -80,7 +80,7 @@ export class EmployeeIdController {
         })
       }
 
-      const nextIds = await EmployeeIdGeneratorService.getNextAvailableIds(count)
+      const nextIds = await EmployeeIdGeneratorService.getNextAvailableIds('FIELD_ENGINEER', count)
       
       res.status(200).json({
         success: true,

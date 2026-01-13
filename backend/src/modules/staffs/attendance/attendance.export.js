@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 async function getAttendanceDataForExport(filters) {
     const where = {};
     if (filters.employeeId) {
-        const employee = await prisma.fieldEngineer.findUnique({
+        const employee = await prisma.employee.findUnique({
             where: { employeeId: filters.employeeId }
         });
         if (employee) {

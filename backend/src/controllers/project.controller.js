@@ -1,5 +1,4 @@
-import { PrismaClient } from '@/generated/prisma';
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma.js';
 export class ProjectController {
     // Get all projects
     static async getAllProjects(req, res) {
