@@ -29,7 +29,8 @@ import {
     UsersRound,
     Clock,
     FileText,
-    FolderOpen
+    FolderOpen,
+    Gavel
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -77,6 +78,13 @@ const navigationItems = [
         icon: FolderOpen,
         badge: null,
         description: "Manage ongoing projects and updates"
+    },
+    {
+        title: "Tender Management",
+        url: "/tenders",
+        icon: Gavel,
+        badge: null,
+        description: "Manage tenders, EMD tracking, and documents"
     },
     {
         title: "Docs. and Leave Management",

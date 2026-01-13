@@ -7,6 +7,7 @@ import vehicleRoutes from '../modules/staffs/vehicles/vehicle.route';
 import leaveRoutes from '../modules/staffs/leave/leave.route';
 import documentRoutes from '../modules/staffs/documents/document.route';
 import notificationRoutes from '../modules/notifications/notification.routes';
+import tenderRoutes from '../modules/tenders/tender.route';
 import databaseRoutes from './database.route';
 import { authRouter } from './auth.route';
 import employeeIdRoutes from './employeeId.route';
@@ -56,6 +57,9 @@ router.use('/field-engineers', fieldEngineerRoutes);
 
 // Mount project management routes
 router.use('/projects', projectRoutes);
+
+// Mount tender management routes
+router.use('/tenders', tenderRoutes);
 
 // Health check
 router.get('/health', (_req: Request, res: Response) => {

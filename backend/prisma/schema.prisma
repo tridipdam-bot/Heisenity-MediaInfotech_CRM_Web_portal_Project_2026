@@ -650,3 +650,167 @@ enum TicketHistoryAction {
   CLOSED
   REOPENED
 }
+
+// Tender Management System Models
+model Tender {
+  id              String        @id @default(cuid())
+  tenderNumber    String        @unique // TNR-001 format
+  name            String
+  description     String?       @db.Text
+  department      String
+  projectMapping  String?
+  tenderType      TenderType
+  submissionDate  DateTime      @db.Date
+  deadline        DateTime      @db.Date
+  status          TenderStatus  @default(DRAFT)
+  totalValue      Decimal?      @db.Decimal(15, 2)
+  createdBy       String        // Admin ID
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  approvedBy      String?       // Admin ID
+  approvedAt      DateTime?
+  rejectedBy      String?       // Admin ID
+  rejectedAt      DateTime?
+  closedAt        DateTime?
+  internalRemarks String?       @db.Text
+
+  // Relations
+  documents       TenderDocument[]
+  emdRecords      TenderEMD[]
+  auditLogs       TenderAuditLog[]
+
+  @@index([status])
+  @@index([submissionDate])
+  @@index([deadline])
+  @@index([department])
+  @@index([tenderType])
+  @@map("tenders")
+}
+
+model TenderDocument {
+  id           String              @id @default(cuid())
+  tenderId     String
+  fileName     String
+  originalName String
+  filePath     String              @db.Text
+  fileSize     Int
+  mimeType     String
+  documentType TenderDocumentType
+  isRequired   Boolean             @default(false)
+  status       DocumentStatus      @default(PENDING)
+  uploadedBy   String              // Admin ID
+  uploadedAt   DateTime            @default(now())
+  verifiedBy   String?             // Admin ID
+  verifiedAt   DateTime?
+  remarks      String?             @db.Text
+
+  // Relations
+  tender       Tender              @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@index([tenderId])
+  @@index([documentType])
+  @@index([status])
+  @@map("tender_documents")
+}
+
+model TenderEMD {
+  id          String     @id @default(cuid())
+  tenderId    String
+  amount      Decimal    @db.Decimal(15, 2)
+  status      EMDStatus  @default(INVESTED)
+  investedAt  DateTime   @default(now())
+  refundedAt  DateTime?
+  forfeitedAt DateTime?
+  remarks     String?    @db.Text
+  createdBy   String     // Admin ID
+  updatedBy   String?    // Admin ID
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  tender      Tender     @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@index([tenderId])
+  @@index([status])
+  @@map("tender_emd")
+}
+
+model TenderAuditLog {
+  id        String            @id @default(cuid())
+  tenderId  String
+  action    TenderAuditAction
+  field     String?           // Field that was changed
+  oldValue  String?           @db.Text
+  newValue  String?           @db.Text
+  remarks   String?           @db.Text
+  performedBy String          // Admin ID
+  timestamp DateTime          @default(now())
+
+  // Relations
+  tender    Tender            @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@index([tenderId])
+  @@index([performedBy])
+  @@index([timestamp])
+  @@index([action])
+  @@map("tender_audit_logs")
+}
+
+enum TenderType {
+  OPEN
+  LIMITED
+  SINGLE_SOURCE
+  EMERGENCY
+  FRAMEWORK
+  OTHER
+}
+
+enum TenderStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  AWARDED
+  NOT_AWARDED
+  CLOSED
+}
+
+enum TenderDocumentType {
+  TECHNICAL_SPECIFICATION
+  FINANCIAL_PROPOSAL
+  COMPANY_PROFILE
+  COMPLIANCE_CERTIFICATE
+  EMD_PROOF
+  TENDER_FORM
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum EMDStatus {
+  INVESTED
+  REFUNDED
+  FORFEITED
+}
+
+enum TenderAuditAction {
+  CREATED
+  UPDATED
+  SUBMITTED
+  APPROVED
+  REJECTED
+  AWARDED
+  NOT_AWARDED
+  CLOSED
+  DOCUMENT_UPLOADED
+  DOCUMENT_VERIFIED
+  DOCUMENT_REJECTED
+  EMD_INVESTED
+  EMD_REFUNDED
+  EMD_FORFEITED
+  STATUS_CHANGED
+}
