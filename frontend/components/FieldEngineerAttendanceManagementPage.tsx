@@ -56,20 +56,6 @@ const getStatusIcon = (status: string) => {
   }
 }
 
-const getStatusBadge = (status: string) => {
-  const variants = {
-    PRESENT: "bg-green-50 text-green-700 border-green-200",
-    LATE: "bg-amber-50 text-amber-700 border-amber-200",
-    ABSENT: "bg-red-50 text-red-700 border-red-200"
-  }
-
-  return (
-    <Badge className={`${variants[status as keyof typeof variants]} capitalize font-medium`}>
-      {status.toLowerCase()}
-    </Badge>
-  )
-}
-
 const formatTime = (dateString?: string) => {
   if (!dateString) return '-'
   return new Date(dateString).toLocaleTimeString('en-US', {
@@ -273,7 +259,7 @@ export function AttendanceManagementPage() {
     } finally {
       setLoading(false)
     }
-  }, [pagination.page, pagination.limit, filters])
+  }, [pagination.page, pagination.limit, filters, deletedRecords])
 
   React.useEffect(() => {
     fetchAttendanceData()
@@ -847,7 +833,7 @@ export function AttendanceManagementPage() {
                       <TableCell className="py-4 px-6">
                         <div className="flex items-center gap-4">
                           <div className="relative">
-                            <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm bg-gradient-to-br from-blue-500 to-blue-600">
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm bg-linear-to-br from-blue-500 to-blue-600">
                               {record.employeeName.split(' ').map(n => n[0]).join('').toUpperCase()}
                             </div>
                             {record.hasAttendance && getStatusIcon(record.status) && (
