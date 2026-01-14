@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { tenderService } from './tender.service';
-import { TenderType, TenderStatus, TenderDocumentType, DocumentStatus, EMDStatus } from '../../../generated/prisma';
+import { TenderType, TenderStatus, TenderDocumentType, DocumentStatus, EMDStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import multer from 'multer';
 import path from 'path';

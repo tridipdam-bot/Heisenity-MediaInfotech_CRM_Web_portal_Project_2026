@@ -7,12 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 const router = express.Router();
 
 // CommonJS equivalent of __dirname
-const __dirname = path.dirname(__filename);
-
-const swaggerFilePath = path.join(
-  __dirname,
-  'openapi.yaml'
-);
+const swaggerFilePath = path.join(__dirname, 'openapi.yaml');
 
 const swaggerDocument = yaml.load(
   fs.readFileSync(swaggerFilePath, 'utf8')
