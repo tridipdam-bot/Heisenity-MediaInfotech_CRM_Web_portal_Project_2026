@@ -616,7 +616,7 @@ export default function LandingPage({ onGetStarted, isLoggedIn = false, userProf
             </div>
             <div className="text-center md:text-right">
               <p>&copy; 2026 MediaInfoTech.</p>
-              <p className="text-sm mt-1">For authorized personnel only. Secure access required.</p>
+              <p className="text-sm mt-1">powered by insightsnode</p>
             </div>
           </div>
         </div>
