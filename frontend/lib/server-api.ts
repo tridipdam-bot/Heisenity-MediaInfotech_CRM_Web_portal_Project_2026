@@ -1018,7 +1018,7 @@ export type Vehicle = {
   model: string
   year?: number
   type: 'CAR' | 'BIKE' | 'TRUCK' | 'VAN'
-  status: 'AVAILABLE' | 'ASSIGNED' | 'MAINTENANCE' | 'OUT_OF_SERVICE'
+  status: 'AVAILABLE' | 'ASSIGNED'
   assignedTo?: string
   assignedAt?: string
   createdAt: string

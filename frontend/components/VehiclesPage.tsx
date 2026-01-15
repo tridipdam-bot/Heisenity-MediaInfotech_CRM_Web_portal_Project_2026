@@ -32,9 +32,7 @@ import {
 const getStatusBadge = (status: string) => {
   const variants = {
     AVAILABLE: "bg-green-50 text-green-700 border-green-200",
-    ASSIGNED: "bg-blue-50 text-blue-700 border-blue-200",
-    MAINTENANCE: "bg-yellow-50 text-yellow-700 border-yellow-200",
-    OUT_OF_SERVICE: "bg-red-50 text-red-700 border-red-200"
+    ASSIGNED: "bg-blue-50 text-blue-700 border-blue-200"
   }
 
   return (
@@ -410,8 +408,6 @@ export function VehiclesPage() {
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="AVAILABLE">Available</SelectItem>
                     <SelectItem value="ASSIGNED">Assigned</SelectItem>
-                    <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
-                    <SelectItem value="OUT_OF_SERVICE">Out of Service</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

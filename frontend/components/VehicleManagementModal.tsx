@@ -20,9 +20,7 @@ import {
 const getStatusBadge = (status: string) => {
   const variants = {
     AVAILABLE: "bg-green-50 text-green-700 border-green-200",
-    ASSIGNED: "bg-blue-50 text-blue-700 border-blue-200",
-    MAINTENANCE: "bg-yellow-50 text-yellow-700 border-yellow-200",
-    OUT_OF_SERVICE: "bg-red-50 text-red-700 border-red-200"
+    ASSIGNED: "bg-blue-50 text-blue-700 border-blue-200"
   }
 
   return (
@@ -52,6 +50,7 @@ export function VehicleManagementModal() {
   const [loading, setLoading] = React.useState(true)
   const [activeTab, setActiveTab] = React.useState<'vehicles' | 'bills'>('vehicles')
   const [searchTerm, setSearchTerm] = React.useState("")
+  const [statusFilter, setStatusFilter] = React.useState<string>("all")
 
   React.useEffect(() => {
     fetchData()
@@ -81,14 +80,25 @@ export function VehicleManagementModal() {
   }
 
   const filteredVehicles = React.useMemo(() => {
-    if (!searchTerm) return vehicles
-    return vehicles.filter(vehicle =>
-      vehicle.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.employeeName?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  }, [vehicles, searchTerm])
+    let filtered = vehicles
+    
+    // Apply status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(vehicle => vehicle.status === statusFilter)
+    }
+    
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(vehicle =>
+        vehicle.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        vehicle.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        vehicle.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        vehicle.employeeName?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+    
+    return filtered
+  }, [vehicles, searchTerm, statusFilter])
 
   const filteredBills = React.useMemo(() => {
     if (!searchTerm) return petrolBills
@@ -136,7 +146,7 @@ export function VehicleManagementModal() {
         </nav>
       </div>
 
-      {/* Search */}
+      {/* Search and Filter */}
       <div className="flex items-center gap-4">
         <div className="flex-1">
           <div className="relative">
@@ -149,6 +159,20 @@ export function VehicleManagementModal() {
             />
           </div>
         </div>
+        {activeTab === 'vehicles' && (
+          <div className="w-48">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="AVAILABLE">Available</SelectItem>
+                <SelectItem value="ASSIGNED">Assigned</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Content */}

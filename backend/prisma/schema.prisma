@@ -264,8 +264,6 @@ enum VehicleType {
 enum VehicleStatus {
   AVAILABLE
   ASSIGNED
-  MAINTENANCE
-  OUT_OF_SERVICE
 }
 
 model PetrolBill {

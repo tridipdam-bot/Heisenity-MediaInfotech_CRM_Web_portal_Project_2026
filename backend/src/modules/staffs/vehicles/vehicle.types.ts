@@ -36,9 +36,7 @@ export enum VehicleType {
 
 export enum VehicleStatus {
   AVAILABLE = 'AVAILABLE',
-  ASSIGNED = 'ASSIGNED',
-  MAINTENANCE = 'MAINTENANCE',
-  OUT_OF_SERVICE = 'OUT_OF_SERVICE'
+  ASSIGNED = 'ASSIGNED'
 }
 
 export enum BillStatus {
