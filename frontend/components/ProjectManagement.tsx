@@ -15,7 +15,7 @@ import {
   Edit,
   Trash2,
   FolderOpen,
-  DollarSign,
+  IndianRupee,
   FileText,
   Clock,
   CheckCircle,
@@ -73,13 +73,10 @@ interface ProjectUpdate {
 
 interface ProjectPayment {
   id: string
-  status: 'FULLY_PAID' | 'PARTIALLY_PAID' | 'FULL_DUE'
-  amountPaid?: number
-  amountDue?: number
-  remarks?: string
+  totalContractValue?: number
+  receivedPayment?: number
+  pendingPayment?: number
   createdAt: string
-  dueDate?: string
-  invoiceNumber?: string
 }
 
 interface ProjectStats {
@@ -123,8 +120,7 @@ export function ProjectManagement() {
     startDate: '',
     endDate: '',
     status: 'ONGOING' as 'ONGOING' | 'COMPLETED' | 'ON_HOLD',
-    priority: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
-    budget: ''
+    priority: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
   })
 
   const [updateForm, setUpdateForm] = React.useState({
@@ -136,12 +132,9 @@ export function ProjectManagement() {
   })
 
   const [paymentForm, setPaymentForm] = React.useState({
-    status: 'FULL_DUE' as 'FULLY_PAID' | 'PARTIALLY_PAID' | 'FULL_DUE',
-    amountPaid: '',
-    amountDue: '',
-    remarks: '',
-    dueDate: '',
-    invoiceNumber: ''
+    totalContractValue: '',
+    receivedPayment: '',
+    pendingPayment: ''
   })
 
   const [productForm, setProductForm] = React.useState({
@@ -176,13 +169,13 @@ export function ProjectManagement() {
     const onHoldProjects = projectsData.filter(p => p.status === 'ON_HOLD').length
 
     const totalRevenue = projectsData.reduce((sum, project) => {
-      const paidAmount = project.payments.reduce((pSum, payment) => pSum + (payment.amountPaid || 0), 0)
-      return sum + paidAmount
+      const receivedAmount = project.payments.reduce((pSum, payment) => pSum + (payment.receivedPayment || 0), 0)
+      return sum + receivedAmount
     }, 0)
 
     const pendingPayments = projectsData.reduce((sum, project) => {
-      const dueAmount = project.payments.reduce((pSum, payment) => pSum + (payment.amountDue || 0), 0)
-      return sum + dueAmount
+      const pendingAmount = project.payments.reduce((pSum, payment) => pSum + (payment.pendingPayment || 0), 0)
+      return sum + pendingAmount
     }, 0)
 
     setStats({
@@ -218,10 +211,7 @@ export function ProjectManagement() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/projects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...projectForm,
-          budget: projectForm.budget ? parseFloat(projectForm.budget) : null
-        })
+        body: JSON.stringify(projectForm)
       })
 
       const result = await response.json()
@@ -243,8 +233,7 @@ export function ProjectManagement() {
       startDate: '',
       endDate: '',
       status: 'ONGOING',
-      priority: 'MEDIUM',
-      budget: ''
+      priority: 'MEDIUM'
     })
   }
 
@@ -258,10 +247,7 @@ export function ProjectManagement() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/projects/${selectedProject.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...projectForm,
-          budget: projectForm.budget ? parseFloat(projectForm.budget) : null
-        })
+        body: JSON.stringify(projectForm)
       })
 
       const result = await response.json()
@@ -312,9 +298,9 @@ export function ProjectManagement() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...paymentForm,
-          amountPaid: paymentForm.amountPaid ? parseFloat(paymentForm.amountPaid) : null,
-          amountDue: paymentForm.amountDue ? parseFloat(paymentForm.amountDue) : null
+          totalContractValue: paymentForm.totalContractValue ? parseFloat(paymentForm.totalContractValue) : null,
+          receivedPayment: paymentForm.receivedPayment ? parseFloat(paymentForm.receivedPayment) : null,
+          pendingPayment: paymentForm.pendingPayment ? parseFloat(paymentForm.pendingPayment) : null
         })
       })
 
@@ -323,7 +309,7 @@ export function ProjectManagement() {
       if (result.success) {
         await fetchProjects()
         setIsPaymentDialogOpen(false)
-        setPaymentForm({ status: 'FULL_DUE', amountPaid: '', amountDue: '', remarks: '', dueDate: '', invoiceNumber: '' })
+        setPaymentForm({ totalContractValue: '', receivedPayment: '', pendingPayment: '' })
       }
     } catch (error) {
       console.error('Error adding payment:', error)
@@ -392,15 +378,6 @@ export function ProjectManagement() {
       case 'MEDIUM': return <Badge className="bg-slate-100 text-slate-700 border-slate-200"><Target className="h-3 w-3 mr-1" />Medium</Badge>
       case 'LOW': return <Badge className="bg-slate-100 text-slate-600 border-slate-200"><ArrowDownRight className="h-3 w-3 mr-1" />Low</Badge>
       default: return null
-    }
-  }
-
-  const getPaymentStatusBadge = (status: string) => {
-    switch (status) {
-      case 'FULLY_PAID': return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100"><CheckCircle className="h-3 w-3 mr-1" />Paid</Badge>
-      case 'PARTIALLY_PAID': return <Badge className="bg-amber-50 text-amber-700 border-amber-100"><Clock className="h-3 w-3 mr-1" />Partial</Badge>
-      case 'FULL_DUE': return <Badge className="bg-rose-50 text-rose-700 border-rose-100"><AlertCircle className="h-3 w-3 mr-1" />Due</Badge>
-      default: return <Badge variant="secondary">{status}</Badge>
     }
   }
 
@@ -522,19 +499,6 @@ export function ProjectManagement() {
                         </SelectContent>
                       </Select>
                     </div>
-
-                    <div className="md:col-span-2">
-                      <Label htmlFor="budget" className="text-xs font-medium text-slate-600">Project Budget (₹)</Label>
-                      <Input
-                        id="budget"
-                        type="number"
-                        step="0.01"
-                        value={projectForm.budget}
-                        onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
-                        placeholder="0.00"
-                        className="h-9 text-sm border-slate-300"
-                      />
-                    </div>
                   </div>
 
                   <div className="flex gap-3 pt-4 border-t border-slate-100">
@@ -590,7 +554,7 @@ export function ProjectManagement() {
                 <p className="text-2xl font-semibold text-slate-900 mt-1">₹{stats.totalRevenue.toLocaleString()}</p>
               </div>
               <div className="h-10 w-10 rounded-md bg-slate-100 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-slate-600" />
+                <IndianRupee className="h-5 w-5 text-slate-600" />
               </div>
             </div>
           </CardContent>
@@ -705,8 +669,7 @@ export function ProjectManagement() {
                         startDate: project.startDate ? project.startDate.split('T')[0] : '',
                         endDate: project.endDate ? project.endDate.split('T')[0] : '',
                         status: project.status,
-                        priority: project.priority || 'MEDIUM',
-                        budget: project.budget?.toString() || ''
+                        priority: project.priority || 'MEDIUM'
                       })
                       setIsEditDialogOpen(true)
                     }}
@@ -727,13 +690,6 @@ export function ProjectManagement() {
             <CardContent className="space-y-4">
               {project.description && (
                 <p className="text-sm text-slate-600 line-clamp-2">{project.description}</p>
-              )}
-
-              {project.budget && (
-                <div className="flex items-center gap-2 text-sm">
-                  <DollarSign className="h-4 w-4 text-slate-600" />
-                  <span className="font-medium text-slate-800">₹{project.budget.toLocaleString()}</span>
-                </div>
               )}
 
               <Tabs defaultValue="updates" className="w-full">
@@ -812,19 +768,26 @@ export function ProjectManagement() {
                     ) : (
                       project.payments.slice(-1).map((payment) => (
                         <div key={payment.id} className="p-2 bg-slate-50 rounded">
-                          <div className="flex items-center justify-between mb-2">
-                            {getPaymentStatusBadge(payment.status)}
+                          <div className="text-sm space-y-2">
+                            {payment.totalContractValue && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-600">Total Contract:</span>
+                                <span className="font-semibold text-slate-900">₹{payment.totalContractValue.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {payment.receivedPayment && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-600">Received:</span>
+                                <span className="font-semibold text-emerald-700">₹{payment.receivedPayment.toLocaleString()}</span>
+                              </div>
+                            )}
+                            {payment.pendingPayment && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-600">Pending:</span>
+                                <span className="font-semibold text-rose-700">₹{payment.pendingPayment.toLocaleString()}</span>
+                              </div>
+                            )}
                           </div>
-                          {(payment.amountPaid || payment.amountDue) && (
-                            <div className="text-sm space-y-1">
-                              {payment.amountPaid && (
-                                <p className="text-emerald-700">Paid: ₹{payment.amountPaid.toLocaleString()}</p>
-                              )}
-                              {payment.amountDue && (
-                                <p className="text-rose-700">Due: ₹{payment.amountDue.toLocaleString()}</p>
-                              )}
-                            </div>
-                          )}
                         </div>
                       ))
                     )}
@@ -947,13 +910,6 @@ export function ProjectManagement() {
                         </div>
                       )}
                     </div>
-
-                    {selectedProject.budget && (
-                      <div>
-                        <Label className="text-sm font-medium text-slate-600">Budget</Label>
-                        <p className="text-slate-900">₹{selectedProject.budget.toLocaleString()}</p>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -1070,48 +1026,34 @@ export function ProjectManagement() {
                         <Card key={payment.id}>
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between mb-3">
-                              {getPaymentStatusBadge(payment.status)}
+                              <Badge variant="outline">Payment Record</Badge>
                               <span className="text-sm text-slate-500">
                                 {new Date(payment.createdAt).toLocaleDateString()}
                               </span>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {payment.amountPaid && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              {payment.totalContractValue && (
                                 <div>
-                                  <Label className="text-sm font-medium text-slate-600">Amount Paid</Label>
-                                  <p className="text-emerald-700 font-semibold">₹{payment.amountPaid.toLocaleString()}</p>
+                                  <Label className="text-sm font-medium text-slate-600">Total Contract Value</Label>
+                                  <p className="text-slate-900 font-semibold">₹{payment.totalContractValue.toLocaleString()}</p>
                                 </div>
                               )}
 
-                              {payment.amountDue && (
+                              {payment.receivedPayment && (
                                 <div>
-                                  <Label className="text-sm font-medium text-slate-600">Amount Due</Label>
-                                  <p className="text-rose-700 font-semibold">₹{payment.amountDue.toLocaleString()}</p>
+                                  <Label className="text-sm font-medium text-slate-600">Received Payment</Label>
+                                  <p className="text-emerald-700 font-semibold">₹{payment.receivedPayment.toLocaleString()}</p>
                                 </div>
                               )}
 
-                              {payment.invoiceNumber && (
+                              {payment.pendingPayment && (
                                 <div>
-                                  <Label className="text-sm font-medium text-slate-600">Invoice Number</Label>
-                                  <p className="text-slate-900">{payment.invoiceNumber}</p>
-                                </div>
-                              )}
-
-                              {payment.dueDate && (
-                                <div>
-                                  <Label className="text-sm font-medium text-slate-600">Due Date</Label>
-                                  <p className="text-slate-900">{new Date(payment.dueDate).toLocaleDateString()}</p>
+                                  <Label className="text-sm font-medium text-slate-600">Pending Payment</Label>
+                                  <p className="text-rose-700 font-semibold">₹{payment.pendingPayment.toLocaleString()}</p>
                                 </div>
                               )}
                             </div>
-
-                            {payment.remarks && (
-                              <div className="mt-4">
-                                <Label className="text-sm font-medium text-slate-600">Remarks</Label>
-                                <p className="text-slate-700">{payment.remarks}</p>
-                              </div>
-                            )}
                           </CardContent>
                         </Card>
                       ))
@@ -1207,19 +1149,6 @@ export function ProjectManagement() {
                     <SelectItem value="ON_HOLD">On Hold</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="md:col-span-2">
-                <Label htmlFor="edit-budget" className="text-xs font-medium text-slate-600">Project Budget (₹)</Label>
-                <Input
-                  id="edit-budget"
-                  type="number"
-                  step="0.01"
-                  value={projectForm.budget}
-                  onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
-                  placeholder="0.00"
-                  className="h-9 text-sm border-slate-300"
-                />
               </div>
             </div>
 
@@ -1331,89 +1260,54 @@ export function ProjectManagement() {
         <DialogContent className="max-w-md rounded-lg border border-slate-200 shadow-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-slate-900">
-              <DollarSign className="h-5 w-5" />
+              <IndianRupee className="h-5 w-5" />
               Update Payment Information
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddPayment} className="space-y-4 p-4">
             <div>
-              <Label htmlFor="payment-status" className="text-sm font-medium text-slate-600">Payment Status</Label>
-              <Select value={paymentForm.status} onValueChange={(value: 'FULLY_PAID' | 'PARTIALLY_PAID' | 'FULL_DUE') => setPaymentForm({ ...paymentForm, status: value })}>
-                <SelectTrigger className="h-9 text-sm border-slate-300">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="FULLY_PAID">Fully Paid</SelectItem>
-                  <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
-                  <SelectItem value="FULL_DUE">Full Due</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="amountPaid" className="text-sm font-medium text-slate-600">Amount Paid (₹)</Label>
-                <Input
-                  id="amountPaid"
-                  type="number"
-                  step="0.01"
-                  value={paymentForm.amountPaid}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, amountPaid: e.target.value })}
-                  placeholder="0.00"
-                  className="h-9 text-sm border-slate-300"
-                />
-              </div>
-              <div>
-                <Label htmlFor="amountDue" className="text-sm font-medium text-slate-600">Amount Due (₹)</Label>
-                <Input
-                  id="amountDue"
-                  type="number"
-                  step="0.01"
-                  value={paymentForm.amountDue}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, amountDue: e.target.value })}
-                  placeholder="0.00"
-                  className="h-9 text-sm border-slate-300"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="invoiceNumber" className="text-sm font-medium text-slate-600">Invoice Number</Label>
-                <Input
-                  id="invoiceNumber"
-                  value={paymentForm.invoiceNumber}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, invoiceNumber: e.target.value })}
-                  placeholder="INV-001"
-                  className="h-9 text-sm border-slate-300"
-                />
-              </div>
-              <div>
-                <Label htmlFor="dueDate" className="text-sm font-medium text-slate-600">Due Date</Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={paymentForm.dueDate}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, dueDate: e.target.value })}
-                  className="h-9 text-sm border-slate-300"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="remarks" className="text-sm font-medium text-slate-600">Payment Remarks</Label>
-              <Textarea
-                id="remarks"
-                value={paymentForm.remarks}
-                onChange={(e) => setPaymentForm({ ...paymentForm, remarks: e.target.value })}
-                placeholder="Additional payment notes..."
-                className="text-sm border-slate-300"
+              <Label htmlFor="totalContractValue" className="text-sm font-medium text-slate-600">Total Contract Value (₹)</Label>
+              <Input
+                id="totalContractValue"
+                type="number"
+                step="0.01"
+                value={paymentForm.totalContractValue}
+                onChange={(e) => setPaymentForm({ ...paymentForm, totalContractValue: e.target.value })}
+                placeholder="0.00"
+                className="h-9 text-sm border-slate-300"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="receivedPayment" className="text-sm font-medium text-slate-600">Received Payment (₹)</Label>
+                <Input
+                  id="receivedPayment"
+                  type="number"
+                  step="0.01"
+                  value={paymentForm.receivedPayment}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, receivedPayment: e.target.value })}
+                  placeholder="0.00"
+                  className="h-9 text-sm border-slate-300"
+                />
+              </div>
+              <div>
+                <Label htmlFor="pendingPayment" className="text-sm font-medium text-slate-600">Pending Payment (₹)</Label>
+                <Input
+                  id="pendingPayment"
+                  type="number"
+                  step="0.01"
+                  value={paymentForm.pendingPayment}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, pendingPayment: e.target.value })}
+                  placeholder="0.00"
+                  className="h-9 text-sm border-slate-300"
+                />
+              </div>
             </div>
 
             <div className="flex gap-2 pt-4">
               <Button type="submit" className="flex-1 h-10 bg-slate-900 hover:bg-slate-800 text-white">
-                <DollarSign className="h-4 w-4 mr-2" />
+                <IndianRupee className="h-4 w-4 mr-2" />
                 Update Payment
               </Button>
               <Button type="button" variant="outline" onClick={() => setIsPaymentDialogOpen(false)} className="h-10 border-slate-200 text-slate-700">

@@ -247,24 +247,14 @@ export class ProjectController {
   static async addProjectPayment(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { status, amountPaid, amountDue, remarks, dueDate, invoiceNumber } = req.body;
-
-      if (!status) {
-        return res.status(400).json({
-          success: false,
-          message: 'Payment status is required'
-        });
-      }
+      const { totalContractValue, receivedPayment, pendingPayment } = req.body;
 
       const projectPayment = await prisma.projectPayment.create({
         data: {
           projectId: id,
-          status,
-          amountPaid: amountPaid || null,
-          amountDue: amountDue || null,
-          remarks: remarks || null,
-          dueDate: dueDate ? new Date(dueDate) : null,
-          invoiceNumber: invoiceNumber || null
+          totalContractValue: totalContractValue || null,
+          receivedPayment: receivedPayment || null,
+          pendingPayment: pendingPayment || null
         }
       });
 

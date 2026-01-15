@@ -471,19 +471,16 @@ model ProjectUpdate {
 }
 
 model ProjectPayment {
-  id          String        @id @default(cuid())
-  projectId   String
-  status      PaymentStatus @default(FULL_DUE)
-  amountPaid  Decimal?      @db.Decimal(10, 2)
-  amountDue   Decimal?      @db.Decimal(10, 2)
-  remarks     String?       @db.Text
-  dueDate     DateTime?     @db.Date
-  invoiceNumber String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id                  String    @id @default(cuid())
+  projectId           String
+  totalContractValue  Decimal?  @db.Decimal(10, 2)
+  receivedPayment     Decimal?  @db.Decimal(10, 2)
+  pendingPayment      Decimal?  @db.Decimal(10, 2)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   // Relations
-  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@map("project_payments")
