@@ -2,7 +2,7 @@
 import { Request, Response } from 'express'
 import { prisma } from '../../../lib/prisma'
 import { getDeviceInfo } from '../../../utils/deviceinfo'
-import { createAttendanceRecord, getRemainingAttempts, approveAttendance, rejectAttendance, getPendingAttendanceApprovals } from './attendance.service'
+import { createAttendanceRecord, getRemainingAttempts, approveAttendance, rejectAttendance, getPendingAttendanceApprovals, dayClockOut } from './attendance.service'
 
 export const getAttendanceRecords = async (req: Request, res: Response) => {
   try {
@@ -396,3 +396,24 @@ export const rejectAttendanceRecord = async (req: Request, res: Response) => {
   }
 }
 
+// Day clock-out for field engineers
+export const dayClockOutController = async (req: Request, res: Response) => {
+  try {
+    const { employeeId } = req.body
+
+    if (!employeeId) {
+      return res.status(400).json({ success: false, error: 'Employee ID is required' })
+    }
+
+    const result = await dayClockOut(employeeId)
+
+    if (result.success) {
+      return res.status(200).json(result)
+    } else {
+      return res.status(400).json(result)
+    }
+  } catch (error) {
+    console.error({ event: 'day_clock_out_error', error: error instanceof Error ? error.message : error })
+    return res.status(500).json({ success: false, error: 'Failed to clock out for the day' })
+  }
+}

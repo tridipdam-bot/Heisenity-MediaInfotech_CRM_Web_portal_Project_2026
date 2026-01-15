@@ -66,6 +66,30 @@ export async function createAttendance(data: CreateAttendanceRequest): Promise<C
     }
 }
 
+export async function dayClockOut(employeeId: string): Promise<{ success: boolean; message: string; data?: { clockOut: string }; error?: string }> {
+    try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/day-clock-out`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ employeeId }),
+            cache: 'no-store'
+        })
+
+        const response = await res.json()
+
+        if (!res.ok) {
+            throw new Error(response.error || response.message || `Failed to clock out: ${res.status}`)
+        }
+
+        return response
+    } catch (error) {
+        console.error('dayClockOut error:', error)
+        throw error
+    }
+}
+
 export async function getRemainingAttempts(employeeId: string): Promise<RemainingAttemptsResponse> {
     try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/attempts/${employeeId}`, {

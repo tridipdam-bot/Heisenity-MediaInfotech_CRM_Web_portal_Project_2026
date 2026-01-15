@@ -24,6 +24,8 @@ import { LeaveApplicationForm } from "./LeaveApplicationForm"
 import { LeaveApplicationsList } from "./LeaveApplicationsList"
 import { EmployeeDocuments } from "./EmployeeDocuments"
 import { getEmployeeTasks, type DeviceInfo } from "@/lib/server-api"
+import { dayClockOut } from "@/lib/server-api"
+import { showToast, showConfirm } from "@/lib/toast-utils"
 
 interface StaffPortalProps {
   deviceInfo: DeviceInfo | undefined
@@ -72,6 +74,13 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'attendance' | 'leave' | 'documents' | 'payroll' | 'vehicle' | 'tasks'>('attendance')
   const [leaveRefreshTrigger, setLeaveRefreshTrigger] = useState(0)
+  const [dayClockOutLoading, setDayClockOutLoading] = useState(false)
+  const [todayAttendance, setTodayAttendance] = useState<{
+    hasCheckedIn: boolean
+    hasClockedOut: boolean
+    clockIn?: string
+    clockOut?: string
+  } | null>(null)
 
   useEffect(() => {
     if (status === "loading") return
@@ -82,7 +91,19 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
     }
 
     fetchEmployeeProfile()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, status, router])
+
+  // Check today's attendance when profile loads or attendance tab is active
+  useEffect(() => {
+    if (employeeProfile?.role === 'FIELD_ENGINEER' && activeTab === 'attendance') {
+      checkTodayAttendance()
+      // Poll every 5 seconds to keep attendance status updated
+      const interval = setInterval(checkTodayAttendance, 5000)
+      return () => clearInterval(interval)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeProfile, activeTab])
 
   const fetchEmployeeProfile = async () => {
     try {
@@ -194,6 +215,66 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
     } finally {
       setLoading(false)
     }
+  }
+
+  const checkTodayAttendance = async () => {
+    if (!employeeProfile?.employeeId) return
+
+    try {
+      const { getAttendanceRecords } = await import("@/lib/server-api")
+      const today = new Date().toISOString().split('T')[0]
+      const response = await getAttendanceRecords({
+        employeeId: employeeProfile.employeeId,
+        date: today,
+        limit: 1
+      })
+
+      if (response.success && response.data && response.data.records.length > 0) {
+        const record = response.data.records[0]
+        setTodayAttendance({
+          hasCheckedIn: !!record.clockIn,
+          hasClockedOut: !!record.clockOut,
+          clockIn: record.clockIn,
+          clockOut: record.clockOut
+        })
+      } else {
+        setTodayAttendance({
+          hasCheckedIn: false,
+          hasClockedOut: false
+        })
+      }
+    } catch (error) {
+      console.error('Error checking today attendance:', error)
+    }
+  }
+
+  const handleDayClockOut = async () => {
+    if (!employeeProfile?.employeeId) return
+
+    showConfirm(
+      'Are you sure you want to clock out for the day? This will end your work day and unassign your vehicle.',
+      async () => {
+        try {
+          setDayClockOutLoading(true)
+          const response = await dayClockOut(employeeProfile.employeeId)
+
+          if (response.success) {
+            showToast.success('Day clock-out successful!', 'You have clocked out for the day')
+            // Refresh attendance status
+            checkTodayAttendance()
+          } else {
+            showToast.error(response.message || 'Failed to clock out')
+          }
+        } catch (error) {
+          console.error('Error clocking out:', error)
+          const errorMessage = error instanceof Error ? error.message : 'Failed to clock out'
+          showToast.error(errorMessage)
+        } finally {
+          setDayClockOutLoading(false)
+        }
+      },
+      'Day Clock-Out'
+    )
   }
 
   const handleLogout = () => {
@@ -442,20 +523,91 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
           {/* Main Content */}
           <div className="lg:col-span-2">
             {activeTab === 'attendance' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <MapPin className="h-5 w-5 text-blue-500" />
-                    <span>Attendance Management</span>
-                  </CardTitle>
-                  <p className="text-gray-600">
-                    Mark your attendance with photo verification
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <EmployeeSelfAttendance deviceInfo={deviceInfo} />
-                </CardContent>
-              </Card>
+              <>
+                {/* Day Clock-Out Button for Field Engineers */}
+                {employeeProfile?.role === 'FIELD_ENGINEER' && todayAttendance && (
+                  <Card className="mb-6 bg-linear-to-r from-orange-50 to-red-50 border-orange-200">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <Clock className="h-5 w-5 text-orange-600" />
+                            Day Clock-Out
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            End your work day and clock out. This is separate from task check-in/check-out.
+                          </p>
+                          <div className="flex items-center gap-4 text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-700">Check-in:</span>
+                              <Badge variant={todayAttendance.hasCheckedIn ? "default" : "secondary"}>
+                                {todayAttendance.hasCheckedIn 
+                                  ? new Date(todayAttendance.clockIn!).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                                  : 'Not checked in'}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-700">Clock-out:</span>
+                              <Badge variant={todayAttendance.hasClockedOut ? "default" : "secondary"}>
+                                {todayAttendance.hasClockedOut 
+                                  ? new Date(todayAttendance.clockOut!).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                                  : 'Not clocked out'}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={handleDayClockOut}
+                          disabled={!todayAttendance.hasCheckedIn || todayAttendance.hasClockedOut || dayClockOutLoading}
+                          className="bg-red-600 hover:bg-red-700 text-white px-6 py-6 text-lg"
+                          size="lg"
+                        >
+                          {dayClockOutLoading ? (
+                            <>
+                              <Clock className="h-5 w-5 mr-2 animate-spin" />
+                              Clocking Out...
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="h-5 w-5 mr-2" />
+                              Clock Out for Day
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      {!todayAttendance.hasCheckedIn && (
+                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            ⚠️ You need to check in first before you can clock out for the day.
+                          </p>
+                        </div>
+                      )}
+                      {todayAttendance.hasClockedOut && (
+                        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <p className="text-sm text-green-800">
+                            ✓ You have already clocked out for the day.
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <MapPin className="h-5 w-5 text-blue-500" />
+                      <span>Attendance Management</span>
+                    </CardTitle>
+                    <p className="text-gray-600">
+                      Mark your attendance with photo verification
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <EmployeeSelfAttendance deviceInfo={deviceInfo} />
+                  </CardContent>
+                </Card>
+              </>
             )}
 
             {activeTab === 'leave' && (

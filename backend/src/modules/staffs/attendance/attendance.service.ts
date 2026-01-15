@@ -110,16 +110,16 @@ export async function createAttendanceRecord(data: {
       minute: '2-digit'
     })
 
-    // For FIELD_ENGINEER: Allow multiple check-outs (per task completion)
-    // For IN_OFFICE: Only allow one check-out per day
+    // For FIELD_ENGINEER: check-out is for tasks only, NOT day clock-out
+    // For IN_OFFICE: check-out is the day clock-out
     if (employee.role === 'FIELD_ENGINEER') {
-      // Field engineers can check out multiple times
-      updateData.clockOut = new Date()
+      // Field engineers: task check-out only updates taskEndTime, NOT clockOut
       updateData.taskEndTime = checkoutTime
       // Clear taskId when checking out (task is completed)
-      updateData.taskId = null // <-- fix: clear assigned task on check-out
+      updateData.taskId = null
+      // DO NOT update clockOut here - that's only for day clock-out
     } else {
-      // IN_OFFICE employees: single check-out per day
+      // IN_OFFICE employees: check-out is the day clock-out
       if (!existing?.clockOut) {
         updateData.clockOut = new Date()
         updateData.taskEndTime = checkoutTime
@@ -225,37 +225,40 @@ export async function createAttendanceRecord(data: {
       }
     }
     
-    // Auto-unassign vehicle
-    try {
-      const vehicleService = new VehicleService()
-      const notificationService = new NotificationService()
-      
-      const vehicleResult = await vehicleService.getEmployeeVehicle(data.employeeId)
-      
-      if (vehicleResult.success && vehicleResult.data) {
-        const vehicle = vehicleResult.data
+    // Auto-unassign vehicle ONLY for IN_OFFICE employees on check-out
+    // Field engineers keep their vehicle until day clock-out
+    if (employee.role === 'IN_OFFICE' && data.action === 'check-out') {
+      try {
+        const vehicleService = new VehicleService()
+        const notificationService = new NotificationService()
         
-        const unassignResult = await vehicleService.unassignVehicle(vehicle.id)
+        const vehicleResult = await vehicleService.getEmployeeVehicle(data.employeeId)
         
-        if (unassignResult.success) {
-          await notificationService.createAdminNotification({
-            type: 'VEHICLE_UNASSIGNED',
-            title: 'Vehicle Auto-Unassigned',
-            message: `Vehicle ${vehicle.vehicleNumber} (${vehicle.make} ${vehicle.model}) has been automatically unassigned from ${employee.name} (${data.employeeId}) after checkout.`,
-            data: {
-              vehicleId: vehicle.id,
-              vehicleNumber: vehicle.vehicleNumber,
-              employeeId: data.employeeId,
-              employeeName: employee.name,
-              checkoutTime: saved.clockOut?.toISOString()
-            }
-          })
+        if (vehicleResult.success && vehicleResult.data) {
+          const vehicle = vehicleResult.data
           
-          console.log(`Vehicle ${vehicle.vehicleNumber} auto-unassigned from employee ${data.employeeId} after checkout`)
+          const unassignResult = await vehicleService.unassignVehicle(vehicle.id)
+          
+          if (unassignResult.success) {
+            await notificationService.createAdminNotification({
+              type: 'VEHICLE_UNASSIGNED',
+              title: 'Vehicle Auto-Unassigned',
+              message: `Vehicle ${vehicle.vehicleNumber} (${vehicle.make} ${vehicle.model}) has been automatically unassigned from ${employee.name} (${data.employeeId}) after checkout.`,
+              data: {
+                vehicleId: vehicle.id,
+                vehicleNumber: vehicle.vehicleNumber,
+                employeeId: data.employeeId,
+                employeeName: employee.name,
+                checkoutTime: saved.clockOut?.toISOString()
+              }
+            })
+            
+            console.log(`Vehicle ${vehicle.vehicleNumber} auto-unassigned from employee ${data.employeeId} after checkout`)
+          }
         }
+      } catch (error) {
+        console.error('Error in vehicle unassignment:', error)
       }
-    } catch (error) {
-      console.error('Error in vehicle unassignment:', error)
     }
   }
 
@@ -522,5 +525,93 @@ export async function getPendingAttendanceApprovals(): Promise<{ success: boolea
       success: false,
       error: 'Failed to get pending attendance approvals'
     }
+  }
+}
+
+// Day-level clock-out for field engineers (separate from task check-out)
+export async function dayClockOut(employeeId: string): Promise<{ success: boolean; message: string; data?: any }> {
+  try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const employee = await prisma.employee.findUnique({ where: { employeeId } })
+    if (!employee) {
+      return { success: false, message: 'Employee not found' }
+    }
+
+    // Only allow field engineers to use day clock-out
+    if (employee.role !== 'FIELD_ENGINEER') {
+      return { success: false, message: 'Day clock-out is only available for field engineers' }
+    }
+
+    // Get today's attendance record
+    const attendance = await prisma.attendance.findUnique({
+      where: { employeeId_date: { employeeId: employee.id, date: today } }
+    })
+
+    if (!attendance) {
+      return { success: false, message: 'No attendance record found for today' }
+    }
+
+    if (!attendance.clockIn) {
+      return { success: false, message: 'You need to check in first before clocking out for the day' }
+    }
+
+    if (attendance.clockOut) {
+      return { success: false, message: 'You have already clocked out for the day' }
+    }
+
+    // Update attendance with day clock-out
+    const updatedAttendance = await prisma.attendance.update({
+      where: { id: attendance.id },
+      data: {
+        clockOut: new Date(),
+        updatedAt: new Date()
+      }
+    })
+
+    // Auto-unassign vehicle on day clock-out
+    try {
+      const vehicleService = new VehicleService()
+      const notificationService = new NotificationService()
+      
+      const vehicleResult = await vehicleService.getEmployeeVehicle(employeeId)
+      
+      if (vehicleResult.success && vehicleResult.data) {
+        const vehicle = vehicleResult.data
+        
+        const unassignResult = await vehicleService.unassignVehicle(vehicle.id)
+        
+        if (unassignResult.success) {
+          await notificationService.createAdminNotification({
+            type: 'VEHICLE_UNASSIGNED',
+            title: 'Vehicle Auto-Unassigned',
+            message: `Vehicle ${vehicle.vehicleNumber} (${vehicle.make} ${vehicle.model}) has been automatically unassigned from ${employee.name} (${employeeId}) after day clock-out.`,
+            data: {
+              vehicleId: vehicle.id,
+              vehicleNumber: vehicle.vehicleNumber,
+              employeeId: employeeId,
+              employeeName: employee.name,
+              clockoutTime: updatedAttendance.clockOut?.toISOString()
+            }
+          })
+          
+          console.log(`Vehicle ${vehicle.vehicleNumber} auto-unassigned from employee ${employeeId} after day clock-out`)
+        }
+      }
+    } catch (error) {
+      console.error('Error in vehicle unassignment during day clock-out:', error)
+    }
+
+    return {
+      success: true,
+      message: 'Day clock-out successful',
+      data: {
+        clockOut: updatedAttendance.clockOut?.toISOString()
+      }
+    }
+  } catch (error) {
+    console.error('Error in day clock-out:', error)
+    return { success: false, message: 'Failed to clock out for the day' }
   }
 }

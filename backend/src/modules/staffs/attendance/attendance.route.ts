@@ -10,6 +10,7 @@ import {
   getPendingApprovals,
   approveAttendanceRecord,
   rejectAttendanceRecord,
+  dayClockOutController,
 } from "./attendance.controller";
 
 import {
@@ -32,6 +33,10 @@ router.get("/", getAttendanceRecords);
 // Mark attendance (simplified without location validation)
 // POST /attendance
 router.post("/", createAttendance);
+
+// Day clock-out for field engineers
+// POST /attendance/day-clock-out
+router.post("/day-clock-out", dayClockOutController);
 
 // Delete attendance record
 // DELETE /attendance/:id
