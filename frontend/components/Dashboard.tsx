@@ -29,12 +29,36 @@ export function Dashboard() {
   const [lastScannedProduct, setLastScannedProduct] = React.useState<string | null>(null)
   const [leaveApplications, setLeaveApplications] = React.useState<any[]>([])
   const [loadingLeaves, setLoadingLeaves] = React.useState(true)
+  const [pendingSupportRequests, setPendingSupportRequests] = React.useState(0)
 
   const handleProductScan = (productId: string) => {
     setLastScannedProduct(productId)
     // Auto-hide notification after 5 seconds
     setTimeout(() => setLastScannedProduct(null), 5000)
   }
+
+  // Fetch pending customer support requests
+  React.useEffect(() => {
+    const fetchPendingSupportRequests = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/customer-support/pending`
+        )
+        
+        if (response.ok) {
+          const data = await response.json()
+          setPendingSupportRequests(data.data?.length || 0)
+        }
+      } catch (error) {
+        console.error('Error fetching support requests:', error)
+      }
+    }
+
+    fetchPendingSupportRequests()
+    // Poll every 30 seconds for new requests
+    const interval = setInterval(fetchPendingSupportRequests, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Fetch recent leave applications
   React.useEffect(() => {
@@ -86,6 +110,35 @@ export function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Customer Support Notification Banner */}
+        {pendingSupportRequests > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="h-6 w-6 text-orange-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-orange-900">
+                    {pendingSupportRequests} New Customer Support {pendingSupportRequests === 1 ? 'Request' : 'Requests'}
+                  </p>
+                  <p className="text-xs text-orange-700 mt-0.5">
+                    Customer support requests are waiting for staff attention
+                  </p>
+                </div>
+              </div>
+              <Link href="/customer-support-requests">
+                <Button
+                  size="sm"
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  View Requests ({pendingSupportRequests})
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

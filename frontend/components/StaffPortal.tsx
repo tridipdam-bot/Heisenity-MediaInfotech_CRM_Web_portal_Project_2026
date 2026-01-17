@@ -23,13 +23,13 @@ import { EmployeeSelfAttendance } from "./EmployeeSelfAttendance"
 import { LeaveApplicationForm } from "./LeaveApplicationForm"
 import { LeaveApplicationsList } from "./LeaveApplicationsList"
 import { EmployeeDocuments } from "./EmployeeDocuments"
-import { type DeviceInfo, getMyFeatures, type StaffPortalFeature } from "@/lib/server-api"
+import { StaffTicketForm } from "./StaffTicketForm"
+import { StaffTicketList } from "./StaffTicketList"
+import { TaskCheckInOut } from "@/components/TaskCheckInOut"
+import { getMyFeatures, type StaffPortalFeature } from "@/lib/server-api"
 import { dayClockOut } from "@/lib/server-api"
 import { showToast, showConfirm } from "@/lib/toast-utils"
 
-interface StaffPortalProps {
-  deviceInfo: DeviceInfo | undefined
-}
 
 interface EmployeeProfile {
   id: string
@@ -52,15 +52,17 @@ interface AssignedVehicle {
   assignedAt: string
 }
 
-export function StaffPortal({ deviceInfo }: StaffPortalProps) {
+export function StaffPortal() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [employeeProfile, setEmployeeProfile] = useState<EmployeeProfile | null>(null)
   const [assignedVehicle, setAssignedVehicle] = useState<AssignedVehicle | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'attendance' | 'leave' | 'documents' | 'payroll' | 'vehicle' | 'tasks' | 'dashboard' | 'project'>('attendance')
+  const [activeTab, setActiveTab] = useState<'attendance' | 'leave' | 'documents' | 'payroll' | 'vehicle' | 'tasks' | 'dashboard' | 'project' | 'tickets' | 'customers' | 'employees' | 'teams' | 'tenders' | 'stock' | 'leave_management' | 'field_engineer_attendance' | 'inoffice_attendance' | 'customer_support_requests' | 'staff_feature_access'>('attendance')
   const [leaveRefreshTrigger, setLeaveRefreshTrigger] = useState(0)
+  const [ticketRefreshTrigger, setTicketRefreshTrigger] = useState(0)
   const [dayClockOutLoading, setDayClockOutLoading] = useState(false)
+  const [pendingSupportRequests, setPendingSupportRequests] = useState(0)
   const [todayAttendance, setTodayAttendance] = useState<{
     hasCheckedIn: boolean
     hasClockedOut: boolean
@@ -85,6 +87,13 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
   useEffect(() => {
     if (employeeProfile) {
       fetchAllowedFeatures()
+      // Fetch support requests if IN_OFFICE employee
+      if (employeeProfile.role === 'IN_OFFICE') {
+        fetchPendingSupportRequests()
+        // Poll every 30 seconds for new support requests
+        const interval = setInterval(fetchPendingSupportRequests, 30000)
+        return () => clearInterval(interval)
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeProfile])
@@ -123,10 +132,11 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
   }
 
   const hasFeatureAccess = (feature: StaffPortalFeature): boolean => {
-    // Field engineers don't use feature access system
+    // Field engineers have access to all features by default (no feature restriction system)
     if (employeeProfile?.role === 'FIELD_ENGINEER') {
-      return false
+      return true
     }
+    // IN_OFFICE employees need explicit feature access
     return allowedFeatures.includes(feature)
   }
 
@@ -223,6 +233,28 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
       }
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPendingSupportRequests = async () => {
+    if (!employeeProfile || employeeProfile.role !== 'IN_OFFICE') return
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/customer-support/pending`,
+        {
+          headers: {
+            Authorization: `Bearer ${(session?.user as { sessionToken?: string })?.sessionToken}`,
+          },
+        }
+      )
+
+      if (response.ok) {
+        const data = await response.json()
+        setPendingSupportRequests(data.data?.length || 0)
+      }
+    } catch (error) {
+      console.error("Error fetching support requests:", error)
     }
   }
 
@@ -411,7 +443,7 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
                   Project
                 </button>
               )}
-              {hasFeatureAccess('TASK_MANAGEMENT') && (
+              {employeeProfile?.role === 'FIELD_ENGINEER' && (
                 <button
                   onClick={() => setActiveTab('tasks')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -422,6 +454,19 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
                 >
                   <FileText className="h-4 w-4 inline mr-2" />
                   Task Management
+                </button>
+              )}
+              {employeeProfile?.role === 'IN_OFFICE' && (
+                <button
+                  onClick={() => setActiveTab('tickets')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'tickets'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <FileText className="h-4 w-4 inline mr-2" />
+                  Tickets
                 </button>
               )}
               <button
@@ -446,18 +491,20 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
                 <FileText className="h-4 w-4 inline mr-2" />
                 Documents
               </button>
-              <button
-                onClick={() => setActiveTab('payroll')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'payroll'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <DollarSign className="h-4 w-4 inline mr-2" />
-                Payroll
-              </button>
-              {employeeProfile?.role === 'FIELD_ENGINEER' && (
+              {hasFeatureAccess('PAYROLL') && (
+                <button
+                  onClick={() => setActiveTab('payroll')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'payroll'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <DollarSign className="h-4 w-4 inline mr-2" />
+                  Payroll
+                </button>
+              )}
+              {hasFeatureAccess('VEHICLE') && employeeProfile?.role === 'FIELD_ENGINEER' && (
                 <button
                   onClick={() => setActiveTab('vehicle')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -468,6 +515,138 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
                 >
                   <Car className="h-4 w-4 inline mr-2" />
                   Vehicle
+                </button>
+              )}
+              
+              {/* Admin Features */}
+              {hasFeatureAccess('CUSTOMERS') && (
+                <button
+                  onClick={() => setActiveTab('customers')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'customers'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <User className="h-4 w-4 inline mr-2" />
+                  Customers
+                </button>
+              )}
+              {hasFeatureAccess('EMPLOYEES') && (
+                <button
+                  onClick={() => setActiveTab('employees')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'employees'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <User className="h-4 w-4 inline mr-2" />
+                  Employees
+                </button>
+              )}
+              {hasFeatureAccess('TEAMS') && (
+                <button
+                  onClick={() => setActiveTab('teams')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'teams'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <User className="h-4 w-4 inline mr-2" />
+                  Teams
+                </button>
+              )}
+              {hasFeatureAccess('TENDERS') && (
+                <button
+                  onClick={() => setActiveTab('tenders')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'tenders'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <FileText className="h-4 w-4 inline mr-2" />
+                  Tenders
+                </button>
+              )}
+              {hasFeatureAccess('STOCK') && (
+                <button
+                  onClick={() => setActiveTab('stock')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'stock'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <FileText className="h-4 w-4 inline mr-2" />
+                  Stock
+                </button>
+              )}
+              {hasFeatureAccess('LEAVE_MANAGEMENT') && (
+                <button
+                  onClick={() => setActiveTab('leave_management')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'leave_management'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <FileText className="h-4 w-4 inline mr-2" />
+                  Leave Mgmt
+                </button>
+              )}
+              {hasFeatureAccess('FIELD_ENGINEER_ATTENDANCE') && (
+                <button
+                  onClick={() => setActiveTab('field_engineer_attendance')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'field_engineer_attendance'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Clock className="h-4 w-4 inline mr-2" />
+                  Field Attendance
+                </button>
+              )}
+              {hasFeatureAccess('INOFFICE_ATTENDANCE') && (
+                <button
+                  onClick={() => setActiveTab('inoffice_attendance')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'inoffice_attendance'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Clock className="h-4 w-4 inline mr-2" />
+                  Office Attendance
+                </button>
+              )}
+              {hasFeatureAccess('CUSTOMER_SUPPORT_REQUESTS') && (
+                <button
+                  onClick={() => setActiveTab('customer_support_requests')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'customer_support_requests'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <FileText className="h-4 w-4 inline mr-2" />
+                  Support
+                </button>
+              )}
+              {hasFeatureAccess('STAFF_FEATURE_ACCESS') && (
+                <button
+                  onClick={() => setActiveTab('staff_feature_access')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'staff_feature_access'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <User className="h-4 w-4 inline mr-2" />
+                  Staff Access
                 </button>
               )}
             </nav>
@@ -487,11 +666,39 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
           {employeeProfile.role === 'IN_OFFICE' && allowedFeatures.length === 0 && (
             <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
-                ℹ️ Additional features (Dashboard, Project, Task Management) can be enabled by your administrator.
+                ℹ️ Additional admin features can be enabled by your administrator. Attendance, Leave, Documents, and Tickets are always available.
               </p>
             </div>
           )}
         </div>
+
+        {/* Customer Support Notification Banner for IN_OFFICE employees */}
+        {employeeProfile.role === 'IN_OFFICE' && pendingSupportRequests > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-6 w-6 text-orange-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-orange-900">
+                    {pendingSupportRequests} New Customer Support {pendingSupportRequests === 1 ? 'Request' : 'Requests'}
+                  </p>
+                  <p className="text-xs text-orange-700 mt-0.5">
+                    Customer support requests are waiting for your attention
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => router.push('/customer-support-requests')}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                View Requests ({pendingSupportRequests})
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Profile Card */}
@@ -646,10 +853,36 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
                     </p>
                   </CardHeader>
                   <CardContent>
-                    <EmployeeSelfAttendance deviceInfo={deviceInfo} />
+                    <EmployeeSelfAttendance />
                   </CardContent>
                 </Card>
               </>
+            )}
+
+            {activeTab === 'tickets' && employeeProfile?.role === 'IN_OFFICE' && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <FileText className="h-5 w-5 text-blue-500" />
+                      <span>Create Support Ticket</span>
+                    </CardTitle>
+                    <p className="text-gray-600">
+                      Submit a support request or report an issue
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <StaffTicketForm 
+                      employeeId={employeeProfile.employeeId}
+                      onSuccess={() => setTicketRefreshTrigger(prev => prev + 1)} 
+                    />
+                  </CardContent>
+                </Card>
+                <StaffTicketList 
+                  employeeId={employeeProfile.employeeId}
+                  refreshTrigger={ticketRefreshTrigger} 
+                />
+              </div>
             )}
 
             {activeTab === 'leave' && (
@@ -766,34 +999,11 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
               </Card>
             )}
 
-            {activeTab === 'tasks' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <FileText className="h-5 w-5 text-blue-500" />
-                    <span>Task Management</span>
-                  </CardTitle>
-                  <p className="text-gray-600">
-                    Access the task management system
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-12">
-                    <FileText className="h-12 w-12 text-blue-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Task Management System</h3>
-                    <p className="text-gray-600 mb-6">
-                      Click below to access the full task management system
-                    </p>
-                    <Button
-                      onClick={() => router.push('/attendance')}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Open Task Management
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+            {activeTab === 'tasks' && employeeProfile?.role === 'FIELD_ENGINEER' && (
+              <TaskCheckInOut 
+                employeeId={employeeProfile.employeeId}
+                onTaskStatusChange={() => {}}
+              />
             )}
 
             {activeTab === 'vehicle' && employeeProfile?.role === 'FIELD_ENGINEER' && (
@@ -864,6 +1074,307 @@ export function StaffPortal({ deviceInfo }: StaffPortalProps) {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Admin Feature Tabs */}
+            {activeTab === 'customers' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <User className="h-5 w-5 text-blue-500" />
+                    <span>Customer Management</span>
+                  </CardTitle>
+                  <p className="text-gray-600">
+                    Manage customer database and relationships
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <User className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Customer Management</h3>
+                    <p className="text-gray-600 mb-6">
+                      Access the customer management system
+                    </p>
+                    <Button
+                      onClick={() => router.push('/customers')}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <User className="h-4 w-4 mr-2" />
+                      Open Customer Management
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'employees' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <User className="h-5 w-5 text-blue-500" />
+                    <span>Employee Management</span>
+                  </CardTitle>
+                  <p className="text-gray-600">
+                    Manage employee records and profiles
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <User className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Employee Management</h3>
+                    <p className="text-gray-600 mb-6">
+                      Access the employee management system
+                    </p>
+                    <Button
+                      onClick={() => router.push('/employees')}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <User className="h-4 w-4 mr-2" />
+                      Open Employee Management
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'teams' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <User className="h-5 w-5 text-blue-500" />
+                    <span>Team Management</span>
+                  </CardTitle>
+                  <p className="text-gray-600">
+                    Manage teams and their members
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <User className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Team Management</h3>
+                    <p className="text-gray-600 mb-6">
+                      Access the team management system
+                    </p>
+                    <Button
+                      onClick={() => router.push('/teams')}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <User className="h-4 w-4 mr-2" />
+                      Open Team Management
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'tenders' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <FileText className="h-5 w-5 text-blue-500" />
+                    <span>Tender Management</span>
+                  </CardTitle>
+                  <p className="text-gray-600">
+                    Manage tenders and EMD tracking
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Tender Management</h3>
+                    <p className="text-gray-600 mb-6">
+                      Access the tender management system
+                    </p>
+                    <Button
+                      onClick={() => router.push('/tenders')}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Open Tender Management
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'stock' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <FileText className="h-5 w-5 text-blue-500" />
+                    <span>Stock Management</span>
+                  </CardTitle>
+                  <p className="text-gray-600">
+                    Monitor and manage inventory levels
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Stock Management</h3>
+                    <p className="text-gray-600 mb-6">
+                      Access the stock management system
+                    </p>
+                    <Button
+                      onClick={() => router.push('/stock')}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Open Stock Management
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'leave_management' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <FileText className="h-5 w-5 text-blue-500" />
+                    <span>Leave Management</span>
+                  </CardTitle>
+                  <p className="text-gray-600">
+                    Approve and manage leave applications
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Leave Management</h3>
+                    <p className="text-gray-600 mb-6">
+                      Access the leave management system
+                    </p>
+                    <Button
+                      onClick={() => router.push('/leave-management')}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Open Leave Management
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'field_engineer_attendance' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Clock className="h-5 w-5 text-blue-500" />
+                    <span>Field Engineer Attendance</span>
+                  </CardTitle>
+                  <p className="text-gray-600">
+                    Monitor field engineer attendance records
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <Clock className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Field Engineer Attendance</h3>
+                    <p className="text-gray-600 mb-6">
+                      Access the field engineer attendance system
+                    </p>
+                    <Button
+                      onClick={() => router.push('/field-engineer-attendance')}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Open Field Engineer Attendance
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'inoffice_attendance' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Clock className="h-5 w-5 text-blue-500" />
+                    <span>In-Office Attendance</span>
+                  </CardTitle>
+                  <p className="text-gray-600">
+                    Monitor in-office staff attendance records
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <Clock className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">In-Office Attendance</h3>
+                    <p className="text-gray-600 mb-6">
+                      Access the in-office attendance system
+                    </p>
+                    <Button
+                      onClick={() => router.push('/inoffice-attendance')}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Open In-Office Attendance
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'customer_support_requests' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <FileText className="h-5 w-5 text-blue-500" />
+                    <span>Customer Support</span>
+                  </CardTitle>
+                  <p className="text-gray-600">
+                    Handle customer support requests
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Customer Support</h3>
+                    <p className="text-gray-600 mb-6">
+                      Access the customer support system
+                    </p>
+                    <Button
+                      onClick={() => router.push('/customer-support-requests')}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Open Customer Support
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'staff_feature_access' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <User className="h-5 w-5 text-blue-500" />
+                    <span>Staff Feature Access</span>
+                  </CardTitle>
+                  <p className="text-gray-600">
+                    Control staff permissions and feature access
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <User className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Staff Feature Access</h3>
+                    <p className="text-gray-600 mb-6">
+                      Access the staff feature access control system
+                    </p>
+                    <Button
+                      onClick={() => router.push('/staff-feature-access')}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <User className="h-4 w-4 mr-2" />
+                      Open Staff Access Control
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

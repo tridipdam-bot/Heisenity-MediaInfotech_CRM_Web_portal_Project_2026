@@ -31,7 +31,7 @@ import {
   Calendar,
   Plus
 } from "lucide-react"
-import { getAttendanceRecords, getAllEmployees, deleteAttendanceRecord, exportAttendanceToExcel, exportAttendanceToPDF, ExportParams, AttendanceRecord, Employee } from "@/lib/server-api"
+import { getAttendanceRecords, getAllEmployees, deleteAttendanceRecord, exportAttendanceToExcel, ExportParams, AttendanceRecord, Employee } from "@/lib/server-api"
 
 interface DateRange {
   from: Date | null
@@ -309,42 +309,45 @@ export function AttendanceManagementPage() {
     )
   }
 
-  const handleExport = async (format: 'excel' | 'pdf') => {
+  const handleExport = async (quickRange?: 'yesterday' | '15days' | '30days') => {
     try {
-      setExportLoading(format)
+      setExportLoading('excel')
 
-      const exportParams: ExportParams = {}
-
-      if (filters.dateRange.from) {
-        exportParams.dateFrom = filters.dateRange.from.toISOString().split('T')[0]
+      const exportParams: ExportParams = {
+        role: 'FIELD_ENGINEER',
+        quickRange: quickRange
       }
 
-      if (filters.dateRange.to) {
-        exportParams.dateTo = filters.dateRange.to.toISOString().split('T')[0]
-      }
+      // Only use custom date range if no quick range is specified
+      if (!quickRange) {
+        if (filters.dateRange.from) {
+          exportParams.dateFrom = filters.dateRange.from.toISOString().split('T')[0]
+        }
 
-      if (filters.dateRange.from && !filters.dateRange.to) {
-        const singleDate = filters.dateRange.from.toISOString().split('T')[0]
-        exportParams.dateFrom = singleDate
-        exportParams.dateTo = singleDate
-      }
+        if (filters.dateRange.to) {
+          exportParams.dateTo = filters.dateRange.to.toISOString().split('T')[0]
+        }
 
-      if (!filters.dateRange.from && !filters.dateRange.to) {
-        exportParams.date = new Date().toISOString().split('T')[0]
+        if (filters.dateRange.from && !filters.dateRange.to) {
+          const singleDate = filters.dateRange.from.toISOString().split('T')[0]
+          exportParams.dateFrom = singleDate
+          exportParams.dateTo = singleDate
+        }
+
+        if (!filters.dateRange.from && !filters.dateRange.to) {
+          exportParams.date = new Date().toISOString().split('T')[0]
+        }
       }
 
       if (filters.status) {
         exportParams.status = filters.status
       }
 
-      if (format === 'excel') {
-        await exportAttendanceToExcel(exportParams)
-      } else {
-        await exportAttendanceToPDF(exportParams)
-      }
+      await exportAttendanceToExcel(exportParams)
+      showToast.success('Export successful')
     } catch (error) {
-      console.error(`Error exporting to ${format}:`, error)
-      showToast.error(`Failed to export to ${format.toUpperCase()}`)
+      console.error('Error exporting to Excel:', error)
+      showToast.error('Failed to export to Excel')
     } finally {
       setExportLoading(null)
     }
@@ -453,23 +456,37 @@ export function AttendanceManagementPage() {
                     ) : (
                       <Download className="h-4 w-4 mr-2" />
                     )}
-                    {exportLoading ? `Exporting ${exportLoading.toUpperCase()}...` : 'Export'}
+                    {exportLoading ? 'Exporting...' : 'Export to Excel'}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
-                    onClick={() => handleExport('excel')}
+                    onClick={() => handleExport()}
                     disabled={exportLoading !== null}
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export to Excel
+                    <Filter className="h-4 w-4 mr-2" />
+                    Current Filter
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => handleExport('pdf')}
+                    onClick={() => handleExport('yesterday')}
                     disabled={exportLoading !== null}
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export to PDF
+                    <Clock className="h-4 w-4 mr-2" />
+                    Yesterday
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleExport('15days')}
+                    disabled={exportLoading !== null}
+                  >
+                    <Timer className="h-4 w-4 mr-2" />
+                    Last 15 Days
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleExport('30days')}
+                    disabled={exportLoading !== null}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Last 30 Days
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

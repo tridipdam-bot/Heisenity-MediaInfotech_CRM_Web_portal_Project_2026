@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
-import { createTask, getEmployeeTasks, updateTaskStatus, getAllTasks, CreateTaskData, TaskStatus, updateAttendanceStatus, resetAttendanceAttempts, completeTask } from './task.service';
+import { createTask, getEmployeeTasks, updateTaskStatus, getAllTasks, CreateTaskData, TaskStatus, resetAttendanceAttempts } from './task.service';
 import { createTeamTask } from '../teams/team.service';
 
 // Assign a new task to an employee or team
 export const assignTask = async (req: Request, res: Response) => {
   try {
-    const { employeeId, teamId, title, description, category, location, startTime, endTime } = req.body;
+    const { employeeId, teamId, title, description, category, location } = req.body;
 
     // Validate required fields
     if (!title || !description) {
@@ -40,7 +40,6 @@ export const assignTask = async (req: Request, res: Response) => {
         description,
         category,
         location,
-        startTime,
         assignedBy
       );
 
@@ -63,7 +62,6 @@ export const assignTask = async (req: Request, res: Response) => {
       description,
       category,
       location,
-      startTime,
       assignedBy,
     };
 
@@ -178,42 +176,6 @@ export const getTasks = async (req: Request, res: Response) => {
   }
 };
 
-// Update attendance status for an employee
-export const updateEmployeeAttendanceStatus = async (req: Request, res: Response) => {
-  try {
-    const { employeeId } = req.params;
-    const { status } = req.body;
-
-    if (!employeeId || !status) {
-      return res.status(400).json({
-        success: false,
-        error: 'Employee ID and status are required'
-      });
-    }
-
-    // Validate status
-    const validStatuses = ['PRESENT', 'LATE', 'ABSENT', 'MARKDOWN'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid attendance status. Must be one of: PRESENT, LATE, ABSENT, MARKDOWN'
-      });
-    }
-
-    await updateAttendanceStatus(employeeId, status);
-
-    return res.status(200).json({
-      success: true,
-      message: `Attendance status updated to ${status} for employee ${employeeId}`
-    });
-  } catch (error) {
-    console.error('Error updating attendance status:', error);
-    return res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to update attendance status'
-    });
-  }
-};
 // Reset attendance attempts for an employee
 export const resetEmployeeAttendanceAttempts = async (req: Request, res: Response) => {
   try {
@@ -237,40 +199,6 @@ export const resetEmployeeAttendanceAttempts = async (req: Request, res: Respons
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to reset attendance attempts'
-    });
-  }
-};
-// Complete a task (updates task end time without affecting attendance clock out)
-export const completeTaskEndpoint = async (req: Request, res: Response) => {
-  try {
-    const { taskId } = req.params;
-    const { employeeId } = req.body;
-
-    if (!taskId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Task ID is required'
-      });
-    }
-
-    if (!employeeId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Employee ID is required'
-      });
-    }
-
-    await completeTask(taskId, employeeId);
-
-    return res.status(200).json({
-      success: true,
-      message: 'Task completed successfully'
-    });
-  } catch (error) {
-    console.error('Error completing task:', error);
-    return res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to complete task'
     });
   }
 };

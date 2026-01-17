@@ -186,7 +186,6 @@ export async function createTeamTask(
         description,
         category,
         location,
-        startTime,
         assignedBy
       };
 

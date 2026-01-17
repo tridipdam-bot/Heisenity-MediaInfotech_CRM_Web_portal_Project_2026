@@ -30,8 +30,13 @@ import {
   Edit,
   Trash2,
   UserCheck,
-  ArrowUpDown
+  ArrowUpDown,
+  Phone,
+  Paperclip,
+  FileText,
+  Image
 } from "lucide-react"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 // Mock data for tickets with comprehensive information
 const ticketData = [
@@ -175,16 +180,22 @@ const ticketData = [
 
 const getStatusIcon = (status: string) => {
   switch (status) {
+    case "OPEN":
     case "open":
       return <AlertTriangle className="h-4 w-4 text-red-600" />
+    case "IN_PROGRESS":
     case "in_progress":
       return <Clock className="h-4 w-4 text-blue-600" />
+    case "PENDING":
     case "pending":
       return <Clock className="h-4 w-4 text-amber-600" />
+    case "SCHEDULED":
     case "scheduled":
       return <Calendar className="h-4 w-4 text-purple-600" />
+    case "RESOLVED":
     case "resolved":
       return <CheckCircle className="h-4 w-4 text-green-600" />
+    case "CLOSED":
     case "closed":
       return <XCircle className="h-4 w-4 text-gray-600" />
     default:
@@ -193,77 +204,155 @@ const getStatusIcon = (status: string) => {
 }
 
 const getStatusBadge = (status: string) => {
-  const variants = {
-    open: "bg-red-50 text-red-700 border-red-200",
-    in_progress: "bg-blue-50 text-blue-700 border-blue-200",
-    pending: "bg-amber-50 text-amber-700 border-amber-200",
-    scheduled: "bg-purple-50 text-purple-700 border-purple-200",
-    resolved: "bg-green-50 text-green-700 border-green-200",
-    closed: "bg-muted text-muted-foreground border-border"
+  const statusUpper = status.toUpperCase()
+  const variants: Record<string, string> = {
+    OPEN: "bg-red-50 text-red-700 border-red-200",
+    IN_PROGRESS: "bg-blue-50 text-blue-700 border-blue-200",
+    PENDING: "bg-amber-50 text-amber-700 border-amber-200",
+    SCHEDULED: "bg-purple-50 text-purple-700 border-purple-200",
+    RESOLVED: "bg-green-50 text-green-700 border-green-200",
+    CLOSED: "bg-muted text-muted-foreground border-border",
+    CANCELLED: "bg-gray-50 text-gray-700 border-gray-200"
   }
   
-  const labels = {
-    open: "Open",
-    in_progress: "In Progress",
-    pending: "Pending",
-    scheduled: "Scheduled",
-    resolved: "Resolved",
-    closed: "Closed"
+  const labels: Record<string, string> = {
+    OPEN: "Open",
+    IN_PROGRESS: "In Progress",
+    PENDING: "Pending",
+    SCHEDULED: "Scheduled",
+    RESOLVED: "Resolved",
+    CLOSED: "Closed",
+    CANCELLED: "Cancelled"
   }
   
   return (
-    <Badge className={`${variants[status as keyof typeof variants]} font-medium capitalize`}>
-      {labels[status as keyof typeof labels]}
+    <Badge className={`${variants[statusUpper] || variants.OPEN} font-medium capitalize`}>
+      {labels[statusUpper] || status}
     </Badge>
   )
 }
 
 const getPriorityBadge = (priority: string) => {
-  const variants = {
-    high: "bg-red-50 text-red-700 border-red-200",
-    medium: "bg-amber-50 text-amber-700 border-amber-200",
-    low: "bg-green-50 text-green-700 border-green-200"
+  const priorityUpper = priority.toUpperCase()
+  const variants: Record<string, string> = {
+    CRITICAL: "bg-red-100 text-red-800 border-red-300",
+    HIGH: "bg-orange-50 text-orange-700 border-orange-200",
+    MEDIUM: "bg-amber-50 text-amber-700 border-amber-200",
+    LOW: "bg-green-50 text-green-700 border-green-200"
   }
   
   return (
-    <Badge className={`${variants[priority as keyof typeof variants]} font-medium capitalize`}>
-      {priority} Priority
+    <Badge className={`${variants[priorityUpper] || variants.MEDIUM} font-medium capitalize`}>
+      {priority}
     </Badge>
   )
 }
 
 export function TicketTable() {
   const router = useRouter()
+  const { authenticatedFetch, isAuthenticated } = useAuthenticatedFetch()
   const [searchTerm, setSearchTerm] = React.useState("")
   const [selectedCategory, setSelectedCategory] = React.useState("all")
   const [selectedStatus, setSelectedStatus] = React.useState("all")
   const [selectedPriority, setSelectedPriority] = React.useState("all")
   const [activeTab, setActiveTab] = React.useState("all")
+  const [tickets, setTickets] = React.useState<any[]>([])
+  const [loading, setLoading] = React.useState(true)
+
+  const downloadFile = async (filePath: string, fileName: string) => {
+    try {
+      // Static files are served from root, not /api/v1
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL?.replace('/api/v1', '') || 'http://localhost:3001'
+      const staticUrl = `${baseUrl}${filePath}`
+      console.log('Direct download URL:', staticUrl)
+      
+      // Create a temporary link to download the file with the correct name
+      const response = await fetch(staticUrl)
+      if (!response.ok) {
+        throw new Error('File not found')
+      }
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Error downloading file:', error)
+      // Final fallback - just open the file in a new tab
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL?.replace('/api/v1', '') || 'http://localhost:3001'
+      const staticUrl = `${baseUrl}${filePath}`
+      window.open(staticUrl, '_blank')
+    }
+  }
+
+  const fetchTickets = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets`)
+
+      const result = await response.json()
+
+      if (result.success) {
+        setTickets(result.data)
+      } else {
+        console.error('Failed to fetch tickets:', result)
+      }
+    } catch (error) {
+      console.error('Error fetching tickets:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [authenticatedFetch])
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      fetchTickets()
+    }
+    
+    // Removed auto-refresh to prevent page reloading
+    // Users can manually refresh using the Refresh button
+  }, [isAuthenticated, fetchTickets])
 
   // Calculate summary statistics
-  const totalTickets = ticketData.length
-  const openTickets = ticketData.filter(ticket => ticket.status === "open").length
-  const inProgressTickets = ticketData.filter(ticket => ticket.status === "in_progress").length
-  const resolvedTickets = ticketData.filter(ticket => ticket.status === "resolved").length
-  const closedTickets = ticketData.filter(ticket => ticket.status === "closed").length
-  const highPriorityTickets = ticketData.filter(ticket => ticket.priority === "high").length
+  const totalTickets = tickets.length
+  const openTickets = tickets.filter(ticket => ticket.status === "OPEN").length
+  const inProgressTickets = tickets.filter(ticket => ticket.status === "IN_PROGRESS").length
+  const resolvedTickets = tickets.filter(ticket => ticket.status === "RESOLVED").length
+  const closedTickets = tickets.filter(ticket => ticket.status === "CLOSED").length
+  const highPriorityTickets = tickets.filter(ticket => ticket.priority === "HIGH" || ticket.priority === "CRITICAL").length
 
   // Filter data based on search and filters
-  const filteredData = ticketData.filter(ticket => {
+  const filteredData = tickets.filter(ticket => {
     const matchesSearch = ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.assignee.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.reporter.toLowerCase().includes(searchTerm.toLowerCase())
+                         ticket.ticketId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (ticket.assignee?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (ticket.reporter?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === "all" || ticket.category === selectedCategory
     const matchesStatus = selectedStatus === "all" || ticket.status === selectedStatus
     const matchesPriority = selectedPriority === "all" || ticket.priority === selectedPriority
     const matchesTab = activeTab === "all" || 
-                      (activeTab === "open" && ["open", "in_progress", "pending", "scheduled"].includes(ticket.status)) ||
-                      (activeTab === "resolved" && ticket.status === "resolved") ||
-                      (activeTab === "closed" && ticket.status === "closed")
+                      (activeTab === "open" && ["OPEN", "IN_PROGRESS", "PENDING", "SCHEDULED"].includes(ticket.status)) ||
+                      (activeTab === "resolved" && ticket.status === "RESOLVED") ||
+                      (activeTab === "closed" && ticket.status === "CLOSED")
     
     return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesTab
   })
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading tickets...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -276,6 +365,24 @@ export function TicketTable() {
               <p className="text-muted-foreground">Manage and track customer support requests and issues</p>
             </div>
             <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                onClick={fetchTickets}
+                disabled={loading}
+                className="border-border hover:bg-accent"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin mr-2" />
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <Clock className="h-4 w-4 mr-2" />
+                    Refresh
+                  </>
+                )}
+              </Button>
               <Button variant="outline" className="border-border hover:bg-accent">
                 <Download className="h-4 w-4 mr-2" />
                 Export Report
@@ -413,11 +520,14 @@ export function TicketTable() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
                     <DropdownMenuItem onClick={() => setSelectedCategory("all")}>All Categories</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSelectedCategory("Authentication")}>Authentication</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSelectedCategory("Hardware")}>Hardware</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSelectedCategory("Software")}>Software</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSelectedCategory("Network")}>Network</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSelectedCategory("Security")}>Security</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedCategory("AUTHENTICATION")}>Authentication</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedCategory("HARDWARE")}>Hardware</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedCategory("SOFTWARE")}>Software</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedCategory("NETWORK")}>Network</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedCategory("SECURITY")}>Security</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedCategory("DATABASE")}>Database</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedCategory("MAINTENANCE")}>Maintenance</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedCategory("SETUP")}>Setup</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <DropdownMenu>
@@ -429,9 +539,10 @@ export function TicketTable() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
                     <DropdownMenuItem onClick={() => setSelectedPriority("all")}>All Priorities</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSelectedPriority("high")}>High Priority</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSelectedPriority("medium")}>Medium Priority</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSelectedPriority("low")}>Low Priority</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedPriority("CRITICAL")}>Critical Priority</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedPriority("HIGH")}>High Priority</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedPriority("MEDIUM")}>Medium Priority</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSelectedPriority("LOW")}>Low Priority</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -445,96 +556,239 @@ export function TicketTable() {
             <TableHeader>
               <TableRow className="bg-muted/50 border-b border-border">
                 <TableHead className="w-[280px] py-4 px-6 font-semibold text-foreground">Ticket Details</TableHead>
+                <TableHead className="w-[180px] py-4 px-6 font-semibold text-foreground">Customer Info</TableHead>
                 <TableHead className="w-[120px] py-4 px-6 font-semibold text-foreground">Status</TableHead>
                 <TableHead className="w-[120px] py-4 px-6 font-semibold text-foreground">Priority</TableHead>
-                <TableHead className="w-[150px] py-4 px-6 font-semibold text-foreground">Assignee</TableHead>
+                <TableHead className="w-[150px] py-4 px-6 font-semibold text-foreground">Created By</TableHead>
+                <TableHead className="w-[120px] py-4 px-6 font-semibold text-foreground">Attachments</TableHead>
                 <TableHead className="w-[120px] py-4 px-6 font-semibold text-foreground">Due Date</TableHead>
                 <TableHead className="py-4 px-6 font-semibold text-foreground">Department</TableHead>
                 <TableHead className="w-[60px] py-4 px-6"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredData.map((ticket, index) => (
-                <TableRow 
-                  key={ticket.id} 
-                  className={`hover:bg-accent/50 border-b border-border ${
-                    index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
-                  }`}
-                >
-                  <TableCell className="py-4 px-6">
-                    <div className="flex items-center gap-4">
-                      <div className="relative">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-sm">
-                          <Ticket className="h-6 w-6" />
-                        </div>
-                        {getStatusIcon(ticket.status) && (
-                          <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
-                            {getStatusIcon(ticket.status)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-foreground truncate">{ticket.title}</p>
-                        <p className="text-sm text-muted-foreground">{ticket.id} • {ticket.category}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-1">{ticket.description}</p>
-                      </div>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-12">
+                    <div className="flex items-center justify-center">
+                      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mr-3"></div>
+                      Loading tickets...
                     </div>
-                  </TableCell>
-                  <TableCell className="py-4 px-6">
-                    {getStatusBadge(ticket.status)}
-                  </TableCell>
-                  <TableCell className="py-4 px-6">
-                    {getPriorityBadge(ticket.priority)}
-                  </TableCell>
-                  <TableCell className="py-4 px-6">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center text-white font-semibold text-xs">
-                        {ticket.assignee.split(' ').map(n => n[0]).join('')}
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground text-sm">{ticket.assignee}</p>
-                        <p className="text-xs text-muted-foreground">Assignee</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="py-4 px-6">
-                    <div className="text-sm">
-                      <p className="font-medium text-foreground">{ticket.dueDate}</p>
-                      <p className="text-xs text-muted-foreground">{ticket.estimatedHours}h estimated</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="py-4 px-6">
-                    <span className="text-sm text-muted-foreground">{ticket.department}</span>
-                  </TableCell>
-                  <TableCell className="py-4 px-6">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Ticket
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <UserCheck className="h-4 w-4 mr-2" />
-                          Assign Agent
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : filteredData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-12">
+                    <div className="flex flex-col items-center">
+                      <Ticket className="h-12 w-12 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No Tickets Found</h3>
+                      <p className="text-gray-600 mb-4">
+                        {tickets.length === 0 
+                          ? "No tickets have been created yet." 
+                          : "No tickets match your current filters."
+                        }
+                      </p>
+                      {tickets.length === 0 && (
+                        <Button 
+                          onClick={() => router.push('/tickets/new')}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create First Ticket
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredData.map((ticket, index) => (
+                  <TableRow 
+                    key={ticket.id} 
+                    className={`hover:bg-accent/50 border-b border-border ${
+                      index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
+                    }`}
+                  >
+                    <TableCell className="py-4 px-6">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                            <Ticket className="h-6 w-6" />
+                          </div>
+                          {getStatusIcon(ticket.status) && (
+                            <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
+                              {getStatusIcon(ticket.status)}
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-foreground truncate">{ticket.title}</p>
+                          <p className="text-sm text-muted-foreground">{ticket.ticketId} • {ticket.category}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">{ticket.description}</p>
+                          {ticket._count && ticket._count.comments > 0 && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <MessageSquare className="h-3 w-3 text-blue-600" />
+                              <span className="text-xs text-blue-600">{ticket._count.comments} comments</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      {ticket.customerName ? (
+                        <div className="space-y-1">
+                          <p className="font-medium text-foreground text-sm">{ticket.customerName}</p>
+                          <p className="text-xs text-muted-foreground">{ticket.customerId}</p>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {ticket.customerPhone}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      {getStatusBadge(ticket.status)}
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      {getPriorityBadge(ticket.priority)}
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      {ticket.reporter ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-xs">
+                            {ticket.reporter.name.split(' ').map((n: string) => n[0]).join('')}
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground text-sm">{ticket.reporter.name}</p>
+                            <p className="text-xs text-muted-foreground">{ticket.reporter.employeeId}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Unknown</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      {ticket.attachments && ticket.attachments.length > 0 ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 px-2 hover:bg-blue-50">
+                              <div className="flex items-center gap-2">
+                                <Paperclip className="h-4 w-4 text-blue-600" />
+                                <span className="text-sm font-medium text-blue-600">{ticket.attachments.length}</span>
+                                <div className="flex items-center gap-1">
+                                  {ticket.attachments.slice(0, 2).map((attachment: any, index: number) => {
+                                    const isImage = attachment.mimeType?.startsWith('image/') || 
+                                                  attachment.fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+                                    return (
+                                      <div
+                                        key={index}
+                                        className="w-4 h-4 bg-blue-100 rounded flex items-center justify-center"
+                                      >
+                                        {isImage ? (
+                                          <Image className="h-2.5 w-2.5 text-blue-600" />
+                                        ) : (
+                                          <FileText className="h-2.5 w-2.5 text-blue-600" />
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                  {ticket.attachments.length > 2 && (
+                                    <span className="text-xs text-blue-600">+{ticket.attachments.length - 2}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-64">
+                            <div className="px-2 py-1.5 text-sm font-semibold text-foreground border-b">
+                              Attachments ({ticket.attachments.length})
+                            </div>
+                            {ticket.attachments.map((attachment: any, index: number) => {
+                              const isImage = attachment.mimeType?.startsWith('image/') || 
+                                            attachment.fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+                              const fileSize = attachment.fileSize ? `${(attachment.fileSize / 1024).toFixed(1)} KB` : 'Unknown size'
+                              
+                              return (
+                                <DropdownMenuItem key={index} className="flex items-center gap-3 py-2">
+                                  <div className="w-8 h-8 bg-blue-50 rounded flex items-center justify-center flex-shrink-0">
+                                    {isImage ? (
+                                      <Image className="h-4 w-4 text-blue-600" />
+                                    ) : (
+                                      <FileText className="h-4 w-4 text-blue-600" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-foreground truncate" title={attachment.fileName}>
+                                      {attachment.fileName}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {fileSize} • {attachment.mimeType || 'Unknown type'}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 flex-shrink-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      downloadFile(attachment.filePath, attachment.fileName)
+                                    }}
+                                  >
+                                    <Download className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuItem>
+                              )
+                            })}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      <div className="text-sm">
+                        <p className="font-medium text-foreground">
+                          {ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString() : 'No due date'}
+                        </p>
+                        {ticket.estimatedHours && (
+                          <p className="text-xs text-muted-foreground">{ticket.estimatedHours}h estimated</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      <span className="text-sm text-muted-foreground">{ticket.department}</span>
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Ticket
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <UserCheck className="h-4 w-4 mr-2" />
+                            Assign Agent
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600">
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </Card>

@@ -30,7 +30,8 @@ import {
     Clock,
     FileText,
     FolderOpen,
-    Gavel
+    Gavel,
+    Bell
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -46,7 +47,7 @@ const navigationItems = [
     },
     {
         title: "Task Management",
-        url: "/attendance",
+        url: "/task-management",
         icon: Users,
         badge: "12",
         description: "Task tracking"
@@ -121,6 +122,21 @@ const navigationItems = [
         icon: Ticket,
         badge: "3",
         description: "Support requests"
+    },
+    {
+        title: "Customer Management",
+        url: "/customers",
+        icon: Users,
+        badge: null,
+        description: "Manage customer accounts"
+    },
+    {
+        title: "Customer Support",
+        url: "/customer-support-requests",
+        icon: Bell,
+        badge: null,
+        description: "Handle customer support requests",
+        dynamicBadge: true
     },
 ]
 

@@ -32,15 +32,16 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { data: session } = useSession()
   
-  // Pages that should not show sidebar (public/auth pages)
+  // Pages that should not show sidebar (public/auth pages and customer portal)
   const isAuthPage = pathname === '/' || pathname === '/landing'
   const isEmployeePage = pathname === '/employee-attendance' || pathname === '/staff-portal'
+  const isCustomerPage = pathname === '/customer-portal'
   
   // Check if user is employee
   const isEmployee = session?.user && (session.user as CustomUser).userType === 'EMPLOYEE'
 
-  // For auth pages or employee attendance page, don't show sidebar
-  if (isAuthPage || isEmployeePage) {
+  // For auth pages, employee attendance page, or customer portal, don't show sidebar
+  if (isAuthPage || isEmployeePage || isCustomerPage) {
     return <div className="min-h-screen">{children}</div>
   }
 

@@ -30,8 +30,10 @@ export const getAttendanceRecords = async (req: Request, res: Response) => {
         where: { employeeId: employeeId as string }
       })
       if (employee) {
+        console.log(`Found employee: ${employee.name} (ID: ${employee.id}) for employeeId: ${employeeId}`)
         where.employeeId = employee.id
       } else {
+        console.log(`Employee not found for employeeId: ${employeeId}`)
         return res.status(404).json({
           success: false,
           error: 'Employee not found'
@@ -51,9 +53,36 @@ export const getAttendanceRecords = async (req: Request, res: Response) => {
     }
 
     if (date) {
-      const targetDate = new Date(date as string)
-      targetDate.setHours(0, 0, 0, 0)
-      where.date = targetDate
+      // Parse the date string as UTC to avoid timezone issues
+      const dateStr = date as string
+      const [year, month, day] = dateStr.split('-').map(Number)
+      
+      // Create UTC dates for the start and end of the day
+      const targetDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0))
+      const nextDay = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0))
+      
+      console.log(`Querying attendance for date: ${dateStr}`)
+      console.log(`  - UTC range: ${targetDate.toISOString()} to ${nextDay.toISOString()}`)
+      
+      where.date = {
+        gte: targetDate,
+        lt: nextDay
+      }
+      
+      // Debug: Check if there are ANY attendance records for this employee
+      if (employeeId) {
+        const allRecords = await prisma.attendance.findMany({
+          where: { employeeId: where.employeeId },
+          select: { id: true, date: true, source: true },
+          orderBy: { date: 'desc' },
+          take: 5
+        })
+        console.log(`All recent attendance records for employee:`, allRecords.map(r => ({
+          id: r.id,
+          date: r.date.toISOString(),
+          source: r.source
+        })))
+      }
     } else if (dateFrom || dateTo) {
       where.date = {}
       if (dateFrom) {
@@ -84,20 +113,6 @@ export const getAttendanceRecords = async (req: Request, res: Response) => {
             teamId: true,
             isTeamLeader: true,
             role: true
-          }
-        },
-        assignedTask: {
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            category: true,
-            location: true,
-            startTime: true,
-            endTime: true,
-            assignedBy: true,
-            assignedAt: true,
-            status: true
           }
         }
       },
@@ -133,10 +148,6 @@ export const getAttendanceRecords = async (req: Request, res: Response) => {
       locked: attendance.locked,
       lockedReason: attendance.lockedReason,
       attemptCount: attendance.attemptCount,
-      taskId: attendance.taskId, // Add taskId field
-      taskStartTime: attendance.taskStartTime,
-      taskEndTime: attendance.taskEndTime,
-      taskLocation: attendance.taskLocation,
       // Add approval fields
       approvalStatus: attendance.approvalStatus,
       approvedBy: attendance.approvedBy,
@@ -145,20 +156,18 @@ export const getAttendanceRecords = async (req: Request, res: Response) => {
       rejectedAt: attendance.rejectedAt?.toISOString(),
       approvalReason: attendance.approvalReason,
       createdAt: attendance.createdAt.toISOString(),
-      updatedAt: attendance.updatedAt.toISOString(),
-      assignedTask: attendance.assignedTask ? {
-        id: attendance.assignedTask.id,
-        title: attendance.assignedTask.title,
-        description: attendance.assignedTask.description,
-        category: attendance.assignedTask.category,
-        location: attendance.assignedTask.location,
-        startTime: attendance.assignedTask.startTime,
-        endTime: attendance.assignedTask.endTime,
-        assignedBy: attendance.assignedTask.assignedBy,
-        assignedAt: attendance.assignedTask.assignedAt.toISOString(),
-        status: attendance.assignedTask.status
-      } : undefined
+      updatedAt: attendance.updatedAt.toISOString()
     }))
+
+    // Log for debugging
+    if (employeeId) {
+      console.log(`Attendance records for employee ${employeeId}:`, records.map(r => ({
+        id: r.id,
+        date: r.date,
+        clockIn: r.clockIn,
+        source: r.source
+      })))
+    }
 
     const totalPages = Math.ceil(total / limitNum)
 
@@ -276,38 +285,73 @@ export const createAttendance = async (req: Request, res: Response) => {
     }
 
     // Validate action parameter
-    if (action && !['check-in', 'check-out', 'task-checkout'].includes(action)) {
-      return res.status(400).json({ success: false, error: 'Invalid action. Must be "check-in", "check-out", or "task-checkout"' })
+    if (action && !['check-in', 'check-out'].includes(action)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid action. Must be "check-in" or "check-out"' 
+      })
     }
 
-    const ipAddress = req.ip || req.connection.remoteAddress || 'unknown'
+    const ipAddress = req.ip || 'unknown'
     const userAgent = req.headers['user-agent'] || ''
 
     console.info({ event: 'create_attendance_request', employeeId, ipAddress, action })
 
-    // Call service (simplified without location validation)
-    const attendance = await createAttendanceRecord({
-      employeeId,
-      ipAddress,
-      userAgent,
-      photo,
-      status: status as 'PRESENT' | 'LATE',
-      locationText: location || 'Office Location',
-      action: action as 'check-in' | 'check-out' | 'task-checkout' | undefined
-    })
-
-    return res.status(201).json({ success: true, message: 'Attendance recorded successfully', data: attendance })
+    // Route to appropriate service function based on action
+    if (action === 'check-in') {
+      // Day-level check-in (requires approval)
+      const attendance = await createAttendanceRecord({
+        employeeId,
+        ipAddress,
+        userAgent,
+        photo,
+        status: status as 'PRESENT' | 'LATE',
+        locationText: location || 'Office Location',
+        action: 'check-in'
+      })
+      return res.status(201).json({ 
+        success: true, 
+        message: 'Check-in request submitted. Waiting for admin approval.', 
+        data: attendance 
+      })
+    } else if (action === 'check-out') {
+      // Day-level clock-out
+      const result = await dayClockOut(employeeId)
+      if (!result.success) {
+        return res.status(400).json(result)
+      }
+      return res.status(200).json(result)
+    } else {
+      // Default to day-level check-in
+      const attendance = await createAttendanceRecord({
+        employeeId,
+        ipAddress,
+        userAgent,
+        photo,
+        status: status as 'PRESENT' | 'LATE',
+        locationText: location || 'Office Location',
+        action: 'check-in'
+      })
+      return res.status(201).json({ 
+        success: true, 
+        message: 'Check-in request submitted. Waiting for admin approval.', 
+        data: attendance 
+      })
+    }
   } catch (error) {
     console.error({ event: 'create_attendance_error', error: error instanceof Error ? error.message : error })
     let errorMessage = 'Failed to create attendance record'
     let statusCode = 500
     if (error instanceof Error) {
-      if ((error as any).message === 'EMPLOYEE_NOT_FOUND') {
+      if (error.message === 'EMPLOYEE_NOT_FOUND') {
         statusCode = 404
         errorMessage = 'Employee not found'
-      } else if ((error as any).message === 'MAX_ATTEMPTS_EXCEEDED' || (error as any).code === 'MAX_ATTEMPTS_EXCEEDED') {
+      } else if (error.message.startsWith('DAY_NOT_APPROVED') || error.message.startsWith('APPROVAL_PENDING')) {
         statusCode = 403
         errorMessage = error.message
+      } else if (error.message === 'ATTENDANCE_LOCKED') {
+        statusCode = 403
+        errorMessage = 'Attendance is locked'
       } else {
         errorMessage = error.message
       }

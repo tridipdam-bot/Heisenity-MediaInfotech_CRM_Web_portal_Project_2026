@@ -172,12 +172,14 @@ export type AttendanceRecord = {
     locked: boolean
     lockedReason?: string
     attemptCount: 'ZERO' | 'ONE' | 'TWO' | 'THREE'
-    taskStartTime?: string
-    taskEndTime?: string
-    taskLocation?: string
+    approvalStatus?: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED'
+    approvedBy?: string
+    approvedAt?: string
+    rejectedBy?: string
+    rejectedAt?: string
+    approvalReason?: string
     createdAt: string
     updatedAt: string
-    assignedTask?: AssignedTask
     workedHours?: string
     overtime?: string
 }
@@ -188,8 +190,8 @@ export type AssignedTask = {
     description: string
     category?: string
     location?: string
-    startTime?: string
-    endTime?: string
+    checkIn?: string        // Actual check-in time
+    checkOut?: string       // Actual check-out time
     assignedBy: string
     assignedAt: string
     status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
@@ -202,8 +204,6 @@ export type CreateTaskRequest = {
     description: string
     category?: string
     location?: string
-    startTime?: string
-    endTime?: string
 }
 
 export type CreateTaskResponse = {
@@ -257,11 +257,19 @@ export async function getAttendanceRecords(params?: {
 
         const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
         
+        console.log('Fetching attendance records from:', url)
+        
         const res = await fetch(url, {
-            cache: 'no-store'
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+            }
         })
 
         const response = await res.json()
+        
+        console.log('Attendance records response:', response)
 
         if (!res.ok) {
             throw new Error(response.error || `Failed to get attendance records: ${res.status}`)
@@ -975,6 +983,67 @@ export async function getEmployeeTasks(employeeId: string, status?: string): Pro
   }
 }
 
+export type GetAllTasksResponse = {
+  success: boolean
+  data?: {
+    tasks: Array<{
+      id: string
+      employeeId: string
+      employeeName: string
+      employeeEmail: string
+      title: string
+      description: string
+      category?: string
+      location?: string
+      startTime?: string
+      endTime?: string
+      assignedBy: string
+      assignedAt: string
+      status: string
+      createdAt: string
+      updatedAt: string
+    }>
+    pagination: {
+      page: number
+      limit: number
+      total: number
+      totalPages: number
+    }
+  }
+  error?: string
+}
+
+export async function getAllTasks(params?: {
+  page?: number
+  limit?: number
+  status?: string
+}): Promise<GetAllTasksResponse> {
+  try {
+    const searchParams = new URLSearchParams()
+    if (params?.page) searchParams.append('page', params.page.toString())
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+    if (params?.status) searchParams.append('status', params.status)
+
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tasks?${searchParams}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    const response: GetAllTasksResponse = await res.json()
+    
+    if (!res.ok) {
+      throw new Error(response.error || 'Failed to get tasks')
+    }
+
+    return response
+  } catch (error) {
+    console.error('getAllTasks error:', error)
+    throw error
+  }
+}
+
 // Export Functions
 export type ExportParams = {
   dateFrom?: string
@@ -982,6 +1051,8 @@ export type ExportParams = {
   date?: string
   employeeId?: string
   status?: string
+  role?: string
+  quickRange?: 'yesterday' | '15days' | '30days' // Quick date range options
 }
 
 export async function exportAttendanceToExcel(params?: ExportParams): Promise<void> {
@@ -993,6 +1064,8 @@ export async function exportAttendanceToExcel(params?: ExportParams): Promise<vo
     if (params?.date) searchParams.append('date', params.date)
     if (params?.employeeId) searchParams.append('employeeId', params.employeeId)
     if (params?.status) searchParams.append('status', params.status)
+    if (params?.role) searchParams.append('role', params.role)
+    if (params?.quickRange) searchParams.append('quickRange', params.quickRange)
 
     const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/export/excel${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
     
@@ -1005,31 +1078,6 @@ export async function exportAttendanceToExcel(params?: ExportParams): Promise<vo
     document.body.removeChild(link)
   } catch (error) {
     console.error('exportAttendanceToExcel error:', error)
-    throw error
-  }
-}
-
-export async function exportAttendanceToPDF(params?: ExportParams): Promise<void> {
-  try {
-    const searchParams = new URLSearchParams()
-    
-    if (params?.dateFrom) searchParams.append('dateFrom', params.dateFrom)
-    if (params?.dateTo) searchParams.append('dateTo', params.dateTo)
-    if (params?.date) searchParams.append('date', params.date)
-    if (params?.employeeId) searchParams.append('employeeId', params.employeeId)
-    if (params?.status) searchParams.append('status', params.status)
-
-    const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/export/pdf${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
-    
-    // Create a temporary link to trigger download
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `attendance-report-${new Date().toISOString().split('T')[0]}.pdf`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  } catch (error) {
-    console.error('exportAttendanceToPDF error:', error)
     throw error
   }
 }
@@ -1570,7 +1618,7 @@ export async function getEmployeeByEmployeeId(employeeId: string): Promise<{ suc
 
 
 // Feature Access API Functions
-export type StaffPortalFeature = 'DASHBOARD' | 'PROJECT' | 'TASK_MANAGEMENT'
+export type StaffPortalFeature = 'DASHBOARD' | 'PROJECT' | 'TASK_MANAGEMENT' | 'PAYROLL' | 'VEHICLE' | 'CUSTOMERS' | 'EMPLOYEES' | 'TEAMS' | 'TENDERS' | 'STOCK' | 'LEAVE_MANAGEMENT' | 'FIELD_ENGINEER_ATTENDANCE' | 'INOFFICE_ATTENDANCE' | 'CUSTOMER_SUPPORT_REQUESTS' | 'STAFF_FEATURE_ACCESS'
 
 export type GetMyFeaturesResponse = {
   success: boolean
@@ -1722,5 +1770,218 @@ export async function updateStaffFeatureAccess(
       message: '',
       error: 'Failed to update feature access'
     }
+  }
+}
+
+// =============================================================================
+// TASK CHECK-IN/CHECK-OUT API FUNCTIONS
+// =============================================================================
+
+export type TaskCheckInRequest = {
+  employeeId: string
+  taskId: string
+  photo?: string
+  location?: string
+}
+
+export type TaskCheckOutRequest = {
+  employeeId: string
+  taskId: string
+}
+
+export type TaskStatusResponse = {
+  success: boolean
+  message?: string
+  data?: {
+    hasActiveTask: boolean
+    currentTask: AssignedTask | null
+    taskStartTime: string | null
+    taskEndTime: string | null
+  }
+}
+
+export type TaskAttendanceResponse = {
+  success: boolean
+  message: string
+  data?: {
+    taskId: string
+    taskStartTime?: string
+    taskEndTime?: string
+    taskStatus: string
+  }
+}
+
+export async function taskCheckIn(data: TaskCheckInRequest): Promise<TaskAttendanceResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tasks/check-in`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || response.message || `Failed to check in to task: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('taskCheckIn error:', error)
+    throw error
+  }
+}
+
+export async function taskCheckOut(data: TaskCheckOutRequest): Promise<TaskAttendanceResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tasks/check-out`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || response.message || `Failed to check out from task: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('taskCheckOut error:', error)
+    throw error
+  }
+}
+
+export async function getTaskStatus(employeeId: string): Promise<TaskStatusResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tasks/status/${employeeId}`, {
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || response.message || `Failed to get task status: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('getTaskStatus error:', error)
+    throw error
+  }
+}
+
+// =============================================================================
+// DAILY CLOCK-IN/CLOCK-OUT API FUNCTIONS
+// =============================================================================
+
+export type DailyClockInRequest = {
+  employeeId: string
+  photo?: string
+  locationText?: string
+}
+
+export type DailyClockOutRequest = {
+  employeeId: string
+}
+
+export type DailyAttendanceResponse = {
+  success: boolean
+  message: string
+  data?: {
+    attendanceId: string
+    clockIn?: string
+    clockOut?: string
+    approvalStatus: string
+    needsApproval: boolean
+  }
+}
+
+export type DailyAttendanceStatusResponse = {
+  success: boolean
+  message?: string
+  data?: {
+    hasAttendance: boolean
+    clockIn: string | null
+    clockOut: string | null
+    approvalStatus: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED'
+    needsApproval: boolean
+    isPendingApproval: boolean
+    canClockOut: boolean
+    workHours: string | null
+  }
+}
+
+export async function dailyClockIn(data: DailyClockInRequest): Promise<DailyAttendanceResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/clock-in`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || response.message || `Failed to clock in: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('dailyClockIn error:', error)
+    throw error
+  }
+}
+
+export async function dailyClockOut(data: DailyClockOutRequest): Promise<DailyAttendanceResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/clock-out`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || response.message || `Failed to clock out: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('dailyClockOut error:', error)
+    throw error
+  }
+}
+
+export async function getDailyAttendanceStatus(employeeId: string): Promise<DailyAttendanceStatusResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/attendance/daily-status/${employeeId}`, {
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || response.message || `Failed to get daily attendance status: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('getDailyAttendanceStatus error:', error)
+    throw error
   }
 }

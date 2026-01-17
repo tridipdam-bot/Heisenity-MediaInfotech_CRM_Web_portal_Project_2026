@@ -1,17 +1,27 @@
-import { prisma } from '../../../lib/prisma' 
-import {
-  AttendanceRecord
-} from './attendance.types'
+import { prisma } from '../../../lib/prisma'
+import { AttendanceRecord } from './attendance.types'
 import { getDeviceInfo } from '../../../utils/deviceinfo'
 import { getTodayDate } from '../../../utils/date'
 import { VehicleService } from '../vehicles/vehicle.service'
 import { NotificationService } from '../../notifications/notification.service'
 
-// Environment-configurable defaults
-const DEFAULT_FLEXIBLE_WINDOW_MINUTES = Number(process.env.DEFAULT_FLEXIBLE_WINDOW_MINUTES || 120)
 const MAX_ATTEMPTS = 3
 
-// Helper functions to convert between AttemptCount enum and numbers
+/**
+ * =============================================================================
+ * CRITICAL BUSINESS RULES - DO NOT VIOLATE
+ * =============================================================================
+ * 1. ONE attendance record per employee per day
+ * 2. clockIn = START OF DAY, set ONLY ONCE after admin approval
+ * 3. Tasks NEVER create, overwrite, reset, or nullify clockIn
+ * 4. Field Engineers require admin approval ONLY for FIRST check-in of day
+ * 5. After first approval, employee can freely check in/out of tasks
+ * 6. clockIn must NEVER disappear once approved
+ * 7. Task lifecycle is INDEPENDENT from day attendance lifecycle
+ * =============================================================================
+ */
+
+// Helper functions for attempt count conversion
 function attemptCountToNumber(attemptCount: any): number {
   if (attemptCount === 'ZERO') return 0
   if (attemptCount === 'ONE') return 1
@@ -20,337 +30,218 @@ function attemptCountToNumber(attemptCount: any): number {
   return 0
 }
 
-function numberToAttemptCount(num: number): any {
-  if (num <= 0) return 'ZERO'
-  if (num === 1) return 'ONE'
-  if (num === 2) return 'TWO'
-  if (num >= 3) return 'THREE'
-  return 'ZERO'
-}
-
-// Create attendance record without location validation
-export async function createAttendanceRecord(data: {
+/**
+ * DAY-LEVEL: Field Engineer clicks CHECK-IN (first time of the day)
+ * - If no clockIn exists → set approvalStatus = PENDING, store pendingCheckInAt
+ * - If clockIn exists (already approved) → allow immediate task check-in
+ * - Notify admin for approval
+ */
+export async function fieldEngineerCheckIn(data: {
   employeeId: string
   ipAddress: string
   userAgent: string
   photo?: string
-  status: 'PRESENT' | 'LATE'
   locationText?: string
-  action?: 'check-in' | 'check-out' | 'task-checkout'
 }): Promise<AttendanceRecord> {
   const today = getTodayDate()
+  const now = new Date()
 
   const employee = await prisma.employee.findUnique({ where: { employeeId: data.employeeId } })
   if (!employee) throw new Error('EMPLOYEE_NOT_FOUND')
 
-  // Get existing attendance record
-  const existing = await prisma.attendance.findUnique({
+  // Get or create today's attendance record
+  let attendance = await prisma.attendance.findUnique({
     where: { employeeId_date: { employeeId: employee.id, date: today } }
   })
 
-  if (existing && existing.locked) throw new Error('ATTENDANCE_LOCKED')
+  if (attendance && attendance.locked) {
+    throw new Error('ATTENDANCE_LOCKED')
+  }
 
   const deviceInfo = getDeviceInfo(data.userAgent)
   const deviceString = `${deviceInfo.os} - ${deviceInfo.browser} - ${deviceInfo.device}`
-  
-  // Use provided location text or default
   const locationText = data.locationText || 'Office Location'
 
-  const updateData: any = {
-    ipAddress: data.ipAddress,
-    deviceInfo: deviceString,
-    photo: data.photo ?? existing?.photo,
-    status: data.status,
-    source: 'SELF',
-    updatedAt: new Date(),
-    attemptCount: 'ZERO'
+  // INVARIANT: If clockIn exists, day is already approved
+  if (attendance?.clockIn) {
+    // Day already approved - return current status
+    return {
+      employeeId: data.employeeId,
+      timestamp: now.toISOString(),
+      location: locationText,
+      ipAddress: data.ipAddress,
+      deviceInfo: deviceString,
+      photo: data.photo,
+      status: attendance.status as any
+    }
   }
 
-  // Check if this is the first check-in of the day (requires approval)
-  const isFirstCheckIn = !existing?.clockIn && (data.action === 'check-in' || (!data.action && (data.status === 'PRESENT' || data.status === 'LATE')))
-
-  // Handle check-in/check-out logic based on employee role
-  if (data.action === 'check-in') {
-    // For FIELD_ENGINEER: Allow multiple check-ins (once per task)
-    // For IN_OFFICE: Only allow one check-in per day
-    if (employee.role === 'FIELD_ENGINEER') {
-      // Field engineers can check in multiple times (once per task)
-      if (!existing?.clockIn) {
-        // First check-in of the day - DO NOT set clockIn yet, wait for approval
-        updateData.approvalStatus = 'PENDING'
-        // Store the pending check-in time in taskStartTime temporarily
-        const taskCheckinTime = new Date().toLocaleTimeString('en-US', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-        updateData.taskStartTime = taskCheckinTime
-      } else if (existing?.approvalStatus === 'APPROVED') {
-        // Already approved for the day
-        if (existing?.clockOut) {
-          // Checked out from previous task, allow new check-in
-          updateData.clockOut = null
-        }
-        // Update task start time for the new task
-        const taskCheckinTime = new Date().toLocaleTimeString('en-US', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-        updateData.taskStartTime = taskCheckinTime
+  // FIRST CHECK-IN OF THE DAY - requires approval
+  if (!attendance) {
+    // Create new attendance record with PENDING status
+    attendance = await prisma.attendance.create({
+      data: {
+        employeeId: employee.id,
+        date: today,
+        clockIn: null, // DO NOT set clockIn yet
+        clockOut: null,
+        pendingCheckInAt: now, // Store pending timestamp
+        approvalStatus: 'PENDING',
+        status: 'PRESENT', // Prisma enum value
+        location: locationText,
+        ipAddress: data.ipAddress,
+        deviceInfo: deviceString,
+        photo: data.photo,
+        source: 'SELF',
+        attemptCount: 'ZERO',
+        locked: false
       }
-    } else {
-      // IN_OFFICE employees: single check-in per day
-      if (!existing?.clockIn) {
-        // First check-in of the day - DO NOT set clockIn yet, wait for approval
-        updateData.approvalStatus = 'PENDING'
-        // Store the pending check-in time in taskStartTime temporarily
-        const taskCheckinTime = new Date().toLocaleTimeString('en-US', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-        updateData.taskStartTime = taskCheckinTime
-      }
-    }
-    
-    if (existing && existing.source === 'ADMIN' && !existing.clockIn) {
-      updateData.clockOut = null
-    }
-
-  } else if (data.action === 'check-out') {
-    const checkoutTime = new Date().toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit'
     })
-
-    // For FIELD_ENGINEER: check-out is for tasks only, NOT day clock-out
-    // For IN_OFFICE: check-out is the day clock-out
-    if (employee.role === 'FIELD_ENGINEER') {
-      // Field engineers: task check-out only updates taskEndTime, NOT clockOut
-      updateData.taskEndTime = checkoutTime
-      // Clear taskId when checking out (task is completed)
-      updateData.taskId = null
-      // DO NOT update clockOut here - that's only for day clock-out
-    } else {
-      // IN_OFFICE employees: check-out is the day clock-out
-      if (!existing?.clockOut) {
-        updateData.clockOut = new Date()
-        updateData.taskEndTime = checkoutTime
-      } else {
-        throw new Error('ALREADY_CHECKED_OUT')
-      }
-    }
-
-    if (existing && existing.source === 'ADMIN' && !existing.clockIn) {
-      throw new Error('CANNOT_CHECKOUT_WITHOUT_CHECKIN')
-    }
-
-  } else if (data.action === 'task-checkout') {
-    const taskCheckoutTime = new Date().toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-
-    updateData.taskEndTime = taskCheckoutTime
-    // If a field engineer finishes a task without a full check-out, also clear the task assignment.
-    updateData.taskId = null // <-- fix: clear assigned task on task-checkout
-
   } else {
-    if (!existing?.clockIn && (data.status === 'PRESENT' || data.status === 'LATE')) {
-      // First check-in of the day - DO NOT set clockIn yet, wait for approval
-      updateData.approvalStatus = 'PENDING'
-      // Store the pending check-in time in taskStartTime temporarily
-      const taskCheckinTime = new Date().toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-      updateData.taskStartTime = taskCheckinTime
-    }
+    // Update existing attendance to PENDING
+    attendance = await prisma.attendance.update({
+      where: { id: attendance.id },
+      data: {
+        pendingCheckInAt: now,
+        approvalStatus: 'PENDING',
+        ipAddress: data.ipAddress,
+        deviceInfo: deviceString,
+        photo: data.photo || attendance.photo,
+        location: locationText,
+        updatedAt: now
+      }
+    })
   }
 
-  const saved = existing
-    ? await prisma.attendance.update({
-        where: { id: existing.id },
-        data: {
-          ...updateData,
-          clockIn: updateData.clockIn !== undefined ? updateData.clockIn : existing.clockIn,
-          clockOut: updateData.clockOut !== undefined ? updateData.clockOut : existing.clockOut,
-          approvalStatus: updateData.approvalStatus !== undefined ? updateData.approvalStatus : existing.approvalStatus,
-          taskId: updateData.taskId !== undefined ? updateData.taskId : existing.taskId
-        }
-      })
-    : await prisma.attendance.create({
-        data: {
-          employeeId: employee.id,
-          date: today,
-          clockIn: null, // DO NOT set clockIn on first check-in, wait for approval
-          clockOut: updateData.clockOut || null,
-          ipAddress: data.ipAddress,
-          deviceInfo: deviceString,
-          photo: data.photo,
-          status: data.status,
-          source: 'SELF',
-          lockedReason: '',
-          locked: false,
-          attemptCount: 'ZERO',
-          approvalStatus: updateData.approvalStatus || 'PENDING',
-          taskId: updateData.taskId !== undefined ? updateData.taskId : null,
-          taskStartTime: updateData.taskStartTime || null // Store pending check-in time
-        }
-      })
-
-  // Create notification for admin when employee checks in for the first time
-  if (isFirstCheckIn) {
-    try {
-      const notificationService = new NotificationService()
-      await notificationService.createAdminNotification({
-        type: 'ATTENDANCE_APPROVAL_REQUEST',
-        title: 'Attendance Approval Required',
-        message: `${employee.name} (${data.employeeId}) has checked in and requires attendance approval.`,
-        data: {
-          attendanceId: saved.id,
-          employeeId: data.employeeId,
-          employeeName: employee.name,
-          employeeRole: employee.role,
-          checkInTime: saved.clockIn?.toISOString(),
-          location: locationText,
-          status: data.status,
-          photo: saved.photo
-        }
-      })
-      
-      console.log(`Attendance approval notification created for employee ${data.employeeId}`)
-    } catch (error) {
-      console.error('Error creating attendance approval notification:', error)
-    }
-  }
-
-  // Auto-unassign vehicle and clear task on checkout or task-checkout
-  if (data.action === 'check-out' || data.action === 'task-checkout') { // <-- fix: include task-checkout
-    // Mark current task as COMPLETED for field engineers
-    if (employee.role === 'FIELD_ENGINEER' && existing?.taskId) {
-      try {
-        await prisma.task.update({
-          where: { id: existing.taskId },
-          data: {
-            status: 'COMPLETED',
-            updatedAt: new Date()
-          }
-        })
-        console.log(`Task ${existing.taskId} marked as COMPLETED for field engineer ${data.employeeId}`)
-      } catch (error) {
-        console.error('Error marking task as completed:', error)
+  // Notify admin for approval
+  try {
+    const notificationService = new NotificationService()
+    await notificationService.createAdminNotification({
+      type: 'ATTENDANCE_APPROVAL_REQUEST',
+      title: 'Attendance Approval Required',
+      message: `${employee.name} (${data.employeeId}) has checked in and requires attendance approval.`,
+      data: {
+        attendanceId: attendance.id,
+        employeeId: data.employeeId,
+        employeeName: employee.name,
+        employeeRole: employee.role,
+        checkInTime: now.toISOString(),
+        location: locationText,
+        photo: attendance.photo
       }
-    }
-    
-    // Auto-unassign vehicle ONLY for IN_OFFICE employees on check-out
-    // Field engineers keep their vehicle until day clock-out
-    if (employee.role === 'IN_OFFICE' && data.action === 'check-out') {
-      try {
-        const vehicleService = new VehicleService()
-        const notificationService = new NotificationService()
-        
-        const vehicleResult = await vehicleService.getEmployeeVehicle(data.employeeId)
-        
-        if (vehicleResult.success && vehicleResult.data) {
-          const vehicle = vehicleResult.data
-          
-          const unassignResult = await vehicleService.unassignVehicle(vehicle.id)
-          
-          if (unassignResult.success) {
-            await notificationService.createAdminNotification({
-              type: 'VEHICLE_UNASSIGNED',
-              title: 'Vehicle Auto-Unassigned',
-              message: `Vehicle ${vehicle.vehicleNumber} (${vehicle.make} ${vehicle.model}) has been automatically unassigned from ${employee.name} (${data.employeeId}) after checkout.`,
-              data: {
-                vehicleId: vehicle.id,
-                vehicleNumber: vehicle.vehicleNumber,
-                employeeId: data.employeeId,
-                employeeName: employee.name,
-                checkoutTime: saved.clockOut?.toISOString()
-              }
-            })
-            
-            console.log(`Vehicle ${vehicle.vehicleNumber} auto-unassigned from employee ${data.employeeId} after checkout`)
-          }
-        }
-      } catch (error) {
-        console.error('Error in vehicle unassignment:', error)
-      }
-    }
+    })
+  } catch (error) {
+    console.error('Error creating attendance approval notification:', error)
   }
 
   return {
     employeeId: data.employeeId,
-    timestamp: saved.createdAt.toISOString(),
+    timestamp: now.toISOString(),
     location: locationText,
-    ipAddress: saved.ipAddress || data.ipAddress || '',
-    deviceInfo: saved.deviceInfo || deviceString || '',
-    photo: saved.photo || data.photo || undefined,
-    status: saved.status as any
+    ipAddress: data.ipAddress,
+    deviceInfo: deviceString,
+    photo: data.photo,
+    status: 'present' as any // Return lowercase for API compatibility
   }
 }
 
-// Get remaining attempts (updated to numeric)
-export async function getRemainingAttempts(employeeId: string): Promise<{ remainingAttempts: number; isLocked: boolean; status?: string }> {
+/**
+ * DAY-LEVEL: Field Engineer clocks out for the day
+ * - Sets clockOut (end of workday)
+ * - Does NOT modify clockIn
+ * - Auto-unassigns vehicle
+ */
+export async function dayClockOut(employeeId: string): Promise<{ success: boolean; message: string; data?: any }> {
   const today = getTodayDate()
+  const now = new Date()
 
   const employee = await prisma.employee.findUnique({ where: { employeeId } })
-  if (!employee) throw new Error('EMPLOYEE_NOT_FOUND')
+  if (!employee) {
+    return { success: false, message: 'Employee not found' }
+  }
+
+  if (employee.role !== 'FIELD_ENGINEER') {
+    return { success: false, message: 'Day clock-out is only available for field engineers' }
+  }
 
   const attendance = await prisma.attendance.findUnique({
     where: { employeeId_date: { employeeId: employee.id, date: today } }
   })
 
   if (!attendance) {
-    return { remainingAttempts: MAX_ATTEMPTS, isLocked: false }
+    return { success: false, message: 'No attendance record found for today' }
   }
 
-  if (attendance.locked) {
-    return { remainingAttempts: 0, isLocked: true, status: attendance.status }
+  // INVARIANT: Must have clockIn to clock out
+  if (!attendance.clockIn) {
+    return { success: false, message: 'You need to check in first before clocking out for the day' }
   }
 
-  const used = attemptCountToNumber(attendance.attemptCount)
-  return { remainingAttempts: Math.max(0, MAX_ATTEMPTS - used), isLocked: false, status: attendance.status }
-}
+  if (attendance.clockOut) {
+    return { success: false, message: 'You have already clocked out for the day' }
+  }
 
-const STANDARD_WORK_MINUTES = 8 * 60
+  // Set clockOut (DO NOT modify clockIn)
+  const updatedAttendance = await prisma.attendance.update({
+    where: { id: attendance.id },
+    data: {
+      clockOut: now,
+      updatedAt: now
+    }
+  })
 
-export function calculateWorkAndOvertimeFromAttendance(
-  clockIn?: Date | null,
-  clockOut?: Date | null
-): {
-  workedMinutes: number
-  overtimeMinutes: number
-} | null {
-  if (!clockIn || !clockOut) return null
+  // Auto-unassign vehicle
+  try {
+    const vehicleService = new VehicleService()
+    const notificationService = new NotificationService()
 
-  const diffMs = clockOut.getTime() - clockIn.getTime()
-  if (diffMs <= 0) return null
+    const vehicleResult = await vehicleService.getEmployeeVehicle(employeeId)
 
-  const totalMinutes = Math.floor(diffMs / (1000 * 60))
+    if (vehicleResult.success && vehicleResult.data) {
+      const vehicle = vehicleResult.data
+      const unassignResult = await vehicleService.unassignVehicle(vehicle.id)
 
-  const workedMinutes = Math.min(totalMinutes, STANDARD_WORK_MINUTES)
-  const overtimeMinutes = Math.max(totalMinutes - STANDARD_WORK_MINUTES, 0)
+      if (unassignResult.success) {
+        await notificationService.createAdminNotification({
+          type: 'VEHICLE_UNASSIGNED',
+          title: 'Vehicle Auto-Unassigned',
+          message: `Vehicle ${vehicle.vehicleNumber} has been automatically unassigned from ${employee.name} after day clock-out.`,
+          data: {
+            vehicleId: vehicle.id,
+            vehicleNumber: vehicle.vehicleNumber,
+            employeeId: employeeId,
+            employeeName: employee.name,
+            clockoutTime: updatedAttendance.clockOut?.toISOString()
+          }
+        })
+      }
+    }
+  } catch (error) {
+    console.error('Error in vehicle unassignment during day clock-out:', error)
+  }
 
   return {
-    workedMinutes,
-    overtimeMinutes
+    success: true,
+    message: 'Day clock-out successful',
+    data: {
+      clockOut: updatedAttendance.clockOut?.toISOString()
+    }
   }
 }
 
-export function formatMinutes(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return `${h}h ${m}m`
-}
-
-// Approve attendance
-export async function approveAttendance(attendanceId: string, adminId: string, reason?: string): Promise<{ success: boolean; message: string; data?: any }> {
+/**
+ * ADMIN: Approve attendance - set clockIn atomically
+ * - Uses pendingCheckInAt as the clockIn timestamp
+ * - Sets approvalStatus = APPROVED
+ * - Clears pendingCheckInAt
+ * - If task is assigned, mark it as IN_PROGRESS
+ * - This operation is ATOMIC and IRREVERSIBLE
+ */
+export async function approveAttendance(
+  attendanceId: string,
+  adminId: string,
+  reason?: string
+): Promise<{ success: boolean; message: string; data?: any }> {
   try {
     const attendance = await prisma.attendance.findUnique({
       where: { id: attendanceId },
@@ -373,53 +264,54 @@ export async function approveAttendance(attendanceId: string, adminId: string, r
       return { success: false, message: 'Attendance already approved' }
     }
 
-    // Update attendance record - NOW set the clockIn time on approval
+    // INVARIANT: Use pendingCheckInAt as clockIn, fallback to now
+    const clockInTime = attendance.pendingCheckInAt || new Date()
+    const now = new Date()
+
+    // Prepare update data
     const updateData: any = {
+      clockIn: clockInTime, // SET clockIn - this is the START OF DAY
       approvalStatus: 'APPROVED',
       approvedBy: adminId,
-      approvedAt: new Date(),
-      approvalReason: reason || 'Approved by admin'
+      approvedAt: now,
+      approvalReason: reason || 'Approved by admin',
+      pendingCheckInAt: null, // Clear pending timestamp
+      updatedAt: now
     }
 
-    // Set clockIn time if it's not already set (first check-in approval)
-    if (!attendance.clockIn) {
-      updateData.clockIn = new Date()
-    }
-
+    // Update attendance record
     const updatedAttendance = await prisma.attendance.update({
       where: { id: attendanceId },
       data: updateData
     })
 
-    // Create notification for approval
-    const notificationService = new NotificationService()
-    
-    // First, remove the original approval request notification
-    await notificationService.removeAttendanceApprovalNotification(attendanceId)
-    
-    // Then create the approval confirmation notification
-    await notificationService.createAdminNotification({
-      type: 'ATTENDANCE_APPROVED',
-      title: 'Attendance Approved',
-      message: `Attendance for ${attendance.employee.name} (${attendance.employee.employeeId}) has been approved.`,
-      data: {
-        attendanceId: attendanceId,
-        employeeId: attendance.employee.employeeId,
-        employeeName: attendance.employee.name,
-        employeeRole: attendance.employee.role,
-        approvedBy: adminId,
-        approvedAt: updatedAttendance.approvedAt?.toISOString(),
-        clockIn: updatedAttendance.clockIn?.toISOString(),
-        reason: reason || 'Approved by admin'
-      }
-    })
-
-    console.log(`Attendance approved for employee ${attendance.employee.employeeId} by admin ${adminId}`)
+    // Notifications
+    try {
+      const notificationService = new NotificationService()
+      await notificationService.removeAttendanceApprovalNotification(attendanceId)
+      await notificationService.createAdminNotification({
+        type: 'ATTENDANCE_APPROVED',
+        title: 'Attendance Approved',
+        message: `Attendance for ${attendance.employee.name} (${attendance.employee.employeeId}) has been approved.`,
+        data: {
+          attendanceId,
+          employeeId: attendance.employee.employeeId,
+          employeeName: attendance.employee.name,
+          approvedBy: adminId,
+          approvedAt: updatedAttendance.approvedAt?.toISOString(),
+          clockIn: updatedAttendance.clockIn?.toISOString()
+        }
+      })
+    } catch (err) {
+      console.warn('Notification error after approval:', err)
+    }
 
     return {
       success: true,
       message: 'Attendance approved successfully',
-      data: updatedAttendance
+      data: {
+        attendance: updatedAttendance
+      }
     }
   } catch (error) {
     console.error('Error approving attendance:', error)
@@ -427,8 +319,17 @@ export async function approveAttendance(attendanceId: string, adminId: string, r
   }
 }
 
-// Reject attendance
-export async function rejectAttendance(attendanceId: string, adminId: string, reason: string): Promise<{ success: boolean; message: string; data?: any }> {
+/**
+ * ADMIN: Reject attendance
+ * - Sets approvalStatus = REJECTED
+ * - Resets clockIn to null
+ * - Sets status to ABSENT
+ */
+export async function rejectAttendance(
+  attendanceId: string,
+  adminId: string,
+  reason: string
+): Promise<{ success: boolean; message: string; data?: any }> {
   try {
     const attendance = await prisma.attendance.findUnique({
       where: { id: attendanceId },
@@ -451,44 +352,43 @@ export async function rejectAttendance(attendanceId: string, adminId: string, re
       return { success: false, message: 'Attendance already rejected' }
     }
 
-    // Update attendance record
+    const now = new Date()
+
     const updatedAttendance = await prisma.attendance.update({
       where: { id: attendanceId },
       data: {
         approvalStatus: 'REJECTED',
         rejectedBy: adminId,
-        rejectedAt: new Date(),
+        rejectedAt: now,
         approvalReason: reason,
-        // Reset clock in/out times when rejected
-        clockIn: null,
+        clockIn: null, // Reset clockIn
         clockOut: null,
-        status: 'ABSENT'
+        pendingCheckInAt: null,
+        status: 'ABSENT',
+        updatedAt: now
       }
     })
 
-    // Create notification for rejection
-    const notificationService = new NotificationService()
-    
-    // First, remove the original approval request notification
-    await notificationService.removeAttendanceApprovalNotification(attendanceId)
-    
-    // Then create the rejection confirmation notification
-    await notificationService.createAdminNotification({
-      type: 'ATTENDANCE_REJECTED',
-      title: 'Attendance Rejected',
-      message: `Attendance for ${attendance.employee.name} (${attendance.employee.employeeId}) has been rejected. Reason: ${reason}`,
-      data: {
-        attendanceId: attendanceId,
-        employeeId: attendance.employee.employeeId,
-        employeeName: attendance.employee.name,
-        employeeRole: attendance.employee.role,
-        rejectedBy: adminId,
-        rejectedAt: updatedAttendance.rejectedAt?.toISOString(),
-        reason: reason
-      }
-    })
-
-    console.log(`Attendance rejected for employee ${attendance.employee.employeeId} by admin ${adminId}`)
+    // Notifications
+    try {
+      const notificationService = new NotificationService()
+      await notificationService.removeAttendanceApprovalNotification(attendanceId)
+      await notificationService.createAdminNotification({
+        type: 'ATTENDANCE_REJECTED',
+        title: 'Attendance Rejected',
+        message: `Attendance for ${attendance.employee.name} (${attendance.employee.employeeId}) has been rejected. Reason: ${reason}`,
+        data: {
+          attendanceId,
+          employeeId: attendance.employee.employeeId,
+          employeeName: attendance.employee.name,
+          rejectedBy: adminId,
+          rejectedAt: updatedAttendance.rejectedAt?.toISOString(),
+          reason
+        }
+      })
+    } catch (err) {
+      console.warn('Notification error after rejection:', err)
+    }
 
     return {
       success: true,
@@ -501,7 +401,9 @@ export async function rejectAttendance(attendanceId: string, adminId: string, re
   }
 }
 
-// Get pending attendance approvals
+/**
+ * Get pending attendance approvals
+ */
 export async function getPendingAttendanceApprovals(): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
     const pendingAttendances = await prisma.attendance.findMany({
@@ -536,7 +438,7 @@ export async function getPendingAttendanceApprovals(): Promise<{ success: boolea
       teamId: attendance.employee.teamId,
       isTeamLeader: attendance.employee.isTeamLeader,
       date: attendance.date.toISOString().split('T')[0],
-      clockIn: attendance.clockIn?.toISOString(),
+      pendingCheckInAt: attendance.pendingCheckInAt?.toISOString(),
       status: attendance.status,
       location: attendance.location || 'Office Location',
       photo: attendance.photo,
@@ -557,89 +459,63 @@ export async function getPendingAttendanceApprovals(): Promise<{ success: boolea
   }
 }
 
-// Day-level clock-out for field engineers (separate from task check-out)
-export async function dayClockOut(employeeId: string): Promise<{ success: boolean; message: string; data?: any }> {
-  try {
-    const today = getTodayDate()
+/**
+ * Get remaining attempts for attendance
+ */
+export async function getRemainingAttempts(employeeId: string): Promise<{ remainingAttempts: number; isLocked: boolean; status?: string }> {
+  const today = getTodayDate()
 
-    const employee = await prisma.employee.findUnique({ where: { employeeId } })
-    if (!employee) {
-      return { success: false, message: 'Employee not found' }
+  const employee = await prisma.employee.findUnique({ where: { employeeId } })
+  if (!employee) throw new Error('EMPLOYEE_NOT_FOUND')
+
+  const attendance = await prisma.attendance.findUnique({
+    where: { employeeId_date: { employeeId: employee.id, date: today } }
+  })
+
+  if (!attendance) {
+    return { remainingAttempts: MAX_ATTEMPTS, isLocked: false }
+  }
+
+  if (attendance.locked) {
+    return { remainingAttempts: 0, isLocked: true, status: attendance.status }
+  }
+
+  const used = attemptCountToNumber(attendance.attemptCount)
+  return { remainingAttempts: Math.max(0, MAX_ATTEMPTS - used), isLocked: false, status: attendance.status }
+}
+
+/**
+ * Legacy function for backward compatibility
+ * Routes to appropriate function based on action
+ */
+export async function createAttendanceRecord(data: {
+  employeeId: string
+  ipAddress: string
+  userAgent: string
+  photo?: string
+  status: string
+  locationText?: string
+  action?: 'check-in' | 'check-out'
+}): Promise<AttendanceRecord> {
+  // Route to appropriate function based on action
+  if (data.action === 'check-in') {
+    return fieldEngineerCheckIn(data)
+  } else if (data.action === 'check-out') {
+    // Day clock-out
+    const result = await dayClockOut(data.employeeId)
+    if (!result.success) {
+      throw new Error(result.message)
     }
-
-    // Only allow field engineers to use day clock-out
-    if (employee.role !== 'FIELD_ENGINEER') {
-      return { success: false, message: 'Day clock-out is only available for field engineers' }
-    }
-
-    // Get today's attendance record
-    const attendance = await prisma.attendance.findUnique({
-      where: { employeeId_date: { employeeId: employee.id, date: today } }
-    })
-
-    if (!attendance) {
-      return { success: false, message: 'No attendance record found for today' }
-    }
-
-    if (!attendance.clockIn) {
-      return { success: false, message: 'You need to check in first before clocking out for the day' }
-    }
-
-    if (attendance.clockOut) {
-      return { success: false, message: 'You have already clocked out for the day' }
-    }
-
-    // Update attendance with day clock-out
-    const updatedAttendance = await prisma.attendance.update({
-      where: { id: attendance.id },
-      data: {
-        clockOut: new Date(),
-        updatedAt: new Date()
-      }
-    })
-
-    // Auto-unassign vehicle on day clock-out
-    try {
-      const vehicleService = new VehicleService()
-      const notificationService = new NotificationService()
-      
-      const vehicleResult = await vehicleService.getEmployeeVehicle(employeeId)
-      
-      if (vehicleResult.success && vehicleResult.data) {
-        const vehicle = vehicleResult.data
-        
-        const unassignResult = await vehicleService.unassignVehicle(vehicle.id)
-        
-        if (unassignResult.success) {
-          await notificationService.createAdminNotification({
-            type: 'VEHICLE_UNASSIGNED',
-            title: 'Vehicle Auto-Unassigned',
-            message: `Vehicle ${vehicle.vehicleNumber} (${vehicle.make} ${vehicle.model}) has been automatically unassigned from ${employee.name} (${employeeId}) after day clock-out.`,
-            data: {
-              vehicleId: vehicle.id,
-              vehicleNumber: vehicle.vehicleNumber,
-              employeeId: employeeId,
-              employeeName: employee.name,
-              clockoutTime: updatedAttendance.clockOut?.toISOString()
-            }
-          })
-          
-          console.log(`Vehicle ${vehicle.vehicleNumber} auto-unassigned from employee ${employeeId} after day clock-out`)
-        }
-      }
-    } catch (error) {
-      console.error('Error in vehicle unassignment during day clock-out:', error)
-    }
-
     return {
-      success: true,
-      message: 'Day clock-out successful',
-      data: {
-        clockOut: updatedAttendance.clockOut?.toISOString()
-      }
+      employeeId: data.employeeId,
+      timestamp: new Date().toISOString(),
+      location: data.locationText || 'Office Location',
+      ipAddress: data.ipAddress,
+      deviceInfo: getDeviceInfo(data.userAgent).os,
+      status: 'present' as any
     }
-  } catch (error) {
-    console.error('Error in day clock-out:', error)
-    return { success: false, message: 'Failed to clock out for the day' }
+  } else {
+    // Default to check-in
+    return fieldEngineerCheckIn(data)
   }
 }

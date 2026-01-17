@@ -45,19 +45,6 @@ async function getAttendanceDataForExport(filters) {
                     teamId: true,
                     isTeamLeader: true
                 }
-            },
-            assignedTask: {
-                select: {
-                    id: true,
-                    title: true,
-                    description: true,
-                    category: true,
-                    location: true,
-                    startTime: true,
-                    endTime: true,
-                    assignedBy: true,
-                    status: true
-                }
             }
         },
         orderBy: [
@@ -85,21 +72,8 @@ async function getAttendanceDataForExport(filters) {
         locked: attendance.locked,
         lockedReason: attendance.lockedReason,
         attemptCount: attendance.attemptCount,
-        taskStartTime: attendance.taskStartTime,
-        taskEndTime: attendance.taskEndTime,
-        taskLocation: attendance.taskLocation,
         createdAt: attendance.createdAt.toISOString(),
-        updatedAt: attendance.updatedAt.toISOString(),
-        assignedTask: attendance.assignedTask ? {
-            title: attendance.assignedTask.title,
-            description: attendance.assignedTask.description,
-            category: attendance.assignedTask.category,
-            location: attendance.assignedTask.location,
-            startTime: attendance.assignedTask.startTime,
-            endTime: attendance.assignedTask.endTime,
-            assignedBy: attendance.assignedTask.assignedBy,
-            status: attendance.assignedTask.status
-        } : null
+        updatedAt: attendance.updatedAt.toISOString()
     }));
 }
 // Helper function to calculate work hours
@@ -153,9 +127,6 @@ export const exportAttendanceToExcel = async (req, res) => {
             'Work Hours',
             'Overtime',
             'Location',
-            'Task Title',
-            'Task Status',
-            'Task Location',
             'Device Info',
             'IP Address',
             'Source',
@@ -195,9 +166,6 @@ export const exportAttendanceToExcel = async (req, res) => {
                 workHours.worked,
                 workHours.overtime,
                 record.location || '',
-                record.assignedTask?.title || '',
-                record.assignedTask?.status || '',
-                record.taskLocation || record.assignedTask?.location || '',
                 record.deviceInfo || '',
                 record.ipAddress || '',
                 record.source,
@@ -466,7 +434,6 @@ function generateHTMLReport(attendanceData, filters) {
             <th>Work Hours</th>
             <th>Overtime</th>
             <th>Location</th>
-            <th>Task</th>
             <th>Device</th>
           </tr>
         </thead>
@@ -485,7 +452,6 @@ function generateHTMLReport(attendanceData, filters) {
                 <td>${workHours.worked}</td>
                 <td>${workHours.overtime}</td>
                 <td>${record.location || '-'}</td>
-                <td>${record.assignedTask?.title || '-'}</td>
                 <td>${record.deviceInfo || '-'}</td>
               </tr>
             `;

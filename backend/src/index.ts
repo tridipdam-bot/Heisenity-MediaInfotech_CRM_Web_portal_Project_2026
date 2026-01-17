@@ -17,6 +17,7 @@ app.use(helmet())
 // CORS configuration - allow multiple origins
 const allowedOrigins = [
   'http://localhost:3000',
+  'http://localhost:3002',
   'https://heisenity-mediainfotech-crm-web-portal-zr9h.onrender.com',
   process.env.FRONTEND_URL
 ].filter(Boolean) // Remove undefined values
@@ -36,6 +37,9 @@ app.use(cors({
 }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static('uploads'))
 
 // Enable default query string parsing
 app.set('query parser', 'extended')

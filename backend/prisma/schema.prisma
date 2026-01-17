@@ -69,6 +69,7 @@ model Employee {
   ticketAttachments   TicketAttachment[]
   ticketHistory       TicketHistory[]
   featureAccess       StaffFeatureAccess[]
+  acceptedSupportRequests CustomerSupportRequest[]
 
   /**
    * ---------- Relations ----------
@@ -93,12 +94,12 @@ enum EmployeeRole {
 model Attendance {
   id            String           @id @default(cuid())
   date          DateTime         @db.Date
-  clockIn       DateTime?
-  clockOut      DateTime?
+  clockIn       DateTime?        // Daily clock-in time (after admin approval)
+  clockOut      DateTime?        // Daily clock-out time
   status        AttendanceStatus @default(PRESENT)
-  location      String?          // Add location field
-  latitude      Decimal?         @db.Decimal(10, 8) // Add latitude field
-  longitude     Decimal?         @db.Decimal(11, 8) // Add longitude field
+  location      String?
+  latitude      Decimal?         @db.Decimal(10, 8)
+  longitude     Decimal?         @db.Decimal(11, 8)
   ipAddress     String?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
@@ -107,26 +108,23 @@ model Attendance {
   locked        Boolean          @default(false)
   lockedReason  String?          @db.Text
   photo         String?          @db.Text
-  taskId        String?
-  taskStartTime String?
-  taskEndTime   String?
-  taskLocation  String?          // Add task location field
   source        AttendanceSource @default(SELF)
-  // Attendance approval fields
-  approvalStatus AttendanceApprovalStatus @default(PENDING)
-  approvedBy     String?
-  approvedAt     DateTime?
-  rejectedBy     String?
-  rejectedAt     DateTime?
-  approvalReason String?          @db.Text
+  
+  // Attendance approval fields - ONLY for daily clock-in
+  approvalStatus   AttendanceApprovalStatus @default(PENDING)
+  pendingCheckInAt DateTime?                // Temporary timestamp during approval flow
+  approvedBy       String?
+  approvedAt       DateTime?
+  rejectedBy       String?
+  rejectedAt       DateTime?
+  approvalReason   String?          @db.Text
+  
   employeeId    String
   employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  assignedTask  Task?            @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   @@unique([employeeId, date])
   @@index([date])
   @@index([status])
-  @@index([taskId])
   @@index([approvalStatus])
   @@map("attendances")
 }
@@ -167,16 +165,15 @@ model Task {
   title       String
   description String        @db.Text
   category    String?
-  location    String?       // Add location field
-  startTime   String?
-  endTime     String?
+  location    String?
+  checkIn     DateTime?     // Actual task check-in time
+  checkOut    DateTime?     // Actual task check-out time
   assignedBy  String
   assignedAt  DateTime      @default(now())
   status      TaskStatus    @default(PENDING)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  attendances Attendance[]
 
   @@index([employeeId])
   @@index([assignedAt])
@@ -199,6 +196,7 @@ enum AttemptCount {
 }
 
 enum AttendanceApprovalStatus {
+  NOT_REQUIRED  // Task assigned but employee hasn't checked in yet
   PENDING
   APPROVED
   REJECTED
@@ -538,6 +536,12 @@ model SupportTicket {
   dueDate        DateTime?        @db.Date
   estimatedHours Decimal?         @db.Decimal(5, 2)
   tags           String?          @db.Text // JSON array of tags
+  
+  // Customer information (for tickets created from customer support requests)
+  customerName   String?
+  customerId     String?
+  customerPhone  String?
+  
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   resolvedAt     DateTime?
@@ -549,6 +553,7 @@ model SupportTicket {
   comments       TicketComment[]
   attachments    TicketAttachment[]
   history        TicketHistory[]
+  customerSupportRequest CustomerSupportRequest?
 
   @@index([assigneeId])
   @@index([reporterId])
@@ -845,4 +850,87 @@ enum StaffPortalFeature {
   DASHBOARD
   PROJECT
   TASK_MANAGEMENT
+  PAYROLL
+  VEHICLE
+  CUSTOMERS
+  EMPLOYEES
+  TEAMS
+  TENDERS
+  STOCK
+  LEAVE_MANAGEMENT
+  FIELD_ENGINEER_ATTENDANCE
+  INOFFICE_ATTENDANCE
+  CUSTOMER_SUPPORT_REQUESTS
+  STAFF_FEATURE_ACCESS
+}
+
+// Customer Support Request Model
+model CustomerSupportRequest {
+  id          String   @id @default(cuid())
+  customerId  String
+  message     String   @db.Text
+  documents   String?  @db.Text // JSON array of document URLs
+  status      CustomerSupportStatus @default(PENDING)
+  acceptedBy  String?  // Employee ID who accepted
+  ticketId    String?  @unique // Generated ticket ID after acceptance
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  acceptedByEmployee Employee? @relation(fields: [acceptedBy], references: [id], onDelete: SetNull)
+  ticket      SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([acceptedBy])
+  @@index([status])
+  @@map("customer_support_requests")
+}
+
+enum CustomerSupportStatus {
+  PENDING
+  ACCEPTED
+  TICKET_CREATED
+  CANCELLED
+}
+
+// Customer Model
+model Customer {
+  id          String   @id @default(cuid())
+  customerId  String   @unique // CUS-001 format
+  name        String
+  phone       String   @unique
+  email       String?
+  address     String?  @db.Text
+  status      String   @default("ACTIVE")
+  createdBy   String   // Admin ID who created the customer
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  sessions    CustomerSession[]
+  supportRequests CustomerSupportRequest[]
+
+  @@index([customerId])
+  @@index([phone])
+  @@index([status])
+  @@map("customers")
+}
+
+model CustomerSession {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  customerId   String
+  deviceInfo   String?
+  ipAddress    String?
+  isActive     Boolean  @default(true)
+  lastActivity DateTime @default(now())
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  // Relations
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([sessionToken])
+  @@index([isActive])
+  @@map("customer_sessions")
 }

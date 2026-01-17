@@ -18,7 +18,7 @@ interface AttendanceApprovalData {
   attendanceId: string
   employeeId: string
   employeeName: string
-  employeeRole: string
+  employeeRole?: string
   checkInTime: string
   location: string
   status: string

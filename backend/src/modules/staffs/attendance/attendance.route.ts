@@ -1,4 +1,3 @@
-// modules/staffs/attendance/attendance.route.ts
 import { Router } from "express";
 
 import {
@@ -14,9 +13,10 @@ import {
 } from "./attendance.controller";
 
 import {
-  exportAttendanceToExcel,
-  exportAttendanceToPDF,
+  exportAttendanceToExcel
 } from "./attendance.export";
+
+import dailyAttendanceRoutes from './daily-attendance.route';
 
 const router = Router();
 
@@ -84,8 +84,13 @@ router.get("/attempts/:employeeId", checkRemainingAttempts);
 // GET /attendance/export/excel
 router.get("/export/excel", exportAttendanceToExcel);
 
-// Export attendance to PDF
-// GET /attendance/export/pdf", exportAttendanceToPDF);
-router.get("/export/pdf", exportAttendanceToPDF);
+/**
+ * =========================
+ * Daily Attendance (Clock-in/Clock-out)
+ * =========================
+ */
+
+// Daily attendance routes (clock-in/clock-out for field engineers)
+router.use('/', dailyAttendanceRoutes);
 
 export default router;

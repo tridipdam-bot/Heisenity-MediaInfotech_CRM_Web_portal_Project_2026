@@ -24,12 +24,58 @@ type StaffFeatureData = {
   features: Record<StaffPortalFeature, boolean>
 }
 
-const AVAILABLE_FEATURES: StaffPortalFeature[] = ['DASHBOARD', 'PROJECT', 'TASK_MANAGEMENT']
+const AVAILABLE_FEATURES: StaffPortalFeature[] = [
+  'DASHBOARD', 
+  'PROJECT', 
+  'TASK_MANAGEMENT', 
+  'PAYROLL', 
+  'VEHICLE', 
+  'CUSTOMERS', 
+  'EMPLOYEES', 
+  'TEAMS', 
+  'TENDERS', 
+  'STOCK', 
+  'LEAVE_MANAGEMENT', 
+  'FIELD_ENGINEER_ATTENDANCE', 
+  'INOFFICE_ATTENDANCE', 
+  'CUSTOMER_SUPPORT_REQUESTS', 
+  'STAFF_FEATURE_ACCESS'
+]
 
 const FEATURE_LABELS: Record<StaffPortalFeature, string> = {
   DASHBOARD: 'Dashboard',
   PROJECT: 'Project Management',
-  TASK_MANAGEMENT: 'Task Management'
+  TASK_MANAGEMENT: 'Task Management',
+  PAYROLL: 'Payroll Management',
+  VEHICLE: 'Vehicle Management',
+  CUSTOMERS: 'Customer Management',
+  EMPLOYEES: 'Employee Management',
+  TEAMS: 'Team Management',
+  TENDERS: 'Tender Management',
+  STOCK: 'Stock Management',
+  LEAVE_MANAGEMENT: 'Leave Management',
+  FIELD_ENGINEER_ATTENDANCE: 'Field Engineer Attendance',
+  INOFFICE_ATTENDANCE: 'In-Office Attendance',
+  CUSTOMER_SUPPORT_REQUESTS: 'Customer Support Requests',
+  STAFF_FEATURE_ACCESS: 'Staff Feature Access'
+}
+
+const FEATURE_DESCRIPTIONS: Record<StaffPortalFeature, string> = {
+  DASHBOARD: 'Access to the main dashboard with analytics and overview',
+  PROJECT: 'Project management tools and project tracking',
+  TASK_MANAGEMENT: 'Task assignment and management capabilities',
+  PAYROLL: 'Payroll management and salary processing',
+  VEHICLE: 'Vehicle assignment and petrol bill management',
+  CUSTOMERS: 'Customer database and relationship management',
+  EMPLOYEES: 'Employee records and profile management',
+  TEAMS: 'Team creation and member management',
+  TENDERS: 'Tender management and EMD tracking',
+  STOCK: 'Inventory and stock level management',
+  LEAVE_MANAGEMENT: 'Leave application approval and management',
+  FIELD_ENGINEER_ATTENDANCE: 'Field engineer attendance tracking',
+  INOFFICE_ATTENDANCE: 'In-office staff attendance management',
+  CUSTOMER_SUPPORT_REQUESTS: 'Customer support ticket handling',
+  STAFF_FEATURE_ACCESS: 'Staff permission and feature access control'
 }
 
 export function StaffFeatureAccessManagement() {
@@ -41,7 +87,19 @@ export function StaffFeatureAccessManagement() {
   const [features, setFeatures] = useState<Record<StaffPortalFeature, boolean>>({
     DASHBOARD: false,
     PROJECT: false,
-    TASK_MANAGEMENT: false
+    TASK_MANAGEMENT: false,
+    PAYROLL: false,
+    VEHICLE: false,
+    CUSTOMERS: false,
+    EMPLOYEES: false,
+    TEAMS: false,
+    TENDERS: false,
+    STOCK: false,
+    LEAVE_MANAGEMENT: false,
+    FIELD_ENGINEER_ATTENDANCE: false,
+    INOFFICE_ATTENDANCE: false,
+    CUSTOMER_SUPPORT_REQUESTS: false,
+    STAFF_FEATURE_ACCESS: false
   })
   const [hasChanges, setHasChanges] = useState(false)
 
@@ -57,7 +115,19 @@ export function StaffFeatureAccessManagement() {
         setFeatures({
           DASHBOARD: staff.features.DASHBOARD || false,
           PROJECT: staff.features.PROJECT || false,
-          TASK_MANAGEMENT: staff.features.TASK_MANAGEMENT || false
+          TASK_MANAGEMENT: staff.features.TASK_MANAGEMENT || false,
+          PAYROLL: staff.features.PAYROLL || false,
+          VEHICLE: staff.features.VEHICLE || false,
+          CUSTOMERS: staff.features.CUSTOMERS || false,
+          EMPLOYEES: staff.features.EMPLOYEES || false,
+          TEAMS: staff.features.TEAMS || false,
+          TENDERS: staff.features.TENDERS || false,
+          STOCK: staff.features.STOCK || false,
+          LEAVE_MANAGEMENT: staff.features.LEAVE_MANAGEMENT || false,
+          FIELD_ENGINEER_ATTENDANCE: staff.features.FIELD_ENGINEER_ATTENDANCE || false,
+          INOFFICE_ATTENDANCE: staff.features.INOFFICE_ATTENDANCE || false,
+          CUSTOMER_SUPPORT_REQUESTS: staff.features.CUSTOMER_SUPPORT_REQUESTS || false,
+          STAFF_FEATURE_ACCESS: staff.features.STAFF_FEATURE_ACCESS || false
         })
         setHasChanges(false)
       }
@@ -66,7 +136,19 @@ export function StaffFeatureAccessManagement() {
       setFeatures({
         DASHBOARD: false,
         PROJECT: false,
-        TASK_MANAGEMENT: false
+        TASK_MANAGEMENT: false,
+        PAYROLL: false,
+        VEHICLE: false,
+        CUSTOMERS: false,
+        EMPLOYEES: false,
+        TEAMS: false,
+        TENDERS: false,
+        STOCK: false,
+        LEAVE_MANAGEMENT: false,
+        FIELD_ENGINEER_ATTENDANCE: false,
+        INOFFICE_ATTENDANCE: false,
+        CUSTOMER_SUPPORT_REQUESTS: false,
+        STAFF_FEATURE_ACCESS: false
       })
       setHasChanges(false)
     }
@@ -141,7 +223,19 @@ export function StaffFeatureAccessManagement() {
       setFeatures({
         DASHBOARD: selectedStaff.features.DASHBOARD || false,
         PROJECT: selectedStaff.features.PROJECT || false,
-        TASK_MANAGEMENT: selectedStaff.features.TASK_MANAGEMENT || false
+        TASK_MANAGEMENT: selectedStaff.features.TASK_MANAGEMENT || false,
+        PAYROLL: selectedStaff.features.PAYROLL || false,
+        VEHICLE: selectedStaff.features.VEHICLE || false,
+        CUSTOMERS: selectedStaff.features.CUSTOMERS || false,
+        EMPLOYEES: selectedStaff.features.EMPLOYEES || false,
+        TEAMS: selectedStaff.features.TEAMS || false,
+        TENDERS: selectedStaff.features.TENDERS || false,
+        STOCK: selectedStaff.features.STOCK || false,
+        LEAVE_MANAGEMENT: selectedStaff.features.LEAVE_MANAGEMENT || false,
+        FIELD_ENGINEER_ATTENDANCE: selectedStaff.features.FIELD_ENGINEER_ATTENDANCE || false,
+        INOFFICE_ATTENDANCE: selectedStaff.features.INOFFICE_ATTENDANCE || false,
+        CUSTOMER_SUPPORT_REQUESTS: selectedStaff.features.CUSTOMER_SUPPORT_REQUESTS || false,
+        STAFF_FEATURE_ACCESS: selectedStaff.features.STAFF_FEATURE_ACCESS || false
       })
       setHasChanges(false)
     }
@@ -212,6 +306,37 @@ export function StaffFeatureAccessManagement() {
                   </div>
                   
                   <div className="space-y-3">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-sm font-medium text-gray-700">Feature Permissions</span>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const allEnabled = Object.fromEntries(
+                              AVAILABLE_FEATURES.map(feature => [feature, true])
+                            ) as Record<StaffPortalFeature, boolean>
+                            setFeatures(allEnabled)
+                            setHasChanges(true)
+                          }}
+                        >
+                          Grant All
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const allDisabled = Object.fromEntries(
+                              AVAILABLE_FEATURES.map(feature => [feature, false])
+                            ) as Record<StaffPortalFeature, boolean>
+                            setFeatures(allDisabled)
+                            setHasChanges(true)
+                          }}
+                        >
+                          Revoke All
+                        </Button>
+                      </div>
+                    </div>
                     {AVAILABLE_FEATURES.map(feature => (
                       <div
                         key={feature}
@@ -230,7 +355,14 @@ export function StaffFeatureAccessManagement() {
                             {FEATURE_LABELS[feature]}
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
-                            {features[feature] ? 'Enabled' : 'Disabled'}
+                            {FEATURE_DESCRIPTIONS[feature]}
+                          </div>
+                          <div className="text-xs font-medium mt-1">
+                            {features[feature] ? (
+                              <span className="text-green-600">✓ Enabled</span>
+                            ) : (
+                              <span className="text-gray-400">✗ Disabled</span>
+                            )}
                           </div>
                         </label>
                       </div>

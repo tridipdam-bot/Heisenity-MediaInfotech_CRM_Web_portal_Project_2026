@@ -9,6 +9,10 @@ import documentRoutes from '../modules/staffs/documents/document.route';
 import featureAccessRoutes from '../modules/staffs/featureAccess/featureAccess.route';
 import notificationRoutes from '../modules/notifications/notification.routes';
 import tenderRoutes from '../modules/tenders/tender.route';
+import ticketRoutes from '../modules/tickets/ticket.route';
+import { ticketUploadRouter } from '../modules/tickets/upload.route';
+import customerRoutes from '../modules/customers/customer.route';
+import customerSupportRoutes from '../modules/customers/customerSupport.route';
 import databaseRoutes from './database.route';
 import { authRouter } from './auth.route';
 import employeeIdRoutes from './employeeId.route';
@@ -64,6 +68,18 @@ router.use('/projects', projectRoutes);
 
 // Mount tender management routes
 router.use('/tenders', tenderRoutes);
+
+// Mount ticket management routes
+router.use('/tickets', ticketRoutes);
+
+// Mount ticket upload routes
+router.use('/', ticketUploadRouter);
+
+// Mount customer management routes
+router.use('/customers', customerRoutes);
+
+// Mount customer support routes
+router.use('/customer-support', customerSupportRoutes);
 
 // Health check
 router.get('/health', (_req: Request, res: Response) => {

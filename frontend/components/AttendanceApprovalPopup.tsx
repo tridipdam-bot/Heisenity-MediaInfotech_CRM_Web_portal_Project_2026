@@ -14,7 +14,7 @@ interface AttendanceApprovalData {
   attendanceId: string
   employeeId: string
   employeeName: string
-  employeeRole: string
+  employeeRole?: string
   checkInTime: string
   location: string
   status: string
@@ -129,7 +129,7 @@ export function AttendanceApprovalPopup({ isOpen, onClose, data, onActionComplet
     })
   }
 
-  const getRoleBadgeColor = (role: string) => {
+  const getRoleBadgeColor = (role?: string) => {
     switch (role) {
       case 'FIELD_ENGINEER':
         return 'bg-blue-100 text-blue-800'
@@ -171,8 +171,8 @@ export function AttendanceApprovalPopup({ isOpen, onClose, data, onActionComplet
               <h3 className="font-semibold text-gray-900">{data.employeeName}</h3>
               <p className="text-sm text-gray-600">ID: {data.employeeId}</p>
             </div>
-            <Badge className={getRoleBadgeColor(data.employeeRole)}>
-              {data.employeeRole.replace('_', ' ')}
+            <Badge className={getRoleBadgeColor(data.employeeRole || '')}>
+              {data.employeeRole ? data.employeeRole.replace('_', ' ') : 'Unknown Role'}
             </Badge>
           </div>
 

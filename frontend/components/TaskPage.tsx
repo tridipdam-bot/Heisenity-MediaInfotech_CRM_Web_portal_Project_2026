@@ -1,3 +1,5 @@
+"use client"
+
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,7 +32,7 @@ import {
   UserPlus,
   Car
 } from "lucide-react"
-import { getAttendanceRecords, getAllEmployees, getAllTeams, getAllVehicles, AttendanceRecord, Employee, Team, Vehicle, exportAttendanceToExcel, exportAttendanceToPDF, ExportParams } from "@/lib/server-api"
+import { getAttendanceRecords, getAllEmployees, getAllTeams, getAllVehicles, getAllTasks, AttendanceRecord, Employee, Team, Vehicle, exportAttendanceToExcel, ExportParams } from "@/lib/server-api"
 
 interface DateRange {
   from: Date | null
@@ -39,6 +41,21 @@ interface DateRange {
 
 interface ExtendedAttendanceRecord extends AttendanceRecord {
   hasAttendance: boolean
+  taskStartTime?: string
+  taskEndTime?: string
+  taskLocation?: string
+  assignedTask?: {
+    id: string
+    title: string
+    description: string
+    category?: string
+    status: string
+    location?: string
+    startTime?: string
+    endTime?: string
+    assignedBy: string
+    assignedAt: string
+  }
 }
 
 const getAssignedVehicle = (employeeId: string, employeeName: string, vehicles: Vehicle[]) => {
@@ -81,6 +98,21 @@ const getStatusBadge = (status: string) => {
   return (
     <Badge className={`${variants[status as keyof typeof variants]} capitalize font-medium`}>
       {status.toLowerCase()}
+    </Badge>
+  )
+}
+
+const getTaskStatusBadge = (status: string) => {
+  const variants = {
+    PENDING: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    IN_PROGRESS: "bg-blue-50 text-blue-700 border-blue-200",
+    COMPLETED: "bg-green-50 text-green-700 border-green-200",
+    CANCELLED: "bg-red-50 text-red-700 border-red-200"
+  }
+
+  return (
+    <Badge className={`${variants[status as keyof typeof variants]} capitalize font-medium text-xs`}>
+      {status.toLowerCase().replace('_', ' ')}
     </Badge>
   )
 }
@@ -162,7 +194,7 @@ const calculateWorkHours = (clockIn?: string, clockOut?: string) => {
 }
 
 
-export function AttendancePage() {
+export function AttendanceManagementPage() {
   const [showAssignPage, setShowAssignPage] = React.useState(false)
   const [showVehiclePage, setShowVehiclePage] = React.useState(false)
   const [currentDate, setCurrentDate] = React.useState(new Date().toLocaleDateString('en-US', {
@@ -257,14 +289,23 @@ export function AttendancePage() {
       if (response.success && response.data) {
         const records = response.data.records
 
-        // Create combined data: all employees with their attendance status
+        // Fetch all tasks
+        const tasksResponse = await getAllTasks({ limit: 1000 })
+        const allTasks = tasksResponse.success && tasksResponse.data ? tasksResponse.data.tasks : []
+
+        // Create combined data: all employees with their attendance status and task assignments
         const combined = employees.map(employee => {
           const attendanceRecord = records.find(record => record.employeeId === employee.employeeId)
+          
+          // Find assigned task for this employee
+          const assignedTask = allTasks.find((task: { employeeId: string; location?: string }) => task.employeeId === employee.employeeId)
 
           if (attendanceRecord) {
             return {
               ...attendanceRecord,
-              hasAttendance: true
+              hasAttendance: true,
+              assignedTask: assignedTask || undefined,
+              taskLocation: assignedTask?.location || undefined
             }
           } else {
             // Create a placeholder record for employees without attendance
@@ -290,7 +331,9 @@ export function AttendancePage() {
               attemptCount: 'ZERO' as const,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
-              hasAttendance: false
+              hasAttendance: false,
+              assignedTask: assignedTask || undefined,
+              taskLocation: assignedTask?.location || undefined
             }
           }
         })
@@ -390,7 +433,8 @@ export function AttendancePage() {
       if (format === 'excel') {
         await exportAttendanceToExcel(exportParams)
       } else {
-        await exportAttendanceToPDF(exportParams)
+        // PDF export not available yet
+        showToast.error('PDF export is not available yet')
       }
     } catch (error) {
       console.error(`Error exporting to ${format}:`, error)
@@ -565,10 +609,10 @@ export function AttendancePage() {
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       onClick={() => handleExport('pdf')}
-                      disabled={exportLoading !== null}
+                      disabled={true}
                     >
                       <Download className="h-4 w-4 mr-2" />
-                      Export to PDF
+                      Export to PDF (Coming Soon)
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -976,27 +1020,33 @@ export function AttendancePage() {
                           })()}
                         </TableCell>
                         <TableCell className="py-4 px-6">
-                          {record.hasAttendance ? (
-                            getStatusBadge(record.status)
-                          ) : (
-                            <Badge className="bg-gray-50 text-gray-500 border-gray-200">
-                              No Record
-                            </Badge>
-                          )}
+                          <div className="space-y-1">
+                            {record.hasAttendance ? (
+                              getStatusBadge(record.status)
+                            ) : (
+                              <Badge className="bg-gray-50 text-gray-500 border-gray-200">
+                                No Record
+                              </Badge>
+                            )}
+                            {record.assignedTask && (
+                              <div>
+                                {getTaskStatusBadge(record.assignedTask.status)}
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="py-4 px-6">
                           <div className="space-y-1">
                             {/* Show task timing if available, otherwise show clock in/out times */}
-                            {record.taskStartTime ? (
+                            {record.assignedTask && (record.assignedTask.startTime || record.assignedTask.endTime) ? (
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-semibold text-green-600">
-                                  {record.taskStartTime}
+                                  {record.assignedTask.startTime ? formatTime(record.assignedTask.startTime) : '-'}
                                 </span>
                                 <span className="text-gray-400">→</span>
                                 <span className="text-sm font-semibold text-orange-600">
-                                  {record.taskEndTime || 
-                                   (record.hasAttendance && record.clockOut ? formatTime(record.clockOut) : 
-                                    (record.hasAttendance && record.clockIn ? 'Working...' : '-'))}
+                                  {record.assignedTask.endTime ? formatTime(record.assignedTask.endTime) : 
+                                   (record.assignedTask.startTime ? 'Working...' : '-')}
                                 </span>
                               </div>
                             ) : (
@@ -1012,7 +1062,10 @@ export function AttendancePage() {
                               </div>
                             )}
                             <div className="text-xs text-gray-500">
-                              {record.hasAttendance && record.clockIn ? new Date(record.clockIn).toLocaleDateString() : '-'}
+                              {record.assignedTask && record.assignedTask.startTime ? 
+                                new Date(record.assignedTask.startTime).toLocaleDateString() :
+                                (record.hasAttendance && record.clockIn ? new Date(record.clockIn).toLocaleDateString() : '-')
+                              }
                             </div>
                           </div>
                         </TableCell>
@@ -1078,34 +1131,12 @@ export function AttendancePage() {
                                 {record.assignedTask.title}
                               </div>
                               <div className="flex items-center gap-2">
-                                {record.assignedTask.status !== 'PENDING' && (
-                                  <Badge
-                                    className={`text-xs ${record.assignedTask.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                      record.assignedTask.status === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-200' :
-                                        'bg-gray-50 text-gray-700 border-gray-200'
-                                      }`}
-                                  >
-                                    {record.assignedTask.status.toLowerCase().replace('_', ' ')}
-                                  </Badge>
-                                )}
                                 {record.assignedTask.category && (
                                   <span className="text-xs text-gray-500">
                                     {record.assignedTask.category}
                                   </span>
                                 )}
                               </div>
-                              {/* Display task location from attendance record */}
-                              {record.taskLocation && (
-                                <div className="flex items-center gap-2 text-xs text-gray-600">
-                                  <MapPin className="h-3 w-3 shrink-0" />
-                                  <span
-                                    className="truncate max-w-[120px]"
-                                    title={record.taskLocation}
-                                  >
-                                    {record.taskLocation}
-                                  </span>
-                                </div>
-                              )}
                             </div>
                           ) : (
                             <span className="text-sm text-gray-500">No task assigned</span>
@@ -1115,27 +1146,12 @@ export function AttendancePage() {
                           <div className="flex items-start gap-2 text-gray-600">
                             <MapPin className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
                             <div className="min-w-0 flex-1">
-                              {record.hasAttendance ? (
-                                <div className="space-y-1">
-                                  <span
-                                    className="text-sm text-gray-900 block truncate"
-                                    title={record.location || 'Not provided'}
-                                  >
-                                    {record.location || 'Not provided'}
-                                  </span>
-                                  {/* Show task location if different from main location */}
-                                  {record.taskLocation && record.taskLocation !== record.location && (
-                                    <span
-                                      className="text-xs text-gray-500 block truncate"
-                                      title={`Task: ${record.taskLocation}`}
-                                    >
-                                      Task: {record.taskLocation}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-sm text-gray-500">-</span>
-                              )}
+                              <span
+                                className="text-sm text-gray-900 block truncate"
+                                title={record.assignedTask?.location || 'Not provided'}
+                              >
+                                {record.assignedTask?.location || 'Not provided'}
+                              </span>
                             </div>
                           </div>
                         </TableCell>
@@ -1426,13 +1442,13 @@ export function AttendancePage() {
                         <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
                           <div>
                             <label className="text-sm font-medium text-gray-500">Actual Start Time</label>
-                            <p className="text-sm text-gray-900 font-semibold text-green-600">
+                            <p className="text-sm font-semibold text-green-600">
                               {selectedRecord.taskStartTime || 'Not started'}
                             </p>
                           </div>
                           <div>
                             <label className="text-sm font-medium text-gray-500">Actual End Time</label>
-                            <p className="text-sm text-gray-900 font-semibold text-orange-600">
+                            <p className="text-sm font-semibold text-orange-600">
                               {selectedRecord.taskEndTime || 'Not finished'}
                             </p>
                           </div>

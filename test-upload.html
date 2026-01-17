@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test File Upload</title>
+</head>
+<body>
+    <h1>Test Ticket File Upload</h1>
+    <form id="uploadForm">
+        <input type="file" id="fileInput" multiple>
+        <button type="submit">Upload Files</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('fileInput');
+            const files = fileInput.files;
+            
+            if (files.length === 0) {
+                alert('Please select files');
+                return;
+            }
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Uploading...';
+
+            try {
+                for (let file of files) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const response = await fetch('http://localhost:3001/api/v1/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    console.log('Upload result:', result);
+                    
+                    if (result.success) {
+                        resultDiv.innerHTML += `<p>✅ ${file.name} uploaded successfully: ${result.data.url}</p>`;
+                    } else {
+                        resultDiv.innerHTML += `<p>❌ ${file.name} failed: ${result.error}</p>`;
+                    }
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                resultDiv.innerHTML += `<p>❌ Upload failed: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

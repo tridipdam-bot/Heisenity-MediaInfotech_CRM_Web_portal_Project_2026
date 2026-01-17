@@ -16,10 +16,13 @@ import {
   AlertTriangle,
   Clock,
   Save,
-  X
+  X,
+  Upload,
+  FileText,
+  Trash2
 } from "lucide-react"
-import { generateId } from "@crmdemo/shared"
 import { showToast } from "@/lib/toast-utils"
+import { authenticatedFetch } from "@/lib/api-client"
 
 // Success popup component
 interface SuccessPopupProps {
@@ -86,7 +89,8 @@ export function CreateTicketForm() {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [showSuccessPopup, setShowSuccessPopup] = React.useState(false)
   const [createdTicketId, setCreatedTicketId] = React.useState("")
-  
+  const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([])
+  const [uploadingFiles, setUploadingFiles] = React.useState(false)
   // Calculate default due date (7 days from now)
   const getDefaultDueDate = React.useCallback(() => {
     return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -111,8 +115,57 @@ export function CreateTicketForm() {
     }))
   }
 
-  const generateTicketId = () => {
-    return generateId()
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files) {
+      const newFiles = Array.from(files)
+      // Validate file size (10MB limit)
+      const validFiles = newFiles.filter(file => {
+        if (file.size > 10 * 1024 * 1024) {
+          showToast.error(`File ${file.name} is too large. Maximum size is 10MB.`)
+          return false
+        }
+        return true
+      })
+      setUploadedFiles(prev => [...prev, ...validFiles])
+    }
+  }
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const uploadFiles = async (files: File[]): Promise<string[]> => {
+    if (files.length === 0) return []
+    
+    setUploadingFiles(true)
+    try {
+      const uploadPromises = files.map(async (file) => {
+        const formData = new FormData()
+        formData.append('file', file)
+        
+        const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/upload`, {
+          method: 'POST',
+          body: formData
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Failed to upload ${file.name}`)
+        }
+        
+        const result = await response.json()
+        return result.data?.url || result.data?.path || null
+      })
+      
+      const uploadedUrls = await Promise.all(uploadPromises)
+      return uploadedUrls.filter(url => url !== null)
+    } catch (error) {
+      console.error('Error uploading files:', error)
+      showToast.error('Failed to upload some files')
+      return []
+    } finally {
+      setUploadingFiles(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -141,13 +194,45 @@ export function CreateTicketForm() {
     
     setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    const ticketId = generateTicketId()
-    setCreatedTicketId(ticketId)
-    setIsSubmitting(false)
-    setShowSuccessPopup(true)
+    try {
+      // Upload files first if any
+      const attachmentUrls = await uploadFiles(uploadedFiles)
+      
+      const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets`, {
+        method: 'POST',
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          priority: formData.priority,
+          department: formData.department || undefined,
+          dueDate: formData.dueDate || undefined,
+          estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : undefined,
+          tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(Boolean) : undefined,
+          attachments: uploadedFiles.map((file, index) => ({
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType: file.type,
+            filePath: attachmentUrls[index] || null
+          }))
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setCreatedTicketId(result.data.ticketId)
+        setShowSuccessPopup(true)
+        showToast.success('Ticket created successfully!', `Ticket ID: ${result.data.ticketId}`)
+      } else {
+        showToast.error(result.message || 'Failed to create ticket')
+      }
+    } catch (error) {
+      console.error('Error creating ticket:', error)
+      showToast.error('Failed to create ticket. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const resetForm = () => {
@@ -162,6 +247,7 @@ export function CreateTicketForm() {
       tags: "",
       estimatedHours: ""
     })
+    setUploadedFiles([])
   }
 
   const handleSuccessClose = () => {
@@ -290,6 +376,68 @@ export function CreateTicketForm() {
                     required
                   />
                 </div>
+
+                {/* File Upload Section */}
+                <div className="space-y-3">
+                  <Label htmlFor="file-upload" className="text-sm font-medium text-foreground">
+                    Attach Files (Optional)
+                  </Label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-blue-400 transition-colors bg-muted/30">
+                    <input
+                      id="file-upload"
+                      type="file"
+                      multiple
+                      onChange={handleFileUpload}
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif"
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className="cursor-pointer flex flex-col items-center"
+                    >
+                      <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                      <span className="text-sm text-foreground font-medium">
+                        Click to upload or drag and drop
+                      </span>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        PDF, DOC, XLS, TXT, Images up to 10MB each
+                      </span>
+                    </label>
+                  </div>
+                  
+                  {uploadedFiles.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-foreground">Attached Files ({uploadedFiles.length})</p>
+                      <div className="space-y-2">
+                        {uploadedFiles.map((file, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-3 bg-background border border-border rounded-lg"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <FileText className="w-4 h-4 text-blue-600" />
+                              <div>
+                                <p className="text-sm font-medium text-foreground">{file.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {(file.size / 1024).toFixed(1)} KB • {file.type || 'Unknown type'}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile(index)}
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -405,13 +553,13 @@ export function CreateTicketForm() {
                     </Button>
                     <Button 
                       type="submit"
-                      disabled={!isFormValid || isSubmitting}
+                      disabled={!isFormValid || isSubmitting || uploadingFiles}
                       className="shadow-sm min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white"
                     >
-                      {isSubmitting ? (
+                      {isSubmitting || uploadingFiles ? (
                         <div className="flex items-center gap-2">
                           <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                          Creating...
+                          {uploadingFiles ? 'Uploading...' : 'Creating...'}
                         </div>
                       ) : (
                         <>
