@@ -22,6 +22,7 @@ import {
   Trash2
 } from "lucide-react"
 import { showToast } from "@/lib/toast-utils"
+import { playNotificationSound } from "@/lib/notification-sound"
 import { authenticatedFetch } from "@/lib/api-client"
 
 // Success popup component
@@ -144,7 +145,7 @@ export function CreateTicketForm() {
         const formData = new FormData()
         formData.append('file', file)
         
-        const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/upload`, {
+        const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/ticket-uploads/upload`, {
           method: 'POST',
           body: formData
         })
@@ -224,6 +225,8 @@ export function CreateTicketForm() {
         setCreatedTicketId(result.data.ticketId)
         setShowSuccessPopup(true)
         showToast.success('Ticket created successfully!', `Ticket ID: ${result.data.ticketId}`)
+        // Play notification sound for successful ticket creation
+        playNotificationSound()
       } else {
         showToast.error(result.message || 'Failed to create ticket')
       }

@@ -28,4 +28,7 @@ router.delete('/:id', ticketController.deleteTicket.bind(ticketController));
 // Add comment to ticket
 router.post('/:id/comments', ticketController.addComment.bind(ticketController));
 
+// Download ticket attachment
+router.get('/attachments/:attachmentId/download', ticketController.downloadAttachment.bind(ticketController));
+
 export default router;

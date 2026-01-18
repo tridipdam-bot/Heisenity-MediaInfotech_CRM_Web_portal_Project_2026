@@ -28,6 +28,7 @@ import { TaskCheckInOut } from "@/components/TaskCheckInOut"
 import { getMyFeatures, type StaffPortalFeature } from "@/lib/server-api"
 import { dayClockOut } from "@/lib/server-api"
 import { showToast, showConfirm } from "@/lib/toast-utils"
+import { playNotificationSound } from "@/lib/notification-sound"
 
 
 interface EmployeeProfile {
@@ -301,6 +302,8 @@ export function StaffPortal() {
 
           if (response.success) {
             showToast.success('Day clock-out successful!', 'You have clocked out for the day')
+            // Play notification sound for successful clock-out
+            playNotificationSound()
             // Refresh attendance status
             checkTodayAttendance()
           } else {

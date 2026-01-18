@@ -1,8 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { assignTask, getTasksForEmployee, updateTask, getTasks, resetEmployeeAttendanceAttempts } from './task.controller';
+import { exportTasksToExcel } from './task.export';
 import taskAttendanceRoutes from './task-attendance.route';
 
 const router = Router();
+
+// Export tasks to Excel
+router.get('/export/excel', (req: Request, res: Response) => {
+  return exportTasksToExcel(req, res);
+});
 
 // Assign a new task
 router.post('/assign', (req: Request, res: Response) => {

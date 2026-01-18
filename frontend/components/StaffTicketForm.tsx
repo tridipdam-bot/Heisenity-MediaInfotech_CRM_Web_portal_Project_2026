@@ -161,7 +161,7 @@ export function StaffTicketForm({ employeeId, onSuccess }: StaffTicketFormProps)
         const formData = new FormData()
         formData.append('file', file)
         
-        const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/upload`, {
+        const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/ticket-uploads/upload`, {
           method: 'POST',
           body: formData
         })

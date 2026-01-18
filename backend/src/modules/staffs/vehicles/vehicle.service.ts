@@ -1,4 +1,5 @@
 import { prisma } from '../../../lib/prisma'
+import { NotificationService } from '../../notifications/notification.service'
 import { 
   Vehicle, 
   PetrolBill, 
@@ -248,7 +249,16 @@ export class VehicleService {
   async unassignVehicle(vehicleId: string) {
     try {
       const vehicle = await prisma.vehicle.findUnique({
-        where: { id: vehicleId }
+        where: { id: vehicleId },
+        include: {
+          assignedEmployee: {
+            select: {
+              id: true,
+              name: true,
+              employeeId: true
+            }
+          }
+        }
       })
 
       if (!vehicle) {
@@ -258,6 +268,9 @@ export class VehicleService {
         }
       }
 
+      // Store employee info before unassigning
+      const employeeInfo = vehicle.assignedEmployee
+
       const updatedVehicle = await prisma.vehicle.update({
         where: { id: vehicleId },
         data: {
@@ -266,6 +279,29 @@ export class VehicleService {
           status: VehicleStatus.AVAILABLE
         }
       })
+
+      // Create notification for manual vehicle unassignment
+      if (employeeInfo) {
+        try {
+          const notificationService = new NotificationService()
+          await notificationService.createAdminNotification({
+            type: 'VEHICLE_UNASSIGNED',
+            title: 'Vehicle Manually Unassigned',
+            message: `Vehicle ${vehicle.vehicleNumber} has been manually unassigned from ${employeeInfo.name}.`,
+            data: {
+              vehicleId: vehicle.id,
+              vehicleNumber: vehicle.vehicleNumber,
+              employeeId: employeeInfo.employeeId,
+              employeeName: employeeInfo.name,
+              unassignedAt: new Date().toISOString(),
+              type: 'manual'
+            }
+          })
+        } catch (notificationError) {
+          console.error('Failed to create vehicle unassignment notification:', notificationError)
+          // Don't fail the unassignment if notification fails
+        }
+      }
 
       return {
         success: true,

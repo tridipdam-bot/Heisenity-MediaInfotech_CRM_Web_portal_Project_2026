@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { showToast } from "@/lib/toast-utils"
+import { playNotificationSound } from "@/lib/notification-sound"
 import { Camera, Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
 import { useEffect, useRef, useState, useCallback } from "react"
 import { dailyClockIn, dailyClockOut, getDailyAttendanceStatus } from "@/lib/server-api"
@@ -201,6 +202,8 @@ export function DailyClockInOut({ employeeId, employeeRole, onAttendanceStatusCh
 
       if (result.success) {
         showToast.success(result.message)
+        // Play notification sound for successful clock-in
+        playNotificationSound()
         fetchAttendanceStatus() // Refresh status
         stopCamera() // Stop camera after successful clock-in
       } else {
@@ -228,6 +231,8 @@ export function DailyClockInOut({ employeeId, employeeRole, onAttendanceStatusCh
 
       if (result.success) {
         showToast.success(result.message)
+        // Play notification sound for successful clock-out
+        playNotificationSound()
         fetchAttendanceStatus() // Refresh status
       } else {
         showToast.error(result.message || 'Failed to clock out')

@@ -1,5 +1,5 @@
-import { AttendanceManagementPage } from "@/components/TaskPage"
+import { TaskPage } from "@/components/TaskPage"
 
 export default function TaskManagementPage() {
-  return <AttendanceManagementPage />
+  return <TaskPage />
 }

@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { AttendanceManagementPage } from "@/components/TaskPage"
+import { TaskPage } from "@/components/TaskPage"
 import { Loader2 } from "lucide-react"
 import { getMyFeatures } from "@/lib/server-api"
 
@@ -74,5 +74,5 @@ export default function Attendance() {
     )
   }
 
-  return <AttendanceManagementPage />
+  return <TaskPage />
 }

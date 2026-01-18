@@ -15,7 +15,6 @@ import { VehiclesPage } from "@/components/VehiclesPage"
 import { showToast } from "@/lib/toast-utils"
 import {
   ChevronLeft,
-  ChevronRight,
   Search,
   Filter,
   Download,
@@ -30,9 +29,11 @@ import {
   RefreshCw,
   X,
   UserPlus,
-  Car
+  Car,
+  Timer,
+  Calendar
 } from "lucide-react"
-import { getAttendanceRecords, getAllEmployees, getAllTeams, getAllVehicles, getAllTasks, AttendanceRecord, Employee, Team, Vehicle, exportAttendanceToExcel, ExportParams, getAllTickets, Ticket } from "@/lib/server-api"
+import { getAttendanceRecords, getAllEmployees, getAllTeams, getAllVehicles, getAllTasks, AttendanceRecord, Employee, Team, Vehicle, exportTasksToExcel, ExportParams, getAllTickets, Ticket } from "@/lib/server-api"
 
 interface ExtendedAttendanceRecord extends AttendanceRecord {
   hasAttendance: boolean
@@ -68,19 +69,6 @@ const getAssignedVehicle = (employeeId: string, employeeName: string, vehicles: 
   }
 
   return null
-}
-
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case "PRESENT":
-      return <CheckCircle className="h-4 w-4 text-green-600" />
-    case "LATE":
-      return <AlertCircle className="h-4 w-4 text-amber-600" />
-    case "ABSENT":
-      return <XCircle className="h-4 w-4 text-red-600" />
-    default:
-      return <Clock className="h-4 w-4 text-gray-400" />
-  }
 }
 
 const getTaskStatusBadge = (status: string) => {
@@ -145,7 +133,7 @@ const getTicketInfo = (ticketId: string | undefined, tickets: Ticket[]) => {
   return tickets.find(ticket => ticket.id === ticketId)
 }
 
-export function AttendanceManagementPage() {
+export function TaskPage() {
   const searchParams = useSearchParams()
   const [showAssignPage, setShowAssignPage] = React.useState(false)
   const [showVehiclePage, setShowVehiclePage] = React.useState(false)
@@ -169,7 +157,7 @@ export function AttendanceManagementPage() {
   const [selectedEmployee, setSelectedEmployee] = React.useState<string | null>(null)
   const [selectedRecord, setSelectedRecord] = React.useState<ExtendedAttendanceRecord | null>(null)
   const [showViewDetails, setShowViewDetails] = React.useState(false)
-  const [exportLoading, setExportLoading] = React.useState<'excel' | 'pdf' | null>(null)
+  const [exportLoading, setExportLoading] = React.useState<'excel' | null>(null)
   const [lastUpdated, setLastUpdated] = React.useState<Date>(new Date())
 
   const fetchAttendanceData = React.useCallback(async () => {
@@ -354,29 +342,30 @@ export function AttendanceManagementPage() {
     setShowViewDetails(true)
   }
 
-  const handleExport = async (format: 'excel' | 'pdf') => {
+  const handleExport = async (quickRange?: 'yesterday' | '15days' | '30days') => {
     try {
-      setExportLoading(format)
+      setExportLoading('excel')
 
       // Prepare export parameters based on current filters
-      const exportParams: ExportParams = {}
-
-      // Default to today if no date is specified
-      exportParams.date = new Date().toISOString().split('T')[0]
-
-      if (filters.status) {
-        exportParams.status = filters.status
+      const exportParams: ExportParams = {
+        quickRange: quickRange
       }
 
-      if (format === 'excel') {
-        await exportAttendanceToExcel(exportParams)
-      } else {
-        // PDF export not available yet
-        showToast.error('PDF export is not available yet')
+      // If no quick range is specified, use current filters
+      if (!quickRange) {
+        // Default to today if no date is specified
+        exportParams.date = new Date().toISOString().split('T')[0]
+
+        if (filters.status) {
+          exportParams.status = filters.status
+        }
       }
+
+      await exportTasksToExcel(exportParams)
+      showToast.success('Export successful')
     } catch (error) {
-      console.error(`Error exporting to ${format}:`, error)
-      showToast.error(`Failed to export to ${format.toUpperCase()}`)
+      console.error('Error exporting to Excel:', error)
+      showToast.error('Failed to export to Excel')
     } finally {
       setExportLoading(null)
     }
@@ -473,23 +462,37 @@ export function AttendanceManagementPage() {
                       ) : (
                         <Download className="h-4 w-4 mr-2" />
                       )}
-                      {exportLoading ? `Exporting ${exportLoading.toUpperCase()}...` : 'Export'}
+                      {exportLoading ? 'Exporting...' : 'Export to Excel'}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
-                      onClick={() => handleExport('excel')}
+                      onClick={() => handleExport()}
                       disabled={exportLoading !== null}
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Export to Excel
+                      <Filter className="h-4 w-4 mr-2" />
+                      Current Filter
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() => handleExport('pdf')}
-                      disabled={true}
+                      onClick={() => handleExport('yesterday')}
+                      disabled={exportLoading !== null}
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Export to PDF (Coming Soon)
+                      <Clock className="h-4 w-4 mr-2" />
+                      Yesterday
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleExport('15days')}
+                      disabled={exportLoading !== null}
+                    >
+                      <Timer className="h-4 w-4 mr-2" />
+                      Last 15 Days
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleExport('30days')}
+                      disabled={exportLoading !== null}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Last 30 Days
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

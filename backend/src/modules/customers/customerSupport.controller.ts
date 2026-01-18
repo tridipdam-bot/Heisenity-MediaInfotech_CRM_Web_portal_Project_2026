@@ -32,6 +32,9 @@ export class CustomerSupportController {
         }
       });
 
+      // Generate a ticket ID for the support request
+      const ticketId = `SUP-${supportRequest.id.toString().padStart(6, '0')}`;
+
       // Create notification for all IN_OFFICE employees
       const inOfficeEmployees = await prisma.employee.findMany({
         where: {
@@ -47,11 +50,50 @@ export class CustomerSupportController {
       res.status(201).json({
         success: true,
         message: 'Support request submitted successfully',
+        ticketId: ticketId,
         data: supportRequest
       });
     } catch (error) {
       console.error('Error submitting support request:', error);
       res.status(500).json({ error: 'Failed to submit support request' });
+    }
+  }
+
+  // Customer: Get own support requests
+  static async getCustomerSupportRequests(req: Request, res: Response) {
+    try {
+      const customerId = (req as any).customer?.id;
+
+      const requests = await prisma.customerSupportRequest.findMany({
+        where: {
+          customerId
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        select: {
+          id: true,
+          message: true,
+          documents: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      });
+
+      // Parse documents JSON for each request
+      const requestsWithParsedDocs = requests.map(request => ({
+        ...request,
+        documents: request.documents ? JSON.parse(request.documents) : []
+      }));
+
+      res.json({
+        success: true,
+        data: requestsWithParsedDocs
+      });
+    } catch (error) {
+      console.error('Error fetching customer support requests:', error);
+      res.status(500).json({ error: 'Failed to fetch support requests' });
     }
   }
 
@@ -255,6 +297,33 @@ export class CustomerSupportController {
           customerPhone: request.customer.phone
         }
       });
+
+      // Transfer documents from support request to ticket attachments
+      if (request.documents) {
+        try {
+          const documents = JSON.parse(request.documents);
+          if (Array.isArray(documents) && documents.length > 0) {
+            const attachmentPromises = documents.map(doc => 
+              prisma.ticketAttachment.create({
+                data: {
+                  ticketId: ticket.id,
+                  fileName: doc.originalName || doc.filename,
+                  filePath: doc.path,
+                  fileSize: doc.size || 0,
+                  mimeType: doc.mimetype || 'application/octet-stream',
+                  uploadedBy: employeeId
+                }
+              })
+            );
+            
+            await Promise.all(attachmentPromises);
+            console.log(`Transferred ${documents.length} attachments to ticket ${ticketId}`);
+          }
+        } catch (parseError) {
+          console.error('Error parsing support request documents:', parseError);
+          // Continue without attachments rather than failing the entire operation
+        }
+      }
 
       // Update support request
       await prisma.customerSupportRequest.update({

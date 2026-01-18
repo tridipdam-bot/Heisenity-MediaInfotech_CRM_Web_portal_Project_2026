@@ -1084,6 +1084,33 @@ export async function exportAttendanceToExcel(params?: ExportParams): Promise<vo
   }
 }
 
+export async function exportTasksToExcel(params?: ExportParams): Promise<void> {
+  try {
+    const searchParams = new URLSearchParams()
+    
+    if (params?.dateFrom) searchParams.append('dateFrom', params.dateFrom)
+    if (params?.dateTo) searchParams.append('dateTo', params.dateTo)
+    if (params?.date) searchParams.append('date', params.date)
+    if (params?.employeeId) searchParams.append('employeeId', params.employeeId)
+    if (params?.status) searchParams.append('status', params.status)
+    if (params?.role) searchParams.append('role', params.role)
+    if (params?.quickRange) searchParams.append('quickRange', params.quickRange)
+
+    const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/tasks/export/excel${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
+    
+    // Create a temporary link to trigger download
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `task-management-report-${new Date().toISOString().split('T')[0]}.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  } catch (error) {
+    console.error('exportTasksToExcel error:', error)
+    throw error
+  }
+}
+
 // Vehicle Management Types
 export type Vehicle = {
   id: string

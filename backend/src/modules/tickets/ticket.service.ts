@@ -1,5 +1,6 @@
 import { PrismaClient, TicketCategory, TicketPriority, TicketStatus, TicketHistoryAction } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { NotificationService } from '../notifications/notification.service';
 
 interface CreateTicketInput {
   title: string;
@@ -137,6 +138,30 @@ export class TicketService {
           changedBy: changedByEmployee.id,
         }
       });
+    }
+
+    // Create notification for new ticket
+    try {
+      const notificationService = new NotificationService();
+      await notificationService.createAdminNotification({
+        type: 'TASK_COMPLETED', // Using existing type, could add TICKET_CREATED if needed
+        title: 'New Support Ticket Created',
+        message: `New ${data.priority.toLowerCase()} priority ticket "${data.title}" has been created by ${ticket.reporter.name}.`,
+        data: {
+          ticketId: ticket.ticketId,
+          title: data.title,
+          priority: data.priority,
+          category: data.category,
+          reporterId: data.reporterId,
+          reporterName: ticket.reporter.name,
+          assigneeId: data.assigneeId,
+          assigneeName: ticket.assignee?.name,
+          createdAt: new Date().toISOString()
+        }
+      });
+    } catch (notificationError) {
+      console.error('Failed to create ticket notification:', notificationError);
+      // Don't fail ticket creation if notification fails
     }
 
     return ticket;

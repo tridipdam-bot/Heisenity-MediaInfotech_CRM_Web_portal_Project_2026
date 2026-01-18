@@ -73,7 +73,7 @@ router.use('/tenders', tenderRoutes);
 router.use('/tickets', ticketRoutes);
 
 // Mount ticket upload routes
-router.use('/', ticketUploadRouter);
+router.use('/ticket-uploads', ticketUploadRouter);
 
 // Mount customer management routes
 router.use('/customers', customerRoutes);
