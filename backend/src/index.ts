@@ -14,9 +14,6 @@ const PORT = process.env.PORT || 3001
 // Middleware 
 app.use(helmet())
 
-// Handle preflight requests
-app.options('*', cors())
-
 // CORS configuration - allow multiple origins
 const allowedOrigins = [
   'http://localhost:3000',
