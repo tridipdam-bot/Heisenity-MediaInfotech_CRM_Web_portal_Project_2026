@@ -67,12 +67,6 @@ export function StaffPortal() {
   const [ticketRefreshTrigger, setTicketRefreshTrigger] = useState(0)
   const [dayClockOutLoading, setDayClockOutLoading] = useState(false)
   const [pendingSupportRequests, setPendingSupportRequests] = useState(0)
-  const [todayAttendance, setTodayAttendance] = useState<{
-    hasCheckedIn: boolean
-    hasClockedOut: boolean
-    clockIn?: string
-    clockOut?: string
-  } | null>(null)
   const [allowedFeatures, setAllowedFeatures] = useState<StaffPortalFeature[]>([])
 
   useEffect(() => {
@@ -101,17 +95,6 @@ export function StaffPortal() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeProfile])
-
-  // Check today's attendance when profile loads or attendance tab is active
-  useEffect(() => {
-    if (employeeProfile?.role === 'FIELD_ENGINEER' && activeTab === 'attendance') {
-      checkTodayAttendance()
-      // Poll every 5 seconds to keep attendance status updated
-      const interval = setInterval(checkTodayAttendance, 5000)
-      return () => clearInterval(interval)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employeeProfile, activeTab])
 
   const fetchAllowedFeatures = async () => {
     try {
@@ -278,12 +261,14 @@ export function StaffPortal() {
 
       if (response.success && response.data && response.data.records.length > 0) {
         const record = response.data.records[0]
-        setTodayAttendance({
+        const attendanceData = {
           hasCheckedIn: !!record.clockIn,
           hasClockedOut: !!record.clockOut,
           clockIn: record.clockIn,
           clockOut: record.clockOut
-        })
+        }
+        console.log('Setting attendance data:', attendanceData) // Debug log
+        setTodayAttendance(attendanceData)
       } else {
         setTodayAttendance({
           hasCheckedIn: false,
@@ -729,30 +714,6 @@ export function StaffPortal() {
               </CardContent>
             </Card>
 
-            {/* Quick Stats */}
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle className="text-lg">Today&apos;s Overview</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Clock className="h-4 w-4 text-blue-500" />
-                    <span className="text-sm">Status</span>
-                  </div>
-                  <Badge variant="outline">Not Checked In</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4 text-green-500" />
-                    <span className="text-sm">Date</span>
-                  </div>
-                  <span className="text-sm text-gray-600">
-                    {new Date().toLocaleDateString()}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Main Content */}
