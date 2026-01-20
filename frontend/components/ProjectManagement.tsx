@@ -405,10 +405,6 @@ export function ProjectManagement() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Button variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50 h-9">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
 
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>

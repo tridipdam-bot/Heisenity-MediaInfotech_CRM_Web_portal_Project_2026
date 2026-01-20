@@ -199,14 +199,13 @@ export function EmployeeSelfAttendance() {
           <div className="text-sm text-muted-foreground space-y-2">
             {employeeRole === 'FIELD_ENGINEER' ? (
               <>
-                <p><strong>Daily Clock-in/out:</strong> Use this to start and end your workday. Requires admin approval.</p>
+                <p><strong>Daily Clock-in/out:</strong> Use this to start and end your workday. Requires admin approval.</p>  
                 <p><strong>Task Check-in/out:</strong> Use this to start and complete specific assigned tasks.</p>
                 <p><strong>Note:</strong> You must be approved for daily attendance before you can work on tasks.</p>
               </>
             ) : employeeRole === 'IN_OFFICE' ? (
               <>
-                <p><strong>Task Check-in/out:</strong> Use this to start and complete your assigned tasks.</p>
-                <p><strong>Note:</strong> Your daily attendance is automatically managed when you check in to tasks.</p>
+                <p><strong>Daily Clock-in/out:</strong> Use this to start and end your workday. Requires admin approval.</p>
               </>
             ) : (
               <p>Loading employee information...</p>
