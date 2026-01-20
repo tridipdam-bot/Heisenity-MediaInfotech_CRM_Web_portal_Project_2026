@@ -102,6 +102,11 @@ export function CreateTeamPage({ onBack, onTeamCreated }: CreateTeamPageProps) {
       return
     }
 
+    if (!teamLeaderId) {
+      showToast.error('Please select a team leader')
+      return
+    }
+
     if (teamLeaderId && !selectedEmployees.has(teamLeaderId)) {
       showToast.error('Team leader must be one of the selected members')
       return
@@ -233,7 +238,12 @@ export function CreateTeamPage({ onBack, onTeamCreated }: CreateTeamPageProps) {
                   {/* Team Leader Selection */}
                   {selectedEmployees.size > 0 && (
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Team Leader</Label>
+                      <Label className="text-sm font-medium text-red-600">Team Leader (Required) *</Label>
+                      {!teamLeaderId && (
+                        <div className="p-2 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-xs text-red-600">Please select a team leader to continue</p>
+                        </div>
+                      )}
                       <div className="space-y-1">
                         {selectedEmployeesList.map((employee) => (
                           <div key={employee.id} className="flex items-center space-x-2">
@@ -343,7 +353,7 @@ export function CreateTeamPage({ onBack, onTeamCreated }: CreateTeamPageProps) {
                 <div className="flex items-center justify-between pt-4">
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <AlertCircle className="h-4 w-4" />
-                    Select employees and optionally choose a team leader
+                    Select employees and choose a team leader (required)
                   </div>
                   <div className="flex items-center gap-3">
                     <Button 
@@ -357,7 +367,7 @@ export function CreateTeamPage({ onBack, onTeamCreated }: CreateTeamPageProps) {
                     <Button 
                       onClick={handleSubmit}
                       className="bg-blue-600 hover:bg-blue-700"
-                      disabled={submitting || !teamData.name.trim() || selectedEmployees.size === 0}
+                      disabled={submitting || !teamData.name.trim() || selectedEmployees.size === 0 || !teamLeaderId}
                     >
                       {submitting ? (
                         <>

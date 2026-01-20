@@ -66,8 +66,16 @@ export const createNewTeam = async (req: Request, res: Response) => {
 
     // If memberIds are provided, create team with members
     if (memberIds && Array.isArray(memberIds) && memberIds.length > 0) {
-      // Validate that teamLeaderId is in memberIds if provided
-      if (teamLeaderId && !memberIds.includes(teamLeaderId)) {
+      // Require team leader when creating team with members
+      if (!teamLeaderId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Team leader is required when creating a team with members'
+        });
+      }
+
+      // Validate that teamLeaderId is in memberIds
+      if (!memberIds.includes(teamLeaderId)) {
         return res.status(400).json({
           success: false,
           message: 'Team leader must be one of the selected members'
@@ -82,7 +90,7 @@ export const createNewTeam = async (req: Request, res: Response) => {
         message: `Team created successfully with ${memberIds.length} member${memberIds.length !== 1 ? 's' : ''}`
       });
     } else {
-      // Create empty team
+      // Create empty team (no members, no leader required)
       const team = await createTeam(name, description);
       
       return res.status(201).json({
@@ -168,6 +176,14 @@ export const updateTeam = async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: 'Member IDs array is required'
+      });
+    }
+
+    // Require team leader when updating team with members
+    if (memberIds.length > 0 && !teamLeaderId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Team leader is required when team has members'
       });
     }
 

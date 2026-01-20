@@ -134,6 +134,11 @@ export function EditTeamPage({ teamId, onBack, onTeamUpdated }: EditTeamPageProp
       return
     }
 
+    if (!teamLeaderId) {
+      showToast.error('Please select a team leader')
+      return
+    }
+
     if (teamLeaderId && !selectedEmployees.has(teamLeaderId)) {
       showToast.error('Team leader must be one of the selected members')
       return
@@ -417,10 +422,10 @@ export function EditTeamPage({ teamId, onBack, onTeamUpdated }: EditTeamPageProp
               )}
 
               {selectedEmployees.size > 0 && !teamLeaderId && (
-                <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
                   <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-yellow-600" />
-                    <span className="text-yellow-800">No team leader selected. You can assign one by clicking "Make Leader" next to a member.</span>
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <span className="text-red-800 font-medium">Team leader is required. Please select a team leader to continue.</span>
                   </div>
                 </div>
               )}
@@ -442,7 +447,7 @@ export function EditTeamPage({ teamId, onBack, onTeamUpdated }: EditTeamPageProp
               </Button>
               <Button 
                 onClick={handleSubmit}
-                disabled={submitting || selectedEmployees.size === 0}
+                disabled={submitting || selectedEmployees.size === 0 || !teamLeaderId}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 {submitting ? (
