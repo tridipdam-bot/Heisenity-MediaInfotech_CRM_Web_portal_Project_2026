@@ -206,6 +206,47 @@ export async function createTeamTask(
   }
 }
 
+export async function updateTeam(
+  teamId: string,
+  name?: string,
+  description?: string
+): Promise<TeamWithMembers | null> {
+  // Check if team exists
+  const existingTeam = await prisma.team.findUnique({
+    where: { id: teamId }
+  });
+
+  if (!existingTeam) {
+    throw new Error('Team not found');
+  }
+
+  // Check if name is being changed and if it conflicts with another team
+  if (name && name !== existingTeam.name) {
+    const nameConflict = await prisma.team.findFirst({
+      where: {
+        name: name,
+        id: { not: teamId }
+      }
+    });
+
+    if (nameConflict) {
+      throw new Error('A team with this name already exists');
+    }
+  }
+
+  // Update the team
+  await prisma.team.update({
+    where: { id: teamId },
+    data: {
+      ...(name !== undefined && { name }),
+      ...(description !== undefined && { description })
+    }
+  });
+
+  // Return the updated team with members
+  return await getTeamById(teamId);
+}
+
 export async function updateTeamMembers(
   teamId: string,
   memberIds: string[],

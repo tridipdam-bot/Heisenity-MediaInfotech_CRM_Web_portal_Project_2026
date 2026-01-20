@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getTeams, getTeam, createNewTeam, updateTeam, deleteTeamById } from './team.controller';
+import { getTeams, getTeam, createNewTeam, updateTeamInfo, updateTeam, deleteTeamById } from './team.controller';
 
 const router = Router();
 
@@ -16,6 +16,11 @@ router.get('/:id', (req: Request, res: Response) => {
 // Create a new team
 router.post('/', (req: Request, res: Response) => {
   return createNewTeam(req, res);
+});
+
+// Update team info (name, description)
+router.put('/:id', (req: Request, res: Response) => {
+  return updateTeamInfo(req, res);
 });
 
 // Update team members

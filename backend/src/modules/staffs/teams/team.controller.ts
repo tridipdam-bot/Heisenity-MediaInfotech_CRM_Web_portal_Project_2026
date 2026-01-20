@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getAllTeams, getTeamById, createTeam, createTeamWithMembers, updateTeamMembers, deleteTeam } from './team.service';
+import { getAllTeams, getTeamById, createTeam, createTeamWithMembers, updateTeam as updateTeamDetails, updateTeamMembers, deleteTeam } from './team.service';
 
 export const getTeams = async (req: Request, res: Response) => {
   try {
@@ -96,6 +96,57 @@ export const createNewTeam = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to create team',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+export const updateTeamInfo = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { name, description } = req.body;
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Team ID is required'
+      });
+    }
+
+    if (!name && description === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least team name or description must be provided'
+      });
+    }
+
+    const team = await updateTeamDetails(id, name, description);
+    
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        message: 'Team not found'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: team,
+      message: 'Team updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating team info:', error);
+    
+    if (error instanceof Error && error.message === 'A team with this name already exists') {
+      return res.status(409).json({
+        success: false,
+        message: error.message
+      });
+    }
+    
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update team',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }

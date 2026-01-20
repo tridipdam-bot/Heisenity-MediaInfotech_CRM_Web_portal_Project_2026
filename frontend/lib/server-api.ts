@@ -834,6 +834,18 @@ export type UpdateTeamMembersResponse = {
   error?: string
 }
 
+export type UpdateTeamRequest = {
+  name?: string
+  description?: string
+}
+
+export type UpdateTeamResponse = {
+  success: boolean
+  data?: TeamWithMembers
+  message?: string
+  error?: string
+}
+
 // Team API Functions
 export async function getAllTeams(): Promise<GetTeamsResponse> {
   try {
@@ -901,6 +913,30 @@ export async function createTeam(teamData: CreateTeamRequest): Promise<CreateTea
     return response
   } catch (error) {
     console.error('createTeam error:', error)
+    throw error
+  }
+}
+
+export async function updateTeam(teamId: string, updateData: UpdateTeamRequest): Promise<UpdateTeamResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/teams/${teamId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData),
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || `Failed to update team: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('updateTeam error:', error)
     throw error
   }
 }

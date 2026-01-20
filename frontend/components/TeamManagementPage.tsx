@@ -6,18 +6,21 @@ import {
   Users,
   Plus,
   Shield,
-  Trash2
+  Trash2,
+  Edit
 } from "lucide-react"
 import { getAllTeams, Team, deleteTeam } from "@/lib/server-api"
 import { CreateTeamPage } from "./CreateTeamPage"
+import { EditTeamPage } from "./EditTeamPage"
 import { showToast, showConfirm } from "@/lib/toast-utils"
 
-type ViewMode = 'list' | 'create'
+type ViewMode = 'list' | 'create' | 'edit'
 
 export function TeamManagementPage() {
   const [teams, setTeams] = React.useState<Team[]>([])
   const [loading, setLoading] = React.useState(true)
   const [viewMode, setViewMode] = React.useState<ViewMode>('list')
+  const [editingTeamId, setEditingTeamId] = React.useState<string | null>(null)
   const [deletingTeamId, setDeletingTeamId] = React.useState<string | null>(null)
 
   // Fetch teams on component mount
@@ -41,6 +44,17 @@ export function TeamManagementPage() {
 
   const handleTeamCreated = () => {
     fetchTeams() // Refresh the teams list
+    setViewMode('list')
+  }
+
+  const handleTeamUpdated = () => {
+    fetchTeams() // Refresh the teams list
+    setViewMode('list')
+  }
+
+  const handleEditTeam = (teamId: string) => {
+    setEditingTeamId(teamId)
+    setViewMode('edit')
   }
 
   const handleDeleteTeam = async (teamId: string, teamName: string) => {
@@ -74,6 +88,19 @@ export function TeamManagementPage() {
       <CreateTeamPage 
         onBack={() => setViewMode('list')}
         onTeamCreated={handleTeamCreated}
+      />
+    )
+  }
+
+  if (viewMode === 'edit' && editingTeamId) {
+    return (
+      <EditTeamPage 
+        teamId={editingTeamId}
+        onBack={() => {
+          setViewMode('list')
+          setEditingTeamId(null)
+        }}
+        onTeamUpdated={handleTeamUpdated}
       />
     )
   }
@@ -148,9 +175,19 @@ export function TeamManagementPage() {
                       <Button 
                         variant="ghost" 
                         size="sm" 
+                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={() => handleEditTeam(team.id)}
+                        title="Edit team"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
                         className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                         onClick={() => handleDeleteTeam(team.id, team.name)}
                         disabled={deletingTeamId === team.id}
+                        title="Delete team"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
