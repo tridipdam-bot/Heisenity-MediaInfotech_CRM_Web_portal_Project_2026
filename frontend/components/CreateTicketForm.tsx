@@ -446,28 +446,7 @@ export function CreateTicketForm() {
                       </SelectContent>
                     </Select>
                     
-                    {customers.length === 0 && !loadingCustomers && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mt-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4 text-amber-600" />
-                            <span className="text-sm text-amber-800">No customers loaded</span>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={fetchCustomers}
-                            className="text-amber-700 border-amber-300 hover:bg-amber-100"
-                          >
-                            Retry
-                          </Button>
-                        </div>
-                        <p className="text-xs text-amber-700 mt-1">
-                          Make sure you are logged in to access customer information.
-                        </p>
-                      </div>
-                    )}
+
                     
                     {selectedCustomer && (
                       <div className="bg-white border border-blue-200 rounded-md p-3">
