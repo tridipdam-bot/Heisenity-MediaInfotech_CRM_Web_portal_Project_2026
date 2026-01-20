@@ -47,7 +47,7 @@ const navigationItems = [
         title: "Task Management",
         url: "/task-management",
         icon: Users,
-        badge: "12",
+        badge: null,
         description: "Task tracking"
     },
     {
@@ -104,14 +104,14 @@ const navigationItems = [
         title: "Stock Management",
         url: "/stock",
         icon: Package,
-        badge: "45",
+        badge: null,
         description: "Inventory and supplies"
     },
     {
         title: "Tickets",
         url: "/tickets",
         icon: Ticket,
-        badge: "3",
+        badge: null,
         description: "Support requests"
     },
     {
