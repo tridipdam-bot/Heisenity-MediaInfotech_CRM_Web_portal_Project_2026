@@ -312,6 +312,21 @@ export function DailyClockInOut({ employeeId, employeeRole, onAttendanceStatusCh
     }
   }
 
+  const getNextClockInTime = () => {
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    tomorrow.setHours(9, 0, 0, 0) // Set to 9:00 AM next day
+    
+    return tomorrow.toLocaleString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })
+  }
+
   const formatTime = (timeString: string | null) => {
     if (!timeString) return 'Not set'
     return new Date(timeString).toLocaleTimeString('en-US', {
@@ -433,6 +448,18 @@ export function DailyClockInOut({ employeeId, employeeRole, onAttendanceStatusCh
                   <XCircle className="h-4 w-4 mr-2" />
                   {isLoading ? 'Clocking Out...' : 'Clock Out for Day'}
                 </Button>
+              )}
+
+              {/* Show next clock-in time when clocked out */}
+              {attendanceStatus.clockOut && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-red-700">
+                    <Clock className="h-4 w-4" />
+                    <span className="font-medium text-sm">
+                      Next clock-in available: {getNextClockInTime()}
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
           ) : (
