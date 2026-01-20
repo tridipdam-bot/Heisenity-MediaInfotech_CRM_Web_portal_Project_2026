@@ -342,7 +342,10 @@ export async function getDailyAttendanceStatus(employeeId: string) {
         canClockOut: !!attendance?.clockIn && !attendance?.clockOut,
         workHours: attendance?.clockIn && attendance?.clockOut 
           ? calculateWorkHours(attendance.clockIn, attendance.clockOut)
-          : null
+          : null,
+        approvalReason: attendance?.approvalReason || null,
+        rejectedBy: attendance?.rejectedBy || null,
+        rejectedAt: attendance?.rejectedAt?.toISOString() || null
       }
     };
 

@@ -37,6 +37,9 @@ interface DailyAttendanceStatus {
   isPendingApproval: boolean
   canClockOut: boolean
   workHours: string | null
+  approvalReason: string | null
+  rejectedBy: string | null
+  rejectedAt: string | null
 }
 
 export function DailyClockInOut({ employeeId, employeeRole, onAttendanceStatusChange }: DailyClockInOutProps) {
@@ -339,6 +342,15 @@ export function DailyClockInOut({ employeeId, employeeRole, onAttendanceStatusCh
   const getStatusBadge = () => {
     if (!attendanceStatus) return null
 
+    if (attendanceStatus?.approvalStatus === 'REJECTED') {
+      return (
+        <Badge variant="destructive">
+          <XCircle className="h-4 w-4 mr-1" />
+          Rejected
+        </Badge>
+      )
+    }
+
     if (attendanceStatus.isPendingApproval) {
       return (
         <Badge variant="secondary">
@@ -416,6 +428,29 @@ export function DailyClockInOut({ employeeId, employeeRole, onAttendanceStatusCh
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
                 Your clock-in is pending admin approval. Please wait for confirmation before starting tasks.
+              </AlertDescription>
+            </Alert>
+          ) : attendanceStatus?.approvalStatus === 'REJECTED' ? (
+            <Alert variant="destructive">
+              <XCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="space-y-2">
+                  <p className="font-medium">Your clock-in request has been rejected.</p>
+                  {attendanceStatus.approvalReason && (
+                    <div className="bg-red-50 border border-red-200 rounded p-3 mt-2">
+                      <p className="text-sm font-medium text-red-800 mb-1">Rejection Reason:</p>
+                      <p className="text-sm text-red-700">{attendanceStatus.approvalReason}</p>
+                    </div>
+                  )}
+                  {attendanceStatus.rejectedAt && (
+                    <p className="text-xs text-red-600 mt-1">
+                      Rejected on: {new Date(attendanceStatus.rejectedAt).toLocaleString()}
+                    </p>
+                  )}
+                  <p className="text-sm text-red-700 mt-2">
+                    You can submit a new clock-in request below.
+                  </p>
+                </div>
               </AlertDescription>
             </Alert>
           ) : attendanceStatus?.clockIn ? (
@@ -542,7 +577,8 @@ export function DailyClockInOut({ employeeId, employeeRole, onAttendanceStatusCh
                 className="w-full"
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
-                {isLoading ? 'Clocking In...' : 'Clock In for Day'}
+                {isLoading ? 'Clocking In...' : 
+                 (attendanceStatus?.approvalStatus as string) === 'REJECTED' ? 'Resubmit Clock In' : 'Clock In for Day'}
               </Button>
 
               {!cameraActive && !cameraError && (

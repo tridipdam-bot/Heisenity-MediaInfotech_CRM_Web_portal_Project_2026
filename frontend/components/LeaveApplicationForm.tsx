@@ -25,22 +25,12 @@ interface LeaveBalance {
 
 export enum LeaveType {
   SICK_LEAVE = 'SICK_LEAVE',
-  CASUAL_LEAVE = 'CASUAL_LEAVE',
-  ANNUAL_LEAVE = 'ANNUAL_LEAVE',
-  EMERGENCY_LEAVE = 'EMERGENCY_LEAVE',
-  MATERNITY_LEAVE = 'MATERNITY_LEAVE',
-  PATERNITY_LEAVE = 'PATERNITY_LEAVE',
-  OTHER = 'OTHER'
+  CASUAL_LEAVE = 'CASUAL_LEAVE'
 }
 
 const leaveTypeLabels = {
   [LeaveType.SICK_LEAVE]: 'Sick Leave',
-  [LeaveType.CASUAL_LEAVE]: 'Casual Leave',
-  [LeaveType.ANNUAL_LEAVE]: 'Annual Leave',
-  [LeaveType.EMERGENCY_LEAVE]: 'Emergency Leave',
-  [LeaveType.MATERNITY_LEAVE]: 'Maternity Leave',
-  [LeaveType.PATERNITY_LEAVE]: 'Paternity Leave',
-  [LeaveType.OTHER]: 'Other'
+  [LeaveType.CASUAL_LEAVE]: 'Casual Leave'
 }
 
 export function LeaveApplicationForm({ employeeId, employeeName, onSuccess }: LeaveApplicationFormProps) {
@@ -97,7 +87,7 @@ export function LeaveApplicationForm({ employeeId, employeeName, onSuccess }: Le
     if (!leaveBalance) return 0
     if (leaveType === LeaveType.SICK_LEAVE) return leaveBalance.sickLeaveBalance
     if (leaveType === LeaveType.CASUAL_LEAVE) return leaveBalance.casualLeaveBalance
-    return 999 // For other leave types, assume unlimited
+    return 0 // No other leave types allowed
   }
 
   const canApplyForLeave = () => {
@@ -107,11 +97,8 @@ export function LeaveApplicationForm({ employeeId, employeeName, onSuccess }: Le
     const requestedDays = calculateDays()
     const availableBalance = getAvailableBalance(formData.leaveType)
     
-    if (formData.leaveType === LeaveType.SICK_LEAVE || formData.leaveType === LeaveType.CASUAL_LEAVE) {
-      return availableBalance >= requestedDays
-    }
-    
-    return true
+    // Only sick and casual leave are allowed, both require balance check
+    return availableBalance >= requestedDays
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -149,10 +136,9 @@ export function LeaveApplicationForm({ employeeId, employeeName, onSuccess }: Le
         return
       }
       
-      if (formData.leaveType === LeaveType.SICK_LEAVE || formData.leaveType === LeaveType.CASUAL_LEAVE) {
-        showToast.error(`Insufficient ${formData.leaveType === LeaveType.SICK_LEAVE ? 'sick' : 'casual'} leave balance. Available: ${availableBalance} days, Required: ${requestedDays} days`)
-        return
-      }
+      // Both sick and casual leave require balance check
+      showToast.error(`Insufficient ${formData.leaveType === LeaveType.SICK_LEAVE ? 'sick' : 'casual'} leave balance. Available: ${availableBalance} days, Required: ${requestedDays} days`)
+      return
     }
 
     setLoading(true)
@@ -332,7 +318,7 @@ export function LeaveApplicationForm({ employeeId, employeeName, onSuccess }: Le
                     Duration: {calculateDays()} day{calculateDays() !== 1 ? 's' : ''}
                   </span>
                 </div>
-                {formData.leaveType && (formData.leaveType === LeaveType.SICK_LEAVE || formData.leaveType === LeaveType.CASUAL_LEAVE) && (
+                {formData.leaveType && (
                   <div className="text-sm">
                     <span className="text-blue-700">Available: </span>
                     <span className={`font-medium ${getAvailableBalance(formData.leaveType) < calculateDays() ? 'text-red-600' : 'text-blue-900'}`}>
@@ -341,7 +327,7 @@ export function LeaveApplicationForm({ employeeId, employeeName, onSuccess }: Le
                   </div>
                 )}
               </div>
-              {formData.leaveType && (formData.leaveType === LeaveType.SICK_LEAVE || formData.leaveType === LeaveType.CASUAL_LEAVE) && 
+              {formData.leaveType && 
                getAvailableBalance(formData.leaveType) < calculateDays() && (
                 <div className="mt-2 flex items-center space-x-2 text-red-600">
                   <AlertCircle className="h-4 w-4" />

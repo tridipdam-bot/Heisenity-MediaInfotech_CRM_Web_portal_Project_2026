@@ -2110,6 +2110,9 @@ export type DailyAttendanceStatusResponse = {
     isPendingApproval: boolean
     canClockOut: boolean
     workHours: string | null
+    approvalReason: string | null
+    rejectedBy: string | null
+    rejectedAt: string | null
   }
 }
 

@@ -21,12 +21,7 @@ interface LeaveApplication {
 
 const leaveTypeLabels: Record<string, string> = {
   'SICK_LEAVE': 'Sick Leave',
-  'CASUAL_LEAVE': 'Casual Leave',
-  'ANNUAL_LEAVE': 'Annual Leave',
-  'EMERGENCY_LEAVE': 'Emergency Leave',
-  'MATERNITY_LEAVE': 'Maternity Leave',
-  'PATERNITY_LEAVE': 'Paternity Leave',
-  'OTHER': 'Other'
+  'CASUAL_LEAVE': 'Casual Leave'
 }
 
 export function LeaveApplicationsSummary() {
