@@ -3,11 +3,10 @@
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-import { AdminLeaveManagement } from "@/components/AdminLeaveManagement"
-import { AdminDocumentUpload } from "@/components/AdminDocumentUpload"
+import { PayslipManagement } from "@/components/PayslipManagement"
 import { Loader2 } from "lucide-react"
 
-export default function LeaveManagementPage() {
+export default function PayslipPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
 
@@ -31,7 +30,7 @@ export default function LeaveManagementPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Loading leave management...</p>
+          <p className="text-gray-600">Loading payslip management...</p>
         </div>
       </div>
     )
@@ -58,8 +57,8 @@ export default function LeaveManagementPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <h1 className="text-3xl font-bold text-gray-900">HR Center</h1>
-              <p className="text-gray-600">Manage employee leave applications, documents, and payslips</p>
+              <h1 className="text-3xl font-bold text-gray-900">Payslip Management</h1>
+              <p className="text-gray-600">Generate and manage employee payslips</p>
             </div>
             <div className="flex gap-3">
               <button 
@@ -78,17 +77,8 @@ export default function LeaveManagementPage() {
           </div>
         </div>
 
-        {/* Leave Management Component */}
-        <AdminLeaveManagement adminId={adminId} adminName={adminName} />
-
-        {/* Document Upload System */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="space-y-1 mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Document Management</h2>
-            <p className="text-gray-600">Upload and manage documents for employees</p>
-          </div>
-          <AdminDocumentUpload adminId={adminId} adminName={adminName} />
-        </div>
+        {/* Payslip Management Component */}
+        <PayslipManagement adminId={adminId} adminName={adminName} />
       </div>
     </div>
   )

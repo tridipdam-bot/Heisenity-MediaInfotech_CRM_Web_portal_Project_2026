@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { FileText, Download, Calendar, User } from "lucide-react"
 import { showToast } from "@/lib/toast-utils"
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 
 interface EmployeeDocument {
   id: string
@@ -30,10 +31,16 @@ interface EmployeeDocumentsProps {
 export function EmployeeDocuments({ employeeId }: EmployeeDocumentsProps) {
   const [documents, setDocuments] = useState<EmployeeDocument[]>([])
   const [loading, setLoading] = useState(true)
+  const { authenticatedFetch, isAuthenticated } = useAuthenticatedFetch()
 
   const fetchDocuments = async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/documents/employee/${employeeId}`)
+      const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/documents/employee/${employeeId}`)
       const result = await response.json()
       
       if (result.success) {
@@ -51,11 +58,11 @@ export function EmployeeDocuments({ employeeId }: EmployeeDocumentsProps) {
 
   useEffect(() => {
     fetchDocuments()
-  }, [employeeId])
+  }, [employeeId, isAuthenticated])
 
   const handleDownload = async (documentId: string, fileName: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/documents/download/${documentId}`)
+      const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/documents/download/${documentId}`)
       
       if (response.ok) {
         const blob = await response.blob()

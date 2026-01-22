@@ -87,13 +87,19 @@ export class DocumentService {
   // Get documents for an employee
   async getEmployeeDocuments(employeeId: string): Promise<DocumentsResponse> {
     try {
+      console.log('=== FETCHING EMPLOYEE DOCUMENTS ===')
+      console.log('Looking for employee with employeeId:', employeeId)
+      
       const employee = await prisma.employee.findUnique({
         where: { employeeId }
       })
 
       if (!employee) {
+        console.log('Employee not found with employeeId:', employeeId)
         return { success: false, error: 'Employee not found' }
       }
+
+      console.log('Found employee:', employee.name, 'with internal ID:', employee.id)
 
       const documents = await prisma.employeeDocument.findMany({
         where: { employeeId: employee.id },
@@ -106,6 +112,11 @@ export class DocumentService {
           }
         },
         orderBy: { uploadedAt: 'desc' }
+      })
+
+      console.log('Found', documents.length, 'documents for employee')
+      documents.forEach(doc => {
+        console.log('- Document:', doc.title, 'uploaded at:', doc.uploadedAt)
       })
 
       const response: EmployeeDocument[] = documents.map(doc => ({
@@ -124,8 +135,10 @@ export class DocumentService {
         updatedAt: doc.updatedAt.toISOString()
       }))
 
+      console.log('=== DOCUMENT FETCH SUCCESS ===')
       return { success: true, data: response }
     } catch (error) {
+      console.error('=== DOCUMENT FETCH ERROR ===')
       console.error('Error fetching employee documents:', error)
       return { success: false, error: 'Failed to fetch documents' }
     }

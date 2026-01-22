@@ -7,6 +7,7 @@ import vehicleRoutes from '../modules/staffs/vehicles/vehicle.route';
 import leaveRoutes from '../modules/staffs/leave/leave.route';
 import documentRoutes from '../modules/staffs/documents/document.route';
 import featureAccessRoutes from '../modules/staffs/featureAccess/featureAccess.route';
+import payrollRoutes from '../modules/staffs/payroll/payroll.route';
 import notificationRoutes from '../modules/notifications/notification.routes';
 import tenderRoutes from '../modules/tenders/tender.route';
 import ticketRoutes from '../modules/tickets/ticket.route';
@@ -55,6 +56,9 @@ router.use('/documents', documentRoutes);
 
 // Mount feature access routes
 router.use('/feature-access', featureAccessRoutes);
+
+// Mount payroll routes
+router.use('/payroll', payrollRoutes);
 
 // Mount notification routes
 router.use('/', notificationRoutes);
