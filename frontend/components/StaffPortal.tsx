@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { 
-  Clock, 
-  MapPin, 
-  User, 
-  Calendar, 
+import {
+  Clock,
+  MapPin,
+  User,
+  Calendar,
   AlertCircle,
   LogOut,
   FileText,
@@ -78,7 +78,7 @@ export function StaffPortal() {
     }
 
     fetchEmployeeProfile()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, status, router])
 
   // Fetch features after profile is loaded
@@ -93,7 +93,7 @@ export function StaffPortal() {
         return () => clearInterval(interval)
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeProfile])
 
   const fetchAllowedFeatures = async () => {
@@ -137,7 +137,7 @@ export function StaffPortal() {
 
       // Try to fetch from employees endpoint first (works for both field engineers and in-office)
       let profileResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employees/by-employee-id/${employeeId}`)
-      
+
       // If that fails, try field-engineers endpoint (for backward compatibility)
       if (!profileResponse.ok) {
         profileResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/field-engineers/${employeeId}`)
@@ -192,6 +192,7 @@ export function StaffPortal() {
       const vehicleResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/vehicles/employee/${employeeId}`)
       if (vehicleResponse.ok) {
         const vehicleResult = await vehicleResponse.json()
+
         if (vehicleResult.success && vehicleResult.data) {
           setAssignedVehicle({
             id: vehicleResult.data.id,
@@ -201,7 +202,13 @@ export function StaffPortal() {
             type: vehicleResult.data.type,
             assignedAt: vehicleResult.data.assignedAt
           })
+        } else {
+          // ✅ IMPORTANT: clear stale state
+          setAssignedVehicle(null)
         }
+      } else {
+        // ✅ vehicle endpoint returns 404 when unassigned
+        setAssignedVehicle(null)
       }
     } catch (error) {
       console.error("Error fetching employee profile:", error)
@@ -261,7 +268,7 @@ export function StaffPortal() {
             showToast.success('Day clock-out successful!', 'You have clocked out for the day')
             // Play notification sound for successful clock-out
             playNotificationSound()
-            // Day clock-out successful - no need to refresh attendance status
+            await fetchEmployeeProfile()
           } else {
             showToast.error(response.message || 'Failed to clock out')
           }
@@ -278,9 +285,9 @@ export function StaffPortal() {
   }
 
   const handleLogout = () => {
-    signOut({ 
+    signOut({
       callbackUrl: '/',
-      redirect: true 
+      redirect: true
     })
   }
 
@@ -351,18 +358,17 @@ export function StaffPortal() {
             </div>
           </div>
         </div>
-        
+
         {/* Topbar Navigation */}
         <div className="border-t border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <nav className="flex space-x-8">
               <button
                 onClick={() => setActiveTab('attendance')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'attendance'
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'attendance'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <MapPin className="h-4 w-4 inline mr-2" />
                 Attendance
@@ -370,11 +376,10 @@ export function StaffPortal() {
               {hasFeatureAccess('DASHBOARD') && (
                 <button
                   onClick={() => setActiveTab('dashboard')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'dashboard'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'dashboard'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <FileText className="h-4 w-4 inline mr-2" />
                   Dashboard
@@ -383,11 +388,10 @@ export function StaffPortal() {
               {hasFeatureAccess('PROJECT') && (
                 <button
                   onClick={() => setActiveTab('project')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'project'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'project'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <FileText className="h-4 w-4 inline mr-2" />
                   Project
@@ -396,11 +400,10 @@ export function StaffPortal() {
               {hasFeatureAccess('TASK_MANAGEMENT') && (
                 <button
                   onClick={() => setActiveTab('task_management')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'task_management'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'task_management'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <FileText className="h-4 w-4 inline mr-2" />
                   Task Management
@@ -409,11 +412,10 @@ export function StaffPortal() {
               {employeeProfile?.role === 'FIELD_ENGINEER' && (
                 <button
                   onClick={() => setActiveTab('tasks')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'tasks'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'tasks'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <FileText className="h-4 w-4 inline mr-2" />
                   Task Management
@@ -422,11 +424,10 @@ export function StaffPortal() {
               {employeeProfile?.role === 'IN_OFFICE' && (
                 <button
                   onClick={() => setActiveTab('tickets')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'tickets'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'tickets'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <FileText className="h-4 w-4 inline mr-2" />
                   Tickets
@@ -434,22 +435,20 @@ export function StaffPortal() {
               )}
               <button
                 onClick={() => setActiveTab('leave')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'leave'
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'leave'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <FileText className="h-4 w-4 inline mr-2" />
                 Leave
               </button>
               <button
                 onClick={() => setActiveTab('documents')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'documents'
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'documents'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <FileText className="h-4 w-4 inline mr-2" />
                 Documents
@@ -457,26 +456,24 @@ export function StaffPortal() {
               {employeeProfile?.role === 'FIELD_ENGINEER' && (
                 <button
                   onClick={() => setActiveTab('vehicle')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'vehicle'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'vehicle'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <Car className="h-4 w-4 inline mr-2" />
                   Vehicle
                 </button>
               )}
-              
+
               {/* Admin Features */}
               {hasFeatureAccess('CUSTOMERS') && (
                 <button
                   onClick={() => setActiveTab('customers')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'customers'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'customers'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <User className="h-4 w-4 inline mr-2" />
                   Customers
@@ -485,11 +482,10 @@ export function StaffPortal() {
               {hasFeatureAccess('TEAMS') && (
                 <button
                   onClick={() => setActiveTab('teams')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'teams'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'teams'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <User className="h-4 w-4 inline mr-2" />
                   Teams
@@ -498,11 +494,10 @@ export function StaffPortal() {
               {employeeProfile?.role === 'IN_OFFICE' && (
                 <button
                   onClick={() => setActiveTab('tenders')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'tenders'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'tenders'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <FileText className="h-4 w-4 inline mr-2" />
                   Tenders
@@ -511,11 +506,10 @@ export function StaffPortal() {
               {hasFeatureAccess('STOCK') && (
                 <button
                   onClick={() => setActiveTab('stock')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'stock'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'stock'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <FileText className="h-4 w-4 inline mr-2" />
                   Stock
@@ -524,11 +518,10 @@ export function StaffPortal() {
               {hasFeatureAccess('LEAVE_MANAGEMENT') && (
                 <button
                   onClick={() => setActiveTab('leave_management')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'leave_management'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'leave_management'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <FileText className="h-4 w-4 inline mr-2" />
                   Leave Mgmt
@@ -537,11 +530,10 @@ export function StaffPortal() {
               {hasFeatureAccess('FIELD_ENGINEER_ATTENDANCE') && (
                 <button
                   onClick={() => setActiveTab('field_engineer_attendance')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'field_engineer_attendance'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'field_engineer_attendance'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <Clock className="h-4 w-4 inline mr-2" />
                   Field Attendance
@@ -550,11 +542,10 @@ export function StaffPortal() {
               {hasFeatureAccess('INOFFICE_ATTENDANCE') && (
                 <button
                   onClick={() => setActiveTab('inoffice_attendance')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'inoffice_attendance'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'inoffice_attendance'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <Clock className="h-4 w-4 inline mr-2" />
                   Office Attendance
@@ -563,11 +554,10 @@ export function StaffPortal() {
               {hasFeatureAccess('CUSTOMER_SUPPORT_REQUESTS') && (
                 <button
                   onClick={() => setActiveTab('customer_support_requests')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'customer_support_requests'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'customer_support_requests'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <FileText className="h-4 w-4 inline mr-2" />
                   Support
@@ -576,11 +566,10 @@ export function StaffPortal() {
               {hasFeatureAccess('STAFF_FEATURE_ACCESS') && (
                 <button
                   onClick={() => setActiveTab('staff_feature_access')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'staff_feature_access'
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'staff_feature_access'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <User className="h-4 w-4 inline mr-2" />
                   Staff Access
@@ -644,9 +633,9 @@ export function StaffPortal() {
               <CardHeader className="text-center pb-4">
                 <div className="flex justify-center mb-4">
                   <Avatar className="h-24 w-24">
-                    <AvatarImage 
-                      src={`https://api.dicebear.com/7.x/initials/svg?seed=${employeeProfile.name}`} 
-                      alt={employeeProfile.name} 
+                    <AvatarImage
+                      src={`https://api.dicebear.com/7.x/initials/svg?seed=${employeeProfile.name}`}
+                      alt={employeeProfile.name}
                     />
                     <AvatarFallback className="text-lg">
                       {getInitials(employeeProfile.name)}
@@ -716,27 +705,27 @@ export function StaffPortal() {
                     </p>
                   </CardHeader>
                   <CardContent>
-                    <StaffTicketForm 
+                    <StaffTicketForm
                       employeeId={employeeProfile.employeeId}
-                      onSuccess={() => setTicketRefreshTrigger(prev => prev + 1)} 
+                      onSuccess={() => setTicketRefreshTrigger(prev => prev + 1)}
                     />
                   </CardContent>
                 </Card>
-                <StaffTicketList 
+                <StaffTicketList
                   employeeId={employeeProfile.employeeId}
-                  refreshTrigger={ticketRefreshTrigger} 
+                  refreshTrigger={ticketRefreshTrigger}
                 />
               </div>
             )}
 
             {activeTab === 'leave' && (
               <div className="space-y-6">
-                <LeaveApplicationForm 
+                <LeaveApplicationForm
                   employeeId={employeeProfile.employeeId}
                   employeeName={employeeProfile.name}
                   onSuccess={() => setLeaveRefreshTrigger(prev => prev + 1)}
                 />
-                <LeaveApplicationsList 
+                <LeaveApplicationsList
                   employeeId={employeeProfile.employeeId}
                   refreshTrigger={leaveRefreshTrigger}
                 />
@@ -838,9 +827,9 @@ export function StaffPortal() {
             )}
 
             {activeTab === 'tasks' && employeeProfile?.role === 'FIELD_ENGINEER' && (
-              <TaskCheckInOut 
+              <TaskCheckInOut
                 employeeId={employeeProfile.employeeId}
-                onTaskStatusChange={() => {}}
+                onTaskStatusChange={() => { }}
               />
             )}
 

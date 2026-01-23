@@ -822,6 +822,41 @@ export async function updateTask(taskId: string, updates: UpdateTaskRequest): Pr
   }
 }
 
+export type UpdateTaskStatusRequest = {
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+}
+
+export type UpdateTaskStatusResponse = {
+  success: boolean
+  message: string
+  data?: AssignedTask
+  error?: string
+}
+
+export async function updateTaskStatus(taskId: string, status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'): Promise<UpdateTaskStatusResponse> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tasks/${taskId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status }),
+      cache: 'no-store'
+    })
+
+    const response = await res.json()
+
+    if (!res.ok) {
+      throw new Error(response.error || `Failed to update task status: ${res.status}`)
+    }
+
+    return response
+  } catch (error) {
+    console.error('updateTaskStatus error:', error)
+    throw error
+  }
+}
+
 // Team API Types
 export type TeamMember = {
   id: string

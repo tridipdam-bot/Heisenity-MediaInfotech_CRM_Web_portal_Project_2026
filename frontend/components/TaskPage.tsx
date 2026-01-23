@@ -34,7 +34,7 @@ import {
   Calendar,
   Edit
 } from "lucide-react"
-import { getAttendanceRecords, getAllEmployees, getAllTeams, getAllVehicles, getAllTasks, getEmployeeVehicle, AttendanceRecord, Employee, Team, Vehicle, exportTasksToExcel, ExportParams, getAllTickets, Ticket } from "@/lib/server-api"
+import { getAttendanceRecords, getAllEmployees, getAllTeams, getAllVehicles, getAllTasks, getEmployeeVehicle, AttendanceRecord, Employee, Team, Vehicle, exportTasksToExcel, ExportParams, getAllTickets, Ticket, updateTaskStatus, unassignVehicle } from "@/lib/server-api"
 
 interface ExtendedAttendanceRecord extends AttendanceRecord {
   hasAttendance: boolean
@@ -382,6 +382,38 @@ export function TaskPage() {
     setShowAssignPage(true)
   }
 
+  const handleUnassignTask = async (record: ExtendedAttendanceRecord) => {
+    if (!record.assignedTask) {
+      showToast.error("No task to unassign")
+      return
+    }
+
+    const confirm = window.confirm(
+      "Are you sure you want to unassign this task? The assigned vehicle (if any) will also be released."
+    )
+
+    if (!confirm) return
+
+    try {
+      await updateTaskStatus(record.assignedTask.id, "CANCELLED")
+
+
+      try {
+        const vehicleRes = await getEmployeeVehicle(record.employeeId)
+        if (vehicleRes.success && vehicleRes.data) {
+          await unassignVehicle(vehicleRes.data.id)
+        }
+      } catch (e) {
+        console.warn("Vehicle unassign failed", e)
+      }
+
+      showToast.success("Task unassigned successfully")
+      fetchAttendanceData()
+    } catch (error) {
+      console.error("Unassign task failed", error)
+      showToast.error("Failed to unassign task")
+    }
+  }
 
   const handleViewDetails = (record: ExtendedAttendanceRecord) => {
     setSelectedRecord(record)
@@ -1091,6 +1123,15 @@ export function TaskPage() {
                                   Edit Task
                                 </DropdownMenuItem>
                               )}
+                              {record.assignedTask && (
+                                <DropdownMenuItem
+                                  className="text-red-600 focus:text-red-600"
+                                  onClick={() => handleUnassignTask(record)}
+                                >
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  Unassign Task
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => handleAssignTask(record.employeeId)}>
                                 <UserPlus className="h-4 w-4 mr-2" />
                                 Assign Task
@@ -1408,6 +1449,6 @@ export function TaskPage() {
           )}
         </DialogContent>
       </Dialog>
-      </div >
+    </div >
   )
 }
