@@ -447,9 +447,6 @@ export function DailyClockInOut({ employeeId, employeeRole, onAttendanceStatusCh
                       Rejected on: {new Date(attendanceStatus.rejectedAt).toLocaleString()}
                     </p>
                   )}
-                  <p className="text-sm text-red-700 mt-2">
-                    You can submit a new clock-in request below.
-                  </p>
                 </div>
               </AlertDescription>
             </Alert>

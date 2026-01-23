@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { dailyClockIn, dailyClockOut, getDailyAttendanceStatus } from './daily-attendance.service';
+import { reEnableAttendance } from './attendance.service'
+import { prisma } from '@/lib/prisma';
 
 /**
  * =============================================================================
@@ -105,3 +107,72 @@ export const getDailyStatusController = async (req: Request, res: Response) => {
     });
   }
 };
+
+/**
+ * ADMIN: Get today's rejected attendances
+ */
+export const getRejectedAttendancesController = async (req: Request, res: Response) => {
+  try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const rejected = await prisma.attendance.findMany({
+      where: {
+        approvalStatus: 'REJECTED',
+        date: today
+      },
+      include: {
+        employee: {
+          select: {
+            employeeId: true,
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        updatedAt: 'desc'
+      }
+    })
+
+    return res.json({
+      success: true,
+      data: rejected.map(a => ({
+        id: a.id,
+        employeeId: a.employee.employeeId,
+        employeeName: a.employee.name
+      }))
+    })
+  } catch (error) {
+    console.error('Get rejected attendances error:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch rejected attendances'
+    })
+  }
+}
+
+
+/**
+ * ADMIN: Re-enable attendance after mistaken rejection
+ */
+export const reEnableAttendanceController = async (req: Request, res: Response) => {
+  try {
+    const { attendanceId, adminId, reason } = req.body
+
+    if (!attendanceId || !adminId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing parameters'
+      })
+    }
+
+    const result = await reEnableAttendance(attendanceId, adminId, reason)
+    return res.json(result)
+  } catch (error) {
+    console.error('Re-enable attendance error:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    })
+  }
+}

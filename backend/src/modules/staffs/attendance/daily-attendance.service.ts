@@ -365,3 +365,4 @@ function calculateWorkHours(clockIn: Date, clockOut: Date): string {
   
   return `${diffHours}h ${diffMinutes}m`;
 }
+

@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { 
   dailyClockInController, 
   dailyClockOutController, 
-  getDailyStatusController 
+  getDailyStatusController,
+  getRejectedAttendancesController,
+  reEnableAttendanceController
 } from './daily-attendance.controller';
 
 /**
@@ -43,5 +45,32 @@ router.post('/clock-out', dailyClockOutController);
  * Get current daily attendance status for an employee
  */
 router.get('/daily-status/:employeeId', getDailyStatusController);
+
+/**
+ * =============================================================================
+ * ADMIN ATTENDANCE ROUTES
+ * =============================================================================
+ * Used to recover attendance if rejected by mistake
+ * =============================================================================
+ */
+
+/**
+ * GET /attendance/admin/rejected
+ * Get today's rejected attendance records
+ */
+router.get('/admin/rejected', getRejectedAttendancesController);
+
+/**
+ * POST /attendance/admin/re-enable
+ * Re-enable a rejected attendance so employee can clock in again
+ *
+ * Body: {
+ *   attendanceId: string,
+ *   adminId: string,
+ *   reason?: string
+ * }
+ */
+router.post('/admin/re-enable', reEnableAttendanceController);
+
 
 export default router;

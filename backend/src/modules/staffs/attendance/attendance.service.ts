@@ -519,3 +519,58 @@ export async function createAttendanceRecord(data: {
     return fieldEngineerCheckIn(data)
   }
 }
+
+/**
+ * ADMIN: Re-enable attendance after mistaken rejection
+ * - Allows employee to re-submit clock-in SAME DAY
+ * - Does NOT set clockIn
+ * - Resets status back to PENDING
+ */
+export async function reEnableAttendance(
+  attendanceId: string,
+  adminId: string,
+  reason?: string
+): Promise<{ success: boolean; message: string }> {
+
+  const attendance = await prisma.attendance.findUnique({
+    where: { id: attendanceId },
+    include: { employee: true }
+  })
+
+  if (!attendance) {
+    return { success: false, message: 'Attendance record not found' }
+  }
+
+  if (attendance.approvalStatus !== 'REJECTED') {
+    return { success: false, message: 'Only rejected attendance can be re-enabled' }
+  }
+
+  const now = new Date()
+
+  await prisma.attendance.update({
+    where: { id: attendanceId },
+    data: {
+      approvalStatus: 'NOT_REQUIRED',
+      pendingCheckInAt: null,
+      rejectedBy: null,
+      rejectedAt: null,
+      approvalReason: reason || 'Re-enabled by admin',
+      status: 'PRESENT',
+      updatedAt: new Date()
+    }
+  })
+
+  // Notify admin & employee
+  const notificationService = new NotificationService()
+  await notificationService.createAdminNotification({
+    type: 'ATTENDANCE_ALERT',
+    title: 'Attendance Re-enabled',
+    message: `Attendance for ${attendance.employee.name} (${attendance.employee.employeeId}) has been re-enabled by admin ${adminId}.`,
+    data: { attendanceId, adminId }
+  })
+
+  return {
+    success: true,
+    message: 'Attendance re-enabled. Employee can clock in again.'
+  }
+}

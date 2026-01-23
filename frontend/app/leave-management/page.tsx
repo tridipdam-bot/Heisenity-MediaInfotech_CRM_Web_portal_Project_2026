@@ -6,6 +6,9 @@ import { useEffect } from "react"
 import { AdminLeaveManagement } from "@/components/AdminLeaveManagement"
 import { AdminDocumentUpload } from "@/components/AdminDocumentUpload"
 import { Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ReEnableClockInDialog } from "@/components/ReEnableClockInDialog"
+
 
 export default function LeaveManagementPage() {
   const { data: session, status } = useSession()
@@ -62,13 +65,15 @@ export default function LeaveManagementPage() {
               <p className="text-gray-600">Manage employee leave applications, documents, and payslips</p>
             </div>
             <div className="flex gap-3">
-              <button 
+              <ReEnableClockInDialog adminId={adminId} />
+
+              <button
                 onClick={() => window.location.href = '/leave-management'}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 Leave Management
               </button>
-              <button 
+              <button
                 onClick={() => window.location.href = '/payslip'}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
