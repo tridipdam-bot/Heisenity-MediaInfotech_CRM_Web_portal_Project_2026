@@ -309,14 +309,32 @@ export async function dailyClockOut(employeeId: string): Promise<DailyAttendance
 
     console.log('Clock-out completed for employee:', employeeId, 'at:', now.toISOString());
 
-    // 🚗 Auto-unassign vehicle (unchanged)
+    // 🚗 Auto-unassign vehicle and notify admin
     try {
       const vehicleService = new VehicleService();
       const vehicleResult = await vehicleService.getEmployeeVehicle(employeeId);
 
       if (vehicleResult.success && vehicleResult.data) {
         const vehicle = vehicleResult.data;
-        await vehicleService.unassignVehicle(vehicle.id);
+        const unassignResult = await vehicleService.unassignVehicle(vehicle.id);
+        
+        // Create specific notification for vehicle unassignment
+        if (unassignResult.success) {
+          const notificationService = new NotificationService();
+          await notificationService.createAdminNotification({
+            type: 'VEHICLE_UNASSIGNED',
+            title: 'Vehicle Auto-Unassigned',
+            message: `Vehicle ${vehicle.vehicleNumber} has been automatically unassigned from ${employee.name} after clock-out.`,
+            data: {
+              vehicleId: vehicle.id,
+              vehicleNumber: vehicle.vehicleNumber,
+              employeeId: employeeId,
+              employeeName: employee.name,
+              clockOutTime: now.toISOString(),
+              type: 'automatic'
+            }
+          });
+        }
       }
     } catch (err) {
       console.error('Vehicle unassign error:', err);
