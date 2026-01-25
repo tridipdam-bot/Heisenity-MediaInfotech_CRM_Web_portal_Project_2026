@@ -19,6 +19,7 @@ model Admin {
   adminOverrides      AttendanceOverride[]
   assignedTeamLeaders Employee[]           @relation("AdminAssignedTeamLeaders")
   sessions            UserSession[]
+  organizedMeetings   Meeting[]            @relation("MeetingOrganizerAdmin")
 
   @@map("admins")
 }
@@ -81,6 +82,11 @@ model Employee {
   inventoryTransactions   InventoryTransaction[]
   allocations             Allocation[]
   barcodeCheckouts        BarcodeCheckout[]
+  
+  // Meeting relations
+  organizedMeetings       Meeting[]                @relation("MeetingOrganizerEmployee")
+  meetingAttendances      MeetingAttendee[]        @relation("MeetingAttendees")
+  assignedMeetingTasks    MeetingTask[]            @relation("MeetingTaskAssignee")
 
   @@index([teamId])
   @@index([assignedBy])
@@ -673,6 +679,7 @@ model Customer {
   sessions        CustomerSession[]
   supportRequests CustomerSupportRequest[]
   projects        Project[]                @relation("CustomerProjects")
+  meetings        Meeting[]
 
   @@index([customerId])
   @@index([phone])
@@ -1072,4 +1079,161 @@ model LowStockAlert {
   product   Product @relation(fields: [productId], references: [id])
 
   @@map("low_stock_alerts")
+}
+
+//////////////////////////
+// MEETINGS MANAGEMENT
+//////////////////////////
+
+model Meeting {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  meetingType MeetingType   @default(INTERNAL)
+  status      MeetingStatus @default(SCHEDULED)
+  priority    MeetingPriority @default(MEDIUM)
+  
+  // Meeting organizer (can be either admin or employee)
+  organizerAdminId    String?
+  organizerEmployeeId String?
+  organizerAdmin      Admin?    @relation("MeetingOrganizerAdmin", fields: [organizerAdminId], references: [id])
+  organizerEmployee   Employee? @relation("MeetingOrganizerEmployee", fields: [organizerEmployeeId], references: [id])
+  
+  // Optional customer for external meetings
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  
+  // Meeting link for virtual meetings
+  meetingLink String?
+  
+  // Agenda and notes
+  agenda      String?
+  notes       String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  attendees   MeetingAttendee[]
+  tasks       MeetingTask[]
+  calendlyMeeting CalendlyMeeting?
+
+  @@index([organizerAdminId])
+  @@index([organizerEmployeeId])
+  @@index([customerId])
+  @@index([startTime])
+  @@index([status])
+  @@map("meetings")
+}
+
+model MeetingAttendee {
+  id        String            @id @default(cuid())
+  meetingId String
+  employeeId String
+  status    AttendeeStatus    @default(INVITED)
+  response  AttendeeResponse? 
+  
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  employee  Employee @relation("MeetingAttendees", fields: [employeeId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([meetingId, employeeId])
+  @@index([meetingId])
+  @@index([employeeId])
+  @@map("meeting_attendees")
+}
+
+model MeetingTask {
+  id          String     @id @default(cuid())
+  meetingId   String
+  title       String
+  description String?
+  assigneeId  String?
+  dueDate     DateTime?
+  status      TaskStatus @default(PENDING)
+  
+  meeting     Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  assignee    Employee? @relation("MeetingTaskAssignee", fields: [assigneeId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([meetingId])
+  @@index([assigneeId])
+  @@map("meeting_tasks")
+}
+
+model CalendlyMeeting {
+  id                   String   @id @default(cuid())
+  meetingId            String   @unique
+  calendlyEventUuid    String   @unique
+  calendlyInviteeUuid  String   @unique
+  inviteeName          String
+  inviteeEmail         String
+  inviteePhone         String?
+  eventName            String
+  eventDuration        Int      // in minutes
+  scheduledAt          DateTime
+  calendlyEventUrl     String?
+  rescheduleUrl        String?
+  cancelUrl            String?
+  
+  // Additional Calendly data
+  calendlyData         Json?    // Store full Calendly payload
+  syncedAt             DateTime @default(now())
+  lastSyncAt           DateTime @updatedAt
+  
+  meeting              Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([calendlyEventUuid])
+  @@index([calendlyInviteeUuid])
+  @@index([inviteeEmail])
+  @@map("calendly_meetings")
+}
+
+enum MeetingType {
+  INTERNAL
+  CLIENT
+  VENDOR
+  TRAINING
+  REVIEW
+  OTHER
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  POSTPONED
+}
+
+enum MeetingPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AttendeeStatus {
+  INVITED
+  CONFIRMED
+  DECLINED
+  TENTATIVE
+  NO_RESPONSE
+}
+
+enum AttendeeResponse {
+  ACCEPTED
+  DECLINED
+  TENTATIVE
 }

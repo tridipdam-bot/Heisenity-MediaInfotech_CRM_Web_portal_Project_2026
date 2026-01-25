@@ -59,6 +59,13 @@ const navigationItems = [
         description: "Task tracking"
     },
     {
+        title: "Meetings & Tasks",
+        url: "/meetings",
+        icon: Bell,
+        badge: null,
+        description: "Schedule meetings and manage daily tasks"
+    },
+    {
         title: "Field Engineer",
         url: "/field-engineer-attendance",
         icon: Clock,
