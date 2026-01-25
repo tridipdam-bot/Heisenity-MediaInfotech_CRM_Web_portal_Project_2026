@@ -107,4 +107,43 @@ export class NotificationController {
       })
     }
   }
+
+  // POST /admin/notifications/:id/accept-ticket - Accept ticket from notification
+  async acceptTicketFromNotification(req: Request, res: Response) {
+    try {
+      const { id } = req.params
+      const { employeeId, adminId, userType } = req.body
+
+      // Determine user ID and type
+      let userId: string
+      let userTypeEnum: 'ADMIN' | 'EMPLOYEE' = 'EMPLOYEE'
+
+      if (adminId) {
+        userId = adminId
+        userTypeEnum = 'ADMIN'
+      } else if (employeeId) {
+        userId = employeeId
+        userTypeEnum = 'EMPLOYEE'
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'Either employeeId or adminId is required'
+        })
+      }
+
+      const result = await notificationService.acceptTicketFromNotification(id, userId, userTypeEnum)
+
+      if (result.success) {
+        res.json(result)
+      } else {
+        res.status(400).json(result)
+      }
+    } catch (error) {
+      console.error('Error in acceptTicketFromNotification:', error)
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      })
+    }
+  }
 }

@@ -1,8 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require("@prisma/adapter-pg");
-const { Pool } = require("pg");
-
 require('dotenv').config();
+const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
+const { Pool } = require('pg');
 
 const pool = new Pool({
   host: process.env.DATABASE_HOST,
@@ -19,34 +18,20 @@ const prisma = new PrismaClient({ adapter });
 
 async function checkAdminCredentials() {
   try {
+    console.log('Checking admin credentials...');
+    
     const admins = await prisma.admin.findMany({
       select: {
+        id: true,
         adminId: true,
-        email: true,
         name: true,
-        status: true,
-        createdAt: true
+        email: true,
+        password: true
       }
     });
 
-    console.log('\n🔍 Current Admin Accounts:');
-    console.log('='.repeat(50));
-    
-    if (admins.length === 0) {
-      console.log('❌ No admin accounts found');
-    } else {
-      admins.forEach((admin, index) => {
-        console.log(`${index + 1}. ${admin.name}`);
-        console.log(`   Admin ID: ${admin.adminId}`);
-        console.log(`   Email: ${admin.email}`);
-        console.log(`   Status: ${admin.status}`);
-        console.log(`   Created: ${admin.createdAt.toLocaleDateString()}`);
-        console.log('');
-      });
-    }
-    
-    console.log('='.repeat(50));
-    
+    console.log('Found admins:', admins);
+
   } catch (error) {
     console.error('Error checking admin credentials:', error);
   } finally {

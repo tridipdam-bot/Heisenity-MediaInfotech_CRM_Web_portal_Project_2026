@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useRouter } from 'next/navigation'
 import { Ticket as TicketIcon, UserCheck, ArrowRight } from 'lucide-react'
+import { truncateText } from '@/lib/utils'
 
 // Test component to demonstrate the complete ticket assignment flow
 export function TicketAssignmentFlowTest() {
@@ -78,7 +79,12 @@ export function TicketAssignmentFlowTest() {
                     </span>
                   </div>
                   <h3 className="font-medium text-gray-900">{ticket.ticketId}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{ticket.description}</p>
+                  <p 
+                    className="text-sm text-gray-600 mt-1 line-clamp-2 max-w-[300px] cursor-help" 
+                    title={ticket.description}
+                  >
+                    {truncateText(ticket.description, 80)}
+                  </p>
                 </div>
                 <Button 
                   onClick={() => handleAssignAgent(ticket)}

@@ -21,13 +21,15 @@ import {
   Calendar,
   Camera,
   Check,
-  XCircle
+  XCircle,
+  Ticket,
+  UserCheck
 } from "lucide-react"
 import { showToast } from "@/lib/toast-utils"
 
 interface AdminNotification {
   id: string
-  type: 'VEHICLE_UNASSIGNED' | 'TASK_COMPLETED' | 'ATTENDANCE_ALERT' | 'ATTENDANCE_APPROVAL_REQUEST' | 'ATTENDANCE_APPROVED' | 'ATTENDANCE_REJECTED'
+  type: 'VEHICLE_UNASSIGNED' | 'TASK_COMPLETED' | 'ATTENDANCE_ALERT' | 'ATTENDANCE_APPROVAL_REQUEST' | 'ATTENDANCE_APPROVED' | 'ATTENDANCE_REJECTED' | 'TICKET_CREATED' | 'TICKET_ASSIGNED'
   title: string
   message: string
   data?: {
@@ -42,6 +44,20 @@ interface AdminNotification {
     attendanceId?: string
     status?: string
     photo?: string
+    // Ticket-related data
+    ticketId?: string
+    ticketInternalId?: string
+    description?: string
+    priority?: string
+    categoryId?: string
+    reporterId?: string
+    reporterName?: string
+    assigneeId?: string
+    assigneeName?: string
+    assigneeType?: 'ADMIN' | 'EMPLOYEE'
+    customerName?: string
+    customerId?: string
+    customerPhone?: string
   }
   isRead: boolean
   createdAt: string
@@ -66,6 +82,10 @@ const getNotificationIcon = (type: string) => {
       return <Check className="h-4 w-4" />
     case 'ATTENDANCE_REJECTED':
       return <XCircle className="h-4 w-4" />
+    case 'TICKET_CREATED':
+      return <Ticket className="h-4 w-4" />
+    case 'TICKET_ASSIGNED':
+      return <UserCheck className="h-4 w-4" />
     default:
       return <Bell className="h-4 w-4" />
   }
@@ -85,6 +105,10 @@ const getNotificationColor = (type: string) => {
       return "bg-green-50 text-green-700 border-green-200"
     case 'ATTENDANCE_REJECTED':
       return "bg-red-50 text-red-700 border-red-200"
+    case 'TICKET_CREATED':
+      return "bg-purple-50 text-purple-700 border-purple-200"
+    case 'TICKET_ASSIGNED':
+      return "bg-indigo-50 text-indigo-700 border-indigo-200"
     default:
       return "bg-gray-50 text-gray-700 border-gray-200"
   }
@@ -99,10 +123,18 @@ export function AdminNotifications({ onClose }: AdminNotificationsProps) {
   const [isRejecting, setIsRejecting] = React.useState(false)
   const [rejectionReason, setRejectionReason] = React.useState("")
   const [showRejectForm, setShowRejectForm] = React.useState(false)
+  const [isAcceptingTicket, setIsAcceptingTicket] = React.useState(false)
 
   // Fetch notifications
   React.useEffect(() => {
     fetchNotifications()
+    
+    // Set up periodic refresh to remove stale notifications
+    const interval = setInterval(() => {
+      fetchNotifications()
+    }, 30000) // Refresh every 30 seconds
+
+    return () => clearInterval(interval)
   }, [])
 
   const fetchNotifications = async () => {
@@ -270,6 +302,62 @@ export function AdminNotifications({ onClose }: AdminNotificationsProps) {
     }
   }
 
+  const handleAcceptTicket = async (notificationId: string) => {
+    if (!session?.user) return
+
+    setIsAcceptingTicket(true)
+    try {
+      // Determine if user is admin or employee
+      const user = session.user as any
+      const isAdmin = user.userType === 'ADMIN' || user.adminId
+      
+      const requestBody: any = {}
+      
+      if (isAdmin) {
+        requestBody.adminId = user.adminId || user.id
+        requestBody.userType = 'ADMIN'
+      } else {
+        requestBody.employeeId = user.employeeId || user.id
+        requestBody.userType = 'EMPLOYEE'
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/admin/notifications/${notificationId}/accept-ticket`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        showToast.success(result.message || 'Ticket accepted and assigned successfully')
+        // Remove the notification from the list and refresh to get updated notifications
+        setNotifications(prev => prev.filter(n => n.id !== notificationId))
+        setSelectedNotification(null)
+        // Refresh to get any new notifications and remove any duplicate ticket notifications
+        fetchNotifications()
+      } else {
+        // If ticket was already assigned, refresh notifications to remove stale ones
+        if (result.error?.includes('already been assigned')) {
+          showToast.error('This ticket has already been assigned to someone else')
+          // Remove the notification from local state and refresh
+          setNotifications(prev => prev.filter(n => n.id !== notificationId))
+          setSelectedNotification(null)
+          fetchNotifications()
+        } else {
+          showToast.error(result.error || 'Failed to accept ticket')
+        }
+      }
+    } catch (error) {
+      console.error('Error accepting ticket:', error)
+      showToast.error('Failed to accept ticket')
+    } finally {
+      setIsAcceptingTicket(false)
+    }
+  }
+
   const unreadCount = notifications.filter(n => !n.isRead).length
 
   if (loading) {
@@ -424,6 +512,33 @@ export function AdminNotifications({ onClose }: AdminNotificationsProps) {
                                 </Button>
                               </div>
                             )}
+
+                            {/* Inline Accept button for ticket creation */}
+                            {notification.type === 'TICKET_CREATED' && notification.data?.ticketId && !notification.data?.assigneeId && (
+                              <div className="flex gap-2 mt-3">
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleAcceptTicket(notification.id)
+                                  }}
+                                  disabled={isAcceptingTicket}
+                                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 text-xs"
+                                >
+                                  {isAcceptingTicket ? 'Accepting...' : 'Accept Ticket'}
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* Show assigned status for tickets that are already assigned */}
+                            {notification.type === 'TICKET_CREATED' && notification.data?.assigneeId && (
+                              <div className="mt-3">
+                                <Badge className="bg-gray-100 text-gray-800 text-xs">
+                                  Already assigned to {notification.data.assigneeName || 'someone'}
+                                  {notification.data.assigneeType === 'ADMIN' && ' (Admin)'}
+                                </Badge>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <Button
@@ -514,6 +629,42 @@ export function AdminNotifications({ onClose }: AdminNotificationsProps) {
                       </Badge>
                     </div>
                   )}
+                  {selectedNotification.data.ticketId && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Ticket className="h-4 w-4" />
+                      Ticket: {selectedNotification.data.ticketId}
+                    </div>
+                  )}
+                  {selectedNotification.data.priority && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Badge className={
+                        selectedNotification.data.priority === 'HIGH' ? 'bg-red-100 text-red-800' :
+                        selectedNotification.data.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }>
+                        {selectedNotification.data.priority} Priority
+                      </Badge>
+                    </div>
+                  )}
+                  {selectedNotification.data.reporterName && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <User className="h-4 w-4" />
+                      Reporter: {selectedNotification.data.reporterName}
+                    </div>
+                  )}
+                  {selectedNotification.data.customerName && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <User className="h-4 w-4" />
+                      Customer: {selectedNotification.data.customerName}
+                      {selectedNotification.data.customerPhone && ` (${selectedNotification.data.customerPhone})`}
+                    </div>
+                  )}
+                  {selectedNotification.data.description && (
+                    <div className="text-sm">
+                      <span className="font-medium">Description:</span>
+                      <p className="mt-1 text-gray-600">{selectedNotification.data.description}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -545,6 +696,29 @@ export function AdminNotifications({ onClose }: AdminNotificationsProps) {
                     onChange={(e) => setRejectionReason(e.target.value)}
                     rows={3}
                   />
+                </div>
+              )}
+
+              {/* Action Buttons for Ticket Creation */}
+              {selectedNotification.type === 'TICKET_CREATED' && selectedNotification.data?.ticketId && !selectedNotification.data?.assigneeId && (
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    onClick={() => handleAcceptTicket(selectedNotification.id)}
+                    disabled={isAcceptingTicket}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700"
+                  >
+                    {isAcceptingTicket ? 'Accepting...' : 'Accept Ticket'}
+                  </Button>
+                </div>
+              )}
+
+              {/* Show assigned status in detail dialog */}
+              {selectedNotification.type === 'TICKET_CREATED' && selectedNotification.data?.assigneeId && (
+                <div className="pt-4">
+                  <Badge className="bg-gray-100 text-gray-800">
+                    This ticket has been assigned to {selectedNotification.data.assigneeName || 'someone'}
+                    {selectedNotification.data.assigneeType === 'ADMIN' && ' (Admin)'}
+                  </Badge>
                 </div>
               )}
 

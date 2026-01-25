@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ interface SupportRequest {
 
 export default function CustomerSupportRequests() {
   const { data: session } = useSession();
+  const { authenticatedFetch, isAuthenticated } = useAuthenticatedFetch();
   const router = useRouter();
   const [pendingRequests, setPendingRequests] = useState<SupportRequest[]>([]);
   const [acceptedRequests, setAcceptedRequests] = useState<SupportRequest[]>([]);
@@ -51,38 +53,54 @@ export default function CustomerSupportRequests() {
   });
 
   useEffect(() => {
-    fetchRequests();
-    // Poll for new requests every 30 seconds
-    const interval = setInterval(fetchRequests, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    if (isAuthenticated) {
+      fetchRequests();
+      // Poll for new requests every 30 seconds
+      const interval = setInterval(fetchRequests, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
 
   const fetchRequests = async () => {
     try {
+      console.log('Fetching requests with authentication:', { 
+        isAuthenticated, 
+        sessionToken: (session?.user as any)?.sessionToken?.substring(0, 10) + '...' 
+      });
+
       const [pendingRes, acceptedRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/customer-support/pending`, {
-          headers: {
-            Authorization: `Bearer ${(session?.user as any)?.sessionToken}`,
-          },
-        }),
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/customer-support/my-accepted`, {
-          headers: {
-            Authorization: `Bearer ${(session?.user as any)?.sessionToken}`,
-          },
-        })
+        authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/customer-support/pending`),
+        authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/customer-support/my-accepted`)
       ]);
+
+      console.log('Response status:', { 
+        pendingStatus: pendingRes.status, 
+        acceptedStatus: acceptedRes.status 
+      });
 
       if (pendingRes.ok) {
         const data = await pendingRes.json();
         setPendingRequests(data.data || []);
+      } else {
+        console.error('Failed to fetch pending requests:', pendingRes.status, pendingRes.statusText);
+        const errorData = await pendingRes.text();
+        console.error('Error response:', errorData);
+        if (pendingRes.status === 403) {
+          toast.error('You do not have permission to view customer support requests');
+        } else if (pendingRes.status === 401) {
+          toast.error('Authentication failed. Please log in again.');
+        }
       }
 
       if (acceptedRes.ok) {
         const data = await acceptedRes.json();
         setAcceptedRequests(data.data || []);
+      } else {
+        console.error('Failed to fetch accepted requests:', acceptedRes.status, acceptedRes.statusText);
       }
     } catch (error) {
       console.error("Error fetching requests:", error);
+      toast.error("Failed to fetch support requests");
     } finally {
       setLoading(false);
     }
@@ -90,13 +108,10 @@ export default function CustomerSupportRequests() {
 
   const handleAcceptRequest = async (requestId: string) => {
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/customer-support/${requestId}/accept`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${(session?.user as any)?.sessionToken}`,
-          },
         }
       );
 
@@ -128,20 +143,18 @@ export default function CustomerSupportRequests() {
     if (!selectedRequest) return;
 
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/customer-support/${selectedRequest.id}/create-ticket`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${(session?.user as any)?.sessionToken}`,
-          },
           body: JSON.stringify(ticketForm),
         }
       );
 
       if (!response.ok) {
-        throw new Error("Failed to create ticket");
+        const errorData = await response.json();
+        console.error('Create ticket error response:', errorData);
+        throw new Error(errorData.error || errorData.message || "Failed to create ticket");
       }
 
       const data = await response.json();
@@ -149,9 +162,9 @@ export default function CustomerSupportRequests() {
       setIsCreateTicketDialogOpen(false);
       fetchRequests();
       router.push("/tickets");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating ticket:", error);
-      toast.error("Failed to create ticket");
+      toast.error(error.message || "Failed to create ticket");
     }
   };
 

@@ -87,3 +87,108 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* Enhanced text truncation utilities */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+  
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+  
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+  
+  /* Ensure text breaks properly for long words */
+  .break-words {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+  }
+  
+  /* Prevent table layout from breaking */
+  .table-fixed {
+    table-layout: fixed;
+  }
+  
+  .table-fixed td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* Improved table styling */
+  .table-fixed th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: inherit;
+  }
+  
+  .table-fixed tr:hover {
+    background-color: rgba(var(--accent), 0.1);
+  }
+  
+  /* Better vertical alignment for table cells */
+  .table-fixed td {
+    vertical-align: top;
+  }
+  
+  .table-fixed .align-middle {
+    vertical-align: middle;
+  }
+  
+  /* Responsive table improvements */
+  @media (max-width: 768px) {
+    .table-fixed {
+      min-width: 1200px;
+    }
+    
+    .table-fixed th,
+    .table-fixed td {
+      padding: 0.5rem 0.25rem;
+      font-size: 0.875rem;
+    }
+    
+    .table-fixed .w-\[320px\] {
+      width: 280px;
+    }
+    
+    .table-fixed .w-\[200px\] {
+      width: 160px;
+    }
+  }
+  
+  /* Safe text truncation for UI components */
+  .safe-text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    word-break: break-all;
+  }
+  
+  /* Multi-line safe truncation */
+  .safe-text-clamp {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+}

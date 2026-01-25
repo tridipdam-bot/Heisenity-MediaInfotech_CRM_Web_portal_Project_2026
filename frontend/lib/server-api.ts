@@ -1881,6 +1881,38 @@ export async function deleteNotification(notificationId: string): Promise<Notifi
   }
 }
 
+export async function acceptTicketFromNotification(notificationId: string, userId: string, userType: 'ADMIN' | 'EMPLOYEE' = 'EMPLOYEE'): Promise<{ success: boolean; message?: string; error?: string; data?: any }> {
+  try {
+    const requestBody: any = {}
+    
+    if (userType === 'ADMIN') {
+      requestBody.adminId = userId
+      requestBody.userType = 'ADMIN'
+    } else {
+      requestBody.employeeId = userId
+      requestBody.userType = 'EMPLOYEE'
+    }
+
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/admin/notifications/${notificationId}/accept-ticket`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    })
+
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`)
+    }
+
+    const result = await res.json()
+    return result
+  } catch (error) {
+    console.error('Error accepting ticket from notification:', error)
+    return { success: false, error: 'Failed to accept ticket' }
+  }
+}
+
 export async function getEmployeeByEmployeeId(employeeId: string): Promise<{ success: boolean; data?: Employee; error?: string }> {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employees/by-employee-id/${employeeId}`, {

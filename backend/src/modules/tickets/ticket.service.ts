@@ -257,11 +257,12 @@ export class TicketService {
     try {
       const notificationService = new NotificationService();
       await notificationService.createAdminNotification({
-        type: 'TASK_COMPLETED', // Using existing type, could add TICKET_CREATED if needed
+        type: 'TICKET_CREATED',
         title: 'New Support Ticket Created',
         message: `New ${data.priority.toLowerCase()} priority ticket "${data.description.substring(0, 50)}..." has been created by ${ticket.reporter?.name || 'Unknown User'}.`,
         data: {
           ticketId: ticket.ticketId,
+          ticketInternalId: ticket.id,
           description: data.description,
           priority: data.priority,
           categoryId: data.categoryId,
@@ -269,6 +270,9 @@ export class TicketService {
           reporterName: ticket.reporter?.name || 'Unknown User',
           assigneeId: data.assigneeId,
           assigneeName: ticket.assignee?.name,
+          customerName: data.customerName,
+          customerId: data.customerId,
+          customerPhone: data.customerPhone,
           createdAt: new Date().toISOString()
         }
       });
@@ -651,9 +655,18 @@ export class TicketService {
           field: 'assigneeId',
           oldValue: existingTicket.assigneeId || '',
           newValue: data.assigneeId,
-          changedBy,
+          changedBy: internalUserId,
         }
       });
+
+      // Remove any TICKET_CREATED notifications for this ticket since it's now assigned
+      try {
+        const notificationService = new NotificationService();
+        await notificationService.removeTicketCreatedNotifications(ticket.ticketId);
+      } catch (notificationError) {
+        console.error('Failed to remove ticket created notifications:', notificationError);
+        // Don't fail the update if notification cleanup fails
+      }
     }
 
     return ticket;

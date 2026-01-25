@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import { getAllEmployees, Employee, assignTask, CreateTaskRequest, getAllTeams, Team, getAllVehicles, Vehicle, assignVehicle, getAllTickets, Ticket } from "@/lib/server-api"
 import { showToast } from "@/lib/toast-utils"
+import { truncateText } from "@/lib/utils"
 
 import { updateTask, unassignVehicle, UpdateTaskRequest } from "@/lib/server-api"
 
@@ -658,7 +659,12 @@ export function AssignTaskPage({ onBack, preSelectedEmployeeId, onTaskAssigned, 
                               </div>
                               <div>
                                 <p className="font-medium text-gray-900 mb-1">{ticket.ticketId}</p>
-                                <p className="text-sm text-gray-600 line-clamp-2">{ticket.description}</p>
+                                <p 
+                                  className="text-sm text-gray-600 line-clamp-2 max-w-[300px] cursor-help" 
+                                  title={ticket.description}
+                                >
+                                  {truncateText(ticket.description, 80)}
+                                </p>
                               </div>
                               {ticket.reporter && (
                                 <div className="text-xs text-gray-500">

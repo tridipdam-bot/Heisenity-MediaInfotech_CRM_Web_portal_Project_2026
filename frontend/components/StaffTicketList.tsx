@@ -16,6 +16,7 @@ import {
   User
 } from "lucide-react"
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
+import { truncateText } from "@/lib/utils"
 
 interface TicketData {
   id: string
@@ -212,7 +213,12 @@ export function StaffTicketList({ employeeId, refreshTrigger }: StaffTicketListP
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-foreground truncate">{ticket.ticketId}</p>
                       <p className="text-sm text-muted-foreground">{ticket.category?.name || 'Unknown Category'}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-1">{ticket.description}</p>
+                      <p 
+                        className="text-xs text-muted-foreground safe-text-clamp line-clamp-1 max-w-[200px] cursor-help" 
+                        title={ticket.description}
+                      >
+                        {truncateText(ticket.description, 50)}
+                      </p>
                       {ticket._count && ticket._count.comments > 0 && (
                         <div className="flex items-center gap-1 mt-1">
                           <MessageSquare className="h-3 w-3 text-blue-600" />

@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 // Helper function to get attendance data for export
 async function getAttendanceDataForExport(filters) {
     const where = {};
+    const employeeWhere = {};
+
     if (filters.employeeId) {
         const employee = await prisma.employee.findUnique({
             where: { employeeId: filters.employeeId }
@@ -14,6 +16,9 @@ async function getAttendanceDataForExport(filters) {
     }
     if (filters.status) {
         where.status = filters.status;
+    }
+    if (filters.role) {
+        employeeWhere.role = filters.role;
     }
     if (filters.date) {
         const targetDate = new Date(filters.date);
@@ -33,8 +38,14 @@ async function getAttendanceDataForExport(filters) {
             where.date.lte = toDate;
         }
     }
+
     const attendances = await prisma.attendance.findMany({
-        where,
+        where: {
+            ...where,
+            ...(Object.keys(employeeWhere).length && {
+                employee: employeeWhere
+            })
+        },
         include: {
             employee: {
                 select: {
@@ -43,7 +54,13 @@ async function getAttendanceDataForExport(filters) {
                     email: true,
                     phone: true,
                     teamId: true,
-                    isTeamLeader: true
+                    isTeamLeader: true,
+                    role: true
+                }
+            },
+            sessions: {
+                orderBy: {
+                    clockIn: 'asc'
                 }
             }
         },
@@ -52,29 +69,77 @@ async function getAttendanceDataForExport(filters) {
             { createdAt: 'desc' }
         ]
     });
-    return attendances.map(attendance => ({
-        employeeId: attendance.employee.employeeId,
-        employeeName: attendance.employee.name,
-        email: attendance.employee.email,
-        phone: attendance.employee.phone,
-        teamId: attendance.employee.teamId,
-        isTeamLeader: attendance.employee.isTeamLeader,
-        date: attendance.date.toISOString().split('T')[0],
-        clockIn: attendance.clockIn?.toISOString(),
-        clockOut: attendance.clockOut?.toISOString(),
-        status: attendance.status,
-        source: attendance.source,
-        location: attendance.location,
-        latitude: attendance.latitude ? Number(attendance.latitude) : undefined,
-        longitude: attendance.longitude ? Number(attendance.longitude) : undefined,
-        ipAddress: attendance.ipAddress,
-        deviceInfo: attendance.deviceInfo,
-        locked: attendance.locked,
-        lockedReason: attendance.lockedReason,
-        attemptCount: attendance.attemptCount,
-        createdAt: attendance.createdAt.toISOString(),
-        updatedAt: attendance.updatedAt.toISOString()
-    }));
+
+    // Flatten attendance records with sessions
+    const flattenedData = [];
+    
+    attendances.forEach(attendance => {
+        if (attendance.sessions.length > 0) {
+            // Create a record for each session
+            attendance.sessions.forEach((session, index) => {
+                flattenedData.push({
+                    employeeId: attendance.employee.employeeId,
+                    employeeName: attendance.employee.name,
+                    role: attendance.employee.role,
+                    email: attendance.employee.email,
+                    phone: attendance.employee.phone,
+                    teamId: attendance.employee.teamId,
+                    isTeamLeader: attendance.employee.isTeamLeader,
+                    date: attendance.date.toISOString().split('T')[0],
+                    status: attendance.status,
+                    approvalStatus: attendance.approvalStatus,
+                    sessionNumber: index + 1,
+                    totalSessions: attendance.sessions.length,
+                    clockIn: session.clockIn?.toISOString(),
+                    clockOut: session.clockOut?.toISOString(),
+                    location: session.location || attendance.location,
+                    deviceInfo: session.deviceInfo || attendance.deviceInfo,
+                    ipAddress: session.ipAddress || attendance.ipAddress,
+                    source: attendance.source,
+                    createdAt: attendance.createdAt.toISOString(),
+                    sessionCreatedAt: session.createdAt.toISOString(),
+                    latitude: attendance.latitude ? Number(attendance.latitude) : undefined,
+                    longitude: attendance.longitude ? Number(attendance.longitude) : undefined,
+                    locked: attendance.locked,
+                    lockedReason: attendance.lockedReason,
+                    attemptCount: attendance.attemptCount,
+                    updatedAt: attendance.updatedAt.toISOString()
+                });
+            });
+        } else {
+            // Fallback to legacy clockIn/clockOut if no sessions
+            flattenedData.push({
+                employeeId: attendance.employee.employeeId,
+                employeeName: attendance.employee.name,
+                role: attendance.employee.role,
+                email: attendance.employee.email,
+                phone: attendance.employee.phone,
+                teamId: attendance.employee.teamId,
+                isTeamLeader: attendance.employee.isTeamLeader,
+                date: attendance.date.toISOString().split('T')[0],
+                status: attendance.status,
+                approvalStatus: attendance.approvalStatus,
+                sessionNumber: 1,
+                totalSessions: 1,
+                clockIn: attendance.clockIn?.toISOString(),
+                clockOut: attendance.clockOut?.toISOString(),
+                location: attendance.location,
+                deviceInfo: attendance.deviceInfo,
+                ipAddress: attendance.ipAddress,
+                source: attendance.source,
+                createdAt: attendance.createdAt.toISOString(),
+                sessionCreatedAt: attendance.createdAt.toISOString(),
+                latitude: attendance.latitude ? Number(attendance.latitude) : undefined,
+                longitude: attendance.longitude ? Number(attendance.longitude) : undefined,
+                locked: attendance.locked,
+                lockedReason: attendance.lockedReason,
+                attemptCount: attendance.attemptCount,
+                updatedAt: attendance.updatedAt.toISOString()
+            });
+        }
+    });
+
+    return flattenedData;
 }
 // Helper function to calculate work hours
 function calculateWorkHours(clockIn, clockOut) {
@@ -99,6 +164,27 @@ function calculateWorkHours(clockIn, clockOut) {
         overtime: overtimeMinutes > 0 ? format(overtimeMinutes) : '0h 0m'
     };
 }
+
+// Helper function to calculate session duration
+function calculateSessionDuration(clockIn, clockOut) {
+    if (!clockIn) return '-';
+    
+    const start = new Date(clockIn);
+    const end = clockOut ? new Date(clockOut) : new Date();
+    const diffMs = end.getTime() - start.getTime();
+    
+    if (diffMs <= 0) return '-';
+    
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    
+    if (!clockOut) {
+        return `${hours}h ${minutes}m (Active)`;
+    }
+    
+    return `${hours}h ${minutes}m`;
+}
 export const exportAttendanceToExcel = async (req, res) => {
     try {
         const filters = {
@@ -106,26 +192,30 @@ export const exportAttendanceToExcel = async (req, res) => {
             dateTo: req.query.dateTo,
             date: req.query.date,
             employeeId: req.query.employeeId,
-            status: req.query.status
+            status: req.query.status,
+            role: req.query.role
         };
         const attendanceData = await getAttendanceDataForExport(filters);
         // Create a new workbook
         const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Attendance Report');
+        const worksheet = workbook.addWorksheet('Attendance Sessions');
         // Set up the header row
         const headers = [
             'Employee ID',
             'Employee Name',
+            'Role',
             'Email',
             'Phone',
             'Team ID',
             'Team Leader',
             'Date',
             'Status',
+            'Approval Status',
+            'Session #',
+            'Total Sessions',
             'Clock In',
             'Clock Out',
-            'Work Hours',
-            'Overtime',
+            'Session Duration',
             'Location',
             'Device Info',
             'IP Address',
@@ -151,20 +241,23 @@ export const exportAttendanceToExcel = async (req, res) => {
         });
         // Add data rows
         attendanceData.forEach((record) => {
-            const workHours = calculateWorkHours(record.clockIn, record.clockOut);
+            const sessionDuration = calculateSessionDuration(record.clockIn, record.clockOut);
             const row = worksheet.addRow([
                 record.employeeId,
                 record.employeeName,
+                record.role || '',
                 record.email,
                 record.phone || '',
                 record.teamId || '',
                 record.isTeamLeader ? 'Yes' : 'No',
                 record.date,
                 record.status,
+                record.approvalStatus || 'PENDING',
+                record.sessionNumber,
+                record.totalSessions,
                 record.clockIn ? new Date(record.clockIn).toLocaleTimeString() : '-',
-                record.clockOut ? new Date(record.clockOut).toLocaleTimeString() : '-',
-                workHours.worked,
-                workHours.overtime,
+                record.clockOut ? new Date(record.clockOut).toLocaleTimeString() : 'Active',
+                sessionDuration,
                 record.location || '',
                 record.deviceInfo || '',
                 record.ipAddress || '',
@@ -181,7 +274,7 @@ export const exportAttendanceToExcel = async (req, res) => {
                 };
             });
             // Color code status
-            const statusCell = row.getCell(8); // Status column
+            const statusCell = row.getCell(9); // Status column
             switch (record.status) {
                 case 'PRESENT':
                     statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E8F5E8' } };
@@ -193,33 +286,76 @@ export const exportAttendanceToExcel = async (req, res) => {
                     statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F8D7DA' } };
                     break;
             }
-        });
-        // Auto-fit columns
-        worksheet.columns.forEach((column) => {
-            if (column && column.eachCell) {
-                let maxLength = 0;
-                column.eachCell({ includeEmpty: true }, (cell) => {
-                    const columnLength = cell.value ? cell.value.toString().length : 10;
-                    if (columnLength > maxLength) {
-                        maxLength = columnLength;
-                    }
-                });
-                column.width = Math.min(maxLength + 2, 50); // Max width of 50
+            // Highlight multiple sessions
+            if (record.totalSessions > 1) {
+                const sessionCell = row.getCell(11); // Session # column
+                sessionCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E3F2FD' } };
             }
         });
-        // Add summary at the top
+
+        // Add summary sheet
+        const summarySheet = workbook.addWorksheet('Summary');
+        
+        // Calculate summary statistics
+        const uniqueAttendances = new Map();
+        attendanceData.forEach(r => {
+            const key = `${r.employeeId}-${r.date}`;
+            if (!uniqueAttendances.has(key)) {
+                uniqueAttendances.set(key, r);
+            }
+        });
+
+        const stats = {
+            totalRecords: attendanceData.length,
+            totalSessions: attendanceData.length,
+            uniqueAttendances: uniqueAttendances.size,
+            present: Array.from(uniqueAttendances.values()).filter(r => r.status === 'PRESENT').length,
+            late: Array.from(uniqueAttendances.values()).filter(r => r.status === 'LATE').length,
+            absent: Array.from(uniqueAttendances.values()).filter(r => r.status === 'ABSENT').length,
+            multipleSessionDays: attendanceData.filter(r => r.totalSessions > 1).length
+        };
+
+        const summaryHeaderRow = summarySheet.addRow(['Attendance Export Summary']);
+        summaryHeaderRow.getCell(1).font = { bold: true, size: 16 };
+        summarySheet.addRow([]);
+        summarySheet.addRow(['Generated on:', new Date().toLocaleString()]);
+        summarySheet.addRow(['Total Attendance Records:', stats.uniqueAttendances]);
+        summarySheet.addRow(['Total Clock-in/out Sessions:', stats.totalSessions]);
+        summarySheet.addRow(['Present:', stats.present]);
+        summarySheet.addRow(['Late:', stats.late]);
+        summarySheet.addRow(['Absent:', stats.absent]);
+        summarySheet.addRow(['Sessions with Multiple Clock-ins:', stats.multipleSessionDays]);
+
+        // Auto-fit columns
+        [worksheet, summarySheet].forEach((ws) => {
+            ws.columns.forEach((column) => {
+                if (column && column.eachCell) {
+                    let maxLength = 0;
+                    column.eachCell({ includeEmpty: true }, (cell) => {
+                        const columnLength = cell.value ? cell.value.toString().length : 10;
+                        if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                        }
+                    });
+                    column.width = Math.min(maxLength + 2, 50); // Max width of 50
+                }
+            });
+        });
+
+        // Add summary at the top of main sheet
         worksheet.insertRow(1, []);
-        worksheet.insertRow(1, ['Attendance Report Summary']);
+        worksheet.insertRow(1, ['Attendance Sessions Report Summary']);
         worksheet.insertRow(2, [`Generated on: ${new Date().toLocaleString()}`]);
-        worksheet.insertRow(3, [`Total Records: ${attendanceData.length}`]);
-        worksheet.insertRow(4, []);
+        worksheet.insertRow(3, [`Total Sessions: ${attendanceData.length}`]);
+        worksheet.insertRow(4, [`Unique Attendance Records: ${stats.uniqueAttendances}`]);
+        worksheet.insertRow(5, []);
         // Style the summary
         const summaryRow = worksheet.getRow(1);
         summaryRow.getCell(1).font = { bold: true, size: 16 };
         const dateRow = worksheet.getRow(2);
         dateRow.getCell(1).font = { italic: true };
         // Set response headers
-        const filename = `attendance-report-${new Date().toISOString().split('T')[0]}.xlsx`;
+        const filename = `attendance-sessions-${new Date().toISOString().split('T')[0]}.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         // Write to response
@@ -290,19 +426,32 @@ function generateHTMLReport(attendanceData, filters) {
     if (filters.status) {
         filterSummary += `Status: ${filters.status}<br>`;
     }
+    if (filters.role) {
+        filterSummary += `Role: ${filters.role}<br>`;
+    }
     // Calculate statistics
+    const uniqueAttendances = new Map();
+    attendanceData.forEach(r => {
+        const key = `${r.employeeId}-${r.date}`;
+        if (!uniqueAttendances.has(key)) {
+            uniqueAttendances.set(key, r);
+        }
+    });
+
     const stats = {
-        total: attendanceData.length,
-        present: attendanceData.filter(r => r.status === 'PRESENT').length,
-        late: attendanceData.filter(r => r.status === 'LATE').length,
-        absent: attendanceData.filter(r => r.status === 'ABSENT').length
+        totalSessions: attendanceData.length,
+        uniqueAttendances: uniqueAttendances.size,
+        present: Array.from(uniqueAttendances.values()).filter(r => r.status === 'PRESENT').length,
+        late: Array.from(uniqueAttendances.values()).filter(r => r.status === 'LATE').length,
+        absent: Array.from(uniqueAttendances.values()).filter(r => r.status === 'ABSENT').length,
+        multipleSessionDays: attendanceData.filter(r => r.totalSessions > 1).length
     };
     return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Attendance Report</title>
+      <title>Attendance Sessions Report</title>
       <style>
         body {
           font-family: Arial, sans-serif;
@@ -360,11 +509,11 @@ function generateHTMLReport(attendanceData, filters) {
           width: 100%;
           border-collapse: collapse;
           margin-top: 20px;
-          font-size: 10px;
+          font-size: 9px;
         }
         th, td {
           border: 1px solid #ddd;
-          padding: 8px;
+          padding: 6px;
           text-align: left;
         }
         th {
@@ -379,6 +528,7 @@ function generateHTMLReport(attendanceData, filters) {
         .status-present { background-color: #d4edda !important; }
         .status-late { background-color: #fff3cd !important; }
         .status-absent { background-color: #f8d7da !important; }
+        .multiple-sessions { background-color: #e3f2fd !important; }
         .footer {
           margin-top: 30px;
           text-align: center;
@@ -391,9 +541,9 @@ function generateHTMLReport(attendanceData, filters) {
     </head>
     <body>
       <div class="header">
-        <h1>Employee Attendance Report</h1>
+        <h1>Employee Attendance Sessions Report</h1>
         <p>Generated on: ${currentDate}</p>
-        <p>Total Records: ${attendanceData.length}</p>
+        <p>Total Sessions: ${attendanceData.length} | Unique Attendance Records: ${stats.uniqueAttendances}</p>
       </div>
 
       <div class="summary">
@@ -410,8 +560,8 @@ function generateHTMLReport(attendanceData, filters) {
           <div class="label">Absent</div>
         </div>
         <div class="summary-item">
-          <div class="number">${stats.total}</div>
-          <div class="label">Total</div>
+          <div class="number">${stats.multipleSessionDays}</div>
+          <div class="label">Multi-Session Days</div>
         </div>
       </div>
 
@@ -427,30 +577,35 @@ function generateHTMLReport(attendanceData, filters) {
           <tr>
             <th>Employee ID</th>
             <th>Name</th>
+            <th>Role</th>
             <th>Date</th>
             <th>Status</th>
+            <th>Session #</th>
+            <th>Total Sessions</th>
             <th>Clock In</th>
             <th>Clock Out</th>
-            <th>Work Hours</th>
-            <th>Overtime</th>
+            <th>Duration</th>
             <th>Location</th>
             <th>Device</th>
           </tr>
         </thead>
         <tbody>
           ${attendanceData.map(record => {
-        const workHours = calculateWorkHours(record.clockIn, record.clockOut);
+        const sessionDuration = calculateSessionDuration(record.clockIn, record.clockOut);
         const statusClass = `status-${record.status.toLowerCase()}`;
+        const multipleSessionClass = record.totalSessions > 1 ? 'multiple-sessions' : '';
         return `
-              <tr class="${statusClass}">
+              <tr class="${statusClass} ${multipleSessionClass}">
                 <td>${record.employeeId}</td>
                 <td>${record.employeeName}</td>
+                <td>${record.role || ''}</td>
                 <td>${record.date}</td>
                 <td>${record.status}</td>
+                <td>${record.sessionNumber}</td>
+                <td>${record.totalSessions}</td>
                 <td>${record.clockIn ? new Date(record.clockIn).toLocaleTimeString() : '-'}</td>
-                <td>${record.clockOut ? new Date(record.clockOut).toLocaleTimeString() : '-'}</td>
-                <td>${workHours.worked}</td>
-                <td>${workHours.overtime}</td>
+                <td>${record.clockOut ? new Date(record.clockOut).toLocaleTimeString() : 'Active'}</td>
+                <td>${sessionDuration}</td>
                 <td>${record.location || '-'}</td>
                 <td>${record.deviceInfo || '-'}</td>
               </tr>
@@ -460,8 +615,8 @@ function generateHTMLReport(attendanceData, filters) {
       </table>
 
       <div class="footer">
-        <p>This report was generated automatically by the Employee Attendance Management System.</p>
-        <p>For questions or concerns, please contact your system administrator.</p>
+        <p>This report shows individual clock-in/clock-out sessions for each attendance record.</p>
+        <p>Multiple sessions per day are highlighted in blue. For questions, contact your system administrator.</p>
       </div>
     </body>
     </html>

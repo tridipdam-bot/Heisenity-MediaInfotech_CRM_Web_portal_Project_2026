@@ -46,6 +46,7 @@ import {
 import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch"
 import { showToast } from "@/lib/toast-utils"
 import { exportTicketsToExcel, getFilterLabel, type ExportFilters } from "@/lib/export-utils"
+import { truncateText } from "@/lib/utils"
 
 interface Ticket {
   id: string
@@ -191,7 +192,9 @@ function TicketDetailsModal({ ticket, isOpen, onClose }: TicketDetailsModalProps
           {/* Description */}
           <div>
             <Label className="text-sm font-medium text-muted-foreground">Description</Label>
-            <p className="text-sm mt-1 p-3 bg-muted rounded-md">{ticket.description}</p>
+            <div className="text-sm mt-1 p-3 bg-muted rounded-md max-h-32 overflow-y-auto">
+              <p className="whitespace-pre-wrap break-words">{ticket.description}</p>
+            </div>
           </div>
 
           {/* Customer Info */}
@@ -929,23 +932,24 @@ export function TicketTable() {
 
         {/* Tickets Table */}
         <Card className="bg-card shadow-sm border-border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50 border-b border-border">
-                <TableHead className="w-[280px] py-4 px-6 font-semibold text-foreground">Ticket Details</TableHead>
-                <TableHead className="w-[180px] py-4 px-6 font-semibold text-foreground">Customer Info</TableHead>
-                <TableHead className="w-[120px] py-4 px-6 font-semibold text-foreground">Status</TableHead>
-                <TableHead className="w-[120px] py-4 px-6 font-semibold text-foreground">Priority</TableHead>
-                <TableHead className="w-[150px] py-4 px-6 font-semibold text-foreground">Created By</TableHead>
-                <TableHead className="w-[120px] py-4 px-6 font-semibold text-foreground">Attachments</TableHead>
-                <TableHead className="w-[120px] py-4 px-6 font-semibold text-foreground">Expected Date</TableHead>
-                <TableHead className="w-[60px] py-4 px-6"></TableHead>
-              </TableRow>
-            </TableHeader>
+          <div className="overflow-x-auto">
+            <Table className="table-fixed min-w-[1400px]">
+              <TableHeader>
+                <TableRow className="bg-muted/50 border-b border-border">
+                  <TableHead className="w-[320px] py-4 px-4 font-semibold text-foreground text-left">Ticket Details</TableHead>
+                  <TableHead className="w-[200px] py-4 px-4 font-semibold text-foreground text-left">Customer Info</TableHead>
+                  <TableHead className="w-[100px] py-4 px-4 font-semibold text-foreground text-center">Status</TableHead>
+                  <TableHead className="w-[100px] py-4 px-4 font-semibold text-foreground text-center">Priority</TableHead>
+                  <TableHead className="w-[180px] py-4 px-4 font-semibold text-foreground text-left">Created By</TableHead>
+                  <TableHead className="w-[120px] py-4 px-4 font-semibold text-foreground text-center">Attachments</TableHead>
+                  <TableHead className="w-[140px] py-4 px-4 font-semibold text-foreground text-left">Expected Date</TableHead>
+                  <TableHead className="w-[60px] py-4 px-4 font-semibold text-foreground text-center">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12">
+                  <TableCell colSpan={8} className="text-center py-12">
                     <div className="flex items-center justify-center">
                       <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mr-3"></div>
                       Loading tickets...
@@ -954,7 +958,7 @@ export function TicketTable() {
                 </TableRow>
               ) : filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12">
+                  <TableCell colSpan={8} className="text-center py-12">
                     <div className="flex flex-col items-center">
                       <Ticket className="h-12 w-12 text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">No Tickets Found</h3>
@@ -980,26 +984,31 @@ export function TicketTable() {
                 filteredData.map((ticket, index) => (
                   <TableRow 
                     key={ticket.id} 
-                    className={`hover:bg-accent/50 border-b border-border ${
-                      index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
+                    className={`hover:bg-accent/30 border-b border-border/50 transition-colors ${
+                      index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
                     }`}
                   >
-                    <TableCell className="py-4 px-6">
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-sm">
-                            <Ticket className="h-6 w-6" />
+                    <TableCell className="py-3 px-4 align-top">
+                      <div className="flex items-start gap-3">
+                        <div className="relative flex-shrink-0">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                            <Ticket className="h-5 w-5" />
                           </div>
                           {getStatusIcon(ticket.status) && (
-                            <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
+                            <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 shadow-sm">
                               {getStatusIcon(ticket.status)}
                             </div>
                           )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-foreground truncate">{ticket.ticketId}</p>
-                          <p className="text-sm text-muted-foreground">{ticket.category?.name || 'Unknown Problem'}</p>
-                          <p className="text-xs text-muted-foreground line-clamp-1">{ticket.description}</p>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <p className="font-semibold text-foreground text-sm truncate">{ticket.ticketId}</p>
+                          <p className="text-xs text-muted-foreground truncate">{ticket.category?.name || 'Unknown Problem'}</p>
+                          <p 
+                            className="text-xs text-muted-foreground safe-text-clamp line-clamp-2 cursor-help leading-relaxed" 
+                            title={ticket.description}
+                          >
+                            {truncateText(ticket.description, 80)}
+                          </p>
                           {ticket._count && ticket._count.comments > 0 && (
                             <div className="flex items-center gap-1 mt-1">
                               <MessageSquare className="h-3 w-3 text-blue-600" />
@@ -1009,74 +1018,57 @@ export function TicketTable() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="py-4 px-6">
+                    <TableCell className="py-3 px-4 align-top">
                       {ticket.customerName ? (
                         <div className="space-y-1">
-                          <p className="font-medium text-foreground text-sm">{ticket.customerName}</p>
-                          <p className="text-xs text-muted-foreground">{ticket.customerId}</p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {ticket.customerPhone}
-                          </p>
+                          <p className="font-medium text-foreground text-sm truncate">{ticket.customerName}</p>
+                          <p className="text-xs text-muted-foreground truncate">{ticket.customerId}</p>
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <p className="text-xs text-muted-foreground truncate">{ticket.customerPhone}</p>
+                          </div>
                         </div>
                       ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
+                        <div className="flex items-center justify-center h-full">
+                          <span className="text-sm text-muted-foreground">-</span>
+                        </div>
                       )}
                     </TableCell>
-                    <TableCell className="py-4 px-6">
+                    <TableCell className="py-3 px-4 align-middle text-center">
                       {getStatusBadge(ticket.status)}
                     </TableCell>
-                    <TableCell className="py-4 px-6">
+                    <TableCell className="py-3 px-4 align-middle text-center">
                       {getPriorityBadge(ticket.priority)}
                     </TableCell>
-                    <TableCell className="py-4 px-6">
+                    <TableCell className="py-3 px-4 align-top">
                       {ticket.reporter ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-xs">
+                        <div className="flex items-start gap-2">
+                          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
                             {ticket.reporter.name.split(' ').map((n: string) => n[0]).join('')}
                           </div>
-                          <div>
-                            <p className="font-medium text-foreground text-sm">{ticket.reporter.name}</p>
-                            <p className="text-xs text-muted-foreground">{ticket.reporter.employeeId}</p>
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <p className="font-medium text-foreground text-sm truncate">{ticket.reporter.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{ticket.reporter.employeeId}</p>
                           </div>
                         </div>
                       ) : (
-                        <span className="text-sm text-muted-foreground">Unknown</span>
+                        <div className="flex items-center justify-center h-full">
+                          <span className="text-sm text-muted-foreground">Unknown</span>
+                        </div>
                       )}
                     </TableCell>
-                    <TableCell className="py-4 px-6">
+                    <TableCell className="py-3 px-4 align-middle text-center">
                       {ticket.attachments && ticket.attachments.length > 0 ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 px-2 hover:bg-blue-50">
-                              <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="sm" className="h-8 px-2 hover:bg-blue-50 mx-auto">
+                              <div className="flex items-center gap-1.5">
                                 <Paperclip className="h-4 w-4 text-blue-600" />
                                 <span className="text-sm font-medium text-blue-600">{ticket.attachments.length}</span>
-                                <div className="flex items-center gap-1">
-                                  {ticket.attachments.slice(0, 2).map((attachment, index) => {
-                                    const isImage = attachment.mimeType?.startsWith('image/') || 
-                                                  attachment.fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i)
-                                    return (
-                                      <div
-                                        key={index}
-                                        className="w-4 h-4 bg-blue-100 rounded flex items-center justify-center"
-                                      >
-                                        {isImage ? (
-                                          <Image className="h-2.5 w-2.5 text-blue-600" />
-                                        ) : (
-                                          <FileText className="h-2.5 w-2.5 text-blue-600" />
-                                        )}
-                                      </div>
-                                    )
-                                  })}
-                                  {ticket.attachments.length > 2 && (
-                                    <span className="text-xs text-blue-600">+{ticket.attachments.length - 2}</span>
-                                  )}
-                                </div>
                               </div>
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-64">
+                          <DropdownMenuContent align="center" className="w-64">
                             <div className="px-2 py-1.5 text-sm font-semibold text-foreground border-b">
                               Attachments ({ticket.attachments.length})
                             </div>
@@ -1119,12 +1111,14 @@ export function TicketTable() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
+                        <div className="flex items-center justify-center h-full">
+                          <span className="text-sm text-muted-foreground">-</span>
+                        </div>
                       )}
                     </TableCell>
-                    <TableCell className="py-4 px-6">
-                      <div className="text-sm">
-                        <p className="font-medium text-foreground">
+                    <TableCell className="py-3 px-4 align-top">
+                      <div className="space-y-0.5">
+                        <p className="font-medium text-foreground text-sm">
                           {ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString() : 'No due date'}
                         </p>
                         {ticket.estimatedHours && (
@@ -1132,10 +1126,10 @@ export function TicketTable() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="py-4 px-6">
+                    <TableCell className="py-3 px-4 align-middle text-center">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-accent">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -1167,6 +1161,7 @@ export function TicketTable() {
               )}
             </TableBody>
           </Table>
+          </div>
         </Card>
 
         {/* Footer */}

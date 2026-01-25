@@ -130,6 +130,11 @@ async function getAttendanceDataForExport(filters: ExportFilters) {
           isTeamLeader: true,
           role: true
         }
+      },
+      sessions: {
+        orderBy: {
+          clockIn: 'asc'
+        }
       }
     },
     orderBy: [
@@ -138,25 +143,64 @@ async function getAttendanceDataForExport(filters: ExportFilters) {
     ]
   })
 
-  return attendances.map(a => ({
-    employeeId: a.employee.employeeId,
-    employeeName: a.employee.name,
-    role: a.employee.role,
-    email: a.employee.email,
-    phone: a.employee.phone,
-    teamId: a.employee.teamId,
-    isTeamLeader: a.employee.isTeamLeader,
-    date: a.date.toISOString().split('T')[0],
-    status: a.status,
-    approvalStatus: a.approvalStatus,
-    clockIn: a.clockIn?.toISOString(),
-    clockOut: a.clockOut?.toISOString(),
-    location: a.location,
-    deviceInfo: a.deviceInfo,
-    ipAddress: a.ipAddress,
-    source: a.source,
-    createdAt: a.createdAt.toISOString()
-  }))
+  // Flatten attendance records with sessions
+  const flattenedData: any[] = []
+  
+  attendances.forEach(a => {
+    if (a.sessions.length > 0) {
+      // Create a record for each session
+      a.sessions.forEach((session, index) => {
+        flattenedData.push({
+          employeeId: a.employee.employeeId,
+          employeeName: a.employee.name,
+          role: a.employee.role,
+          email: a.employee.email,
+          phone: a.employee.phone,
+          teamId: a.employee.teamId,
+          isTeamLeader: a.employee.isTeamLeader,
+          date: a.date.toISOString().split('T')[0],
+          status: a.status,
+          approvalStatus: a.approvalStatus,
+          sessionNumber: index + 1,
+          totalSessions: a.sessions.length,
+          clockIn: session.clockIn?.toISOString(),
+          clockOut: session.clockOut?.toISOString(),
+          location: session.location || a.location,
+          deviceInfo: session.deviceInfo || a.deviceInfo,
+          ipAddress: session.ipAddress || a.ipAddress,
+          source: a.source,
+          createdAt: a.createdAt.toISOString(),
+          sessionCreatedAt: session.createdAt.toISOString()
+        })
+      })
+    } else {
+      // Fallback to legacy clockIn/clockOut if no sessions
+      flattenedData.push({
+        employeeId: a.employee.employeeId,
+        employeeName: a.employee.name,
+        role: a.employee.role,
+        email: a.employee.email,
+        phone: a.employee.phone,
+        teamId: a.employee.teamId,
+        isTeamLeader: a.employee.isTeamLeader,
+        date: a.date.toISOString().split('T')[0],
+        status: a.status,
+        approvalStatus: a.approvalStatus,
+        sessionNumber: 1,
+        totalSessions: 1,
+        clockIn: a.clockIn?.toISOString(),
+        clockOut: a.clockOut?.toISOString(),
+        location: a.location,
+        deviceInfo: a.deviceInfo,
+        ipAddress: a.ipAddress,
+        source: a.source,
+        createdAt: a.createdAt.toISOString(),
+        sessionCreatedAt: a.createdAt.toISOString()
+      })
+    }
+  })
+
+  return flattenedData
 }
 
 /* -------------------------------------------------------------------------- */
@@ -185,6 +229,26 @@ function calculateWorkHours(clockIn?: string, clockOut?: string) {
   }
 }
 
+function calculateSessionDuration(clockIn?: string, clockOut?: string) {
+  if (!clockIn) return '-'
+
+  const start = new Date(clockIn)
+  const end = clockOut ? new Date(clockOut) : new Date()
+  const diff = end.getTime() - start.getTime()
+  
+  if (diff <= 0) return '-'
+
+  const totalMin = Math.floor(diff / 60000)
+  const hours = Math.floor(totalMin / 60)
+  const minutes = totalMin % 60
+
+  if (!clockOut) {
+    return `${hours}h ${minutes}m (Active)`
+  }
+
+  return `${hours}h ${minutes}m`
+}
+
 /* -------------------------------------------------------------------------- */
 /*                              Export Controller                              */
 /* -------------------------------------------------------------------------- */
@@ -208,46 +272,109 @@ export const exportAttendanceToExcel = async (req: Request, res: Response) => {
 
     const headers = [
       'Employee ID', 'Name', 'Role', 'Date', 'Status',
-      'Approval', 'Clock In', 'Clock Out',
-      'Work Hours', 'Overtime', 'Location',
-      'Device', 'IP', 'Source'
+      'Approval', 'Session #', 'Total Sessions', 'Clock In', 'Clock Out',
+      'Session Duration', 'Location', 'Device', 'IP', 'Source'
     ]
 
     sheet.addRow(headers).eachCell(c => {
       c.font = { bold: true }
       c.alignment = { horizontal: 'center' }
+      c.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '366092' }
+      }
+      c.font = { bold: true, color: { argb: 'FFFFFF' } }
     })
 
     data.forEach(r => {
-      const hours = calculateWorkHours(r.clockIn, r.clockOut)
-      sheet.addRow([
+      const sessionDuration = calculateSessionDuration(r.clockIn, r.clockOut)
+      const row = sheet.addRow([
         r.employeeId,
         r.employeeName,
         r.role,
         r.date,
         r.status,
         r.approvalStatus,
+        r.sessionNumber,
+        r.totalSessions,
         r.clockIn ? new Date(r.clockIn).toLocaleTimeString() : '-',
-        r.clockOut ? new Date(r.clockOut).toLocaleTimeString() : '-',
-        hours.worked,
-        hours.overtime,
+        r.clockOut ? new Date(r.clockOut).toLocaleTimeString() : 'Active',
+        sessionDuration,
         r.location || '',
         r.deviceInfo || '',
         r.ipAddress || '',
         r.source
       ])
+
+      // Color code status
+      const statusCell = row.getCell(5) // Status column
+      switch (r.status) {
+        case 'PRESENT':
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E8F5E8' } }
+          break
+        case 'LATE':
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3CD' } }
+          break
+        case 'ABSENT':
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F8D7DA' } }
+          break
+      }
+
+      // Highlight multiple sessions
+      if (r.totalSessions > 1) {
+        const sessionCell = row.getCell(7) // Session # column
+        sessionCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E3F2FD' } }
+      }
     })
 
-    sheet.columns.forEach(col => {
-      if (!col || !col.eachCell) return
-      let max = 12
-      col.eachCell({ includeEmpty: true }, c => {
-        max = Math.max(max, String(c.value ?? '').length)
+    // Add summary sheet
+    const summarySheet = workbook.addWorksheet('Summary')
+    
+    // Calculate summary statistics
+    const uniqueAttendances = new Map()
+    data.forEach(r => {
+      const key = `${r.employeeId}-${r.date}`
+      if (!uniqueAttendances.has(key)) {
+        uniqueAttendances.set(key, r)
+      }
+    })
+
+    const stats = {
+      totalRecords: data.length,
+      totalSessions: data.length,
+      uniqueAttendances: uniqueAttendances.size,
+      present: Array.from(uniqueAttendances.values()).filter(r => r.status === 'PRESENT').length,
+      late: Array.from(uniqueAttendances.values()).filter(r => r.status === 'LATE').length,
+      absent: Array.from(uniqueAttendances.values()).filter(r => r.status === 'ABSENT').length,
+      multipleSessionDays: data.filter(r => r.totalSessions > 1).length
+    }
+
+    summarySheet.addRow(['Attendance Export Summary']).eachCell(c => {
+      c.font = { bold: true, size: 16 }
+    })
+    summarySheet.addRow([])
+    summarySheet.addRow(['Generated on:', new Date().toLocaleString()])
+    summarySheet.addRow(['Total Attendance Records:', stats.uniqueAttendances])
+    summarySheet.addRow(['Total Clock-in/out Sessions:', stats.totalSessions])
+    summarySheet.addRow(['Present:', stats.present])
+    summarySheet.addRow(['Late:', stats.late])
+    summarySheet.addRow(['Absent:', stats.absent])
+    summarySheet.addRow(['Sessions with Multiple Clock-ins:', stats.multipleSessionDays])
+
+    // Auto-fit columns for both sheets
+    ;[sheet, summarySheet].forEach(ws => {
+      ws.columns.forEach(col => {
+        if (!col || !col.eachCell) return
+        let max = 12
+        col.eachCell({ includeEmpty: true }, c => {
+          max = Math.max(max, String(c.value ?? '').length)
+        })
+        col.width = Math.min(max + 2, 40)
       })
-      col.width = Math.min(max + 2, 40)
     })
 
-    const filename = `attendance-${new Date().toISOString().split('T')[0]}.xlsx`
+    const filename = `attendance-sessions-${new Date().toISOString().split('T')[0]}.xlsx`
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
