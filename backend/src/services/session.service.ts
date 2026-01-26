@@ -5,7 +5,8 @@ export class SessionService {
   // Create a new session
   async createSession(userId: string, userType: 'ADMIN' | 'EMPLOYEE', deviceInfo?: string, ipAddress?: string) {
     const sessionToken = randomBytes(32).toString('hex')
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
 
     const sessionData: any = {
       sessionToken,
