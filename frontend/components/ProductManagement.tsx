@@ -29,10 +29,7 @@ import {
   ArrowLeft,
   Save,
   X,
-  QrCode,
-  History,
-  User,
-  Calendar
+  QrCode
 } from "lucide-react"
 
 interface Product {
@@ -42,6 +39,9 @@ interface Product {
   description?: string
   boxQty: number
   totalUnits: number
+  unitPrice?: number
+  supplier?: string
+  status: string
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -72,26 +72,6 @@ const getStockStatus = (totalUnits: number) => {
   if (totalUnits === 0) return "out_of_stock"
   if (totalUnits <= 10) return "low_stock" // Fixed threshold of 10 units
   return "in_stock"
-}
-
-const getStatusBadge = (status: string) => {
-  const variants = {
-    in_stock: "bg-green-50 text-green-700 border-green-200",
-    low_stock: "bg-amber-50 text-amber-700 border-amber-200",
-    out_of_stock: "bg-red-50 text-red-700 border-red-200"
-  }
-  
-  const labels = {
-    in_stock: "In Stock",
-    low_stock: "Low Stock",
-    out_of_stock: "Out of Stock"
-  }
-  
-  return (
-    <Badge className={`${variants[status as keyof typeof variants]} font-medium`}>
-      {labels[status as keyof typeof labels]}
-    </Badge>
-  )
 }
 
 export function ProductManagement() {
@@ -128,7 +108,10 @@ export function ProductManagement() {
     productName: "",
     description: "",
     boxQty: "",
-    totalUnits: ""
+    totalUnits: "",
+    unitPrice: "",
+    supplier: "",
+    status: "ACTIVE"
   })
 
   const fetchProducts = React.useCallback(async () => {
@@ -250,7 +233,10 @@ export function ProductManagement() {
       productName: "",
       description: "",
       boxQty: "",
-      totalUnits: ""
+      totalUnits: "",
+      unitPrice: "",
+      supplier: "",
+      status: "ACTIVE"
     })
     setEditingProduct(null)
   }
@@ -280,7 +266,10 @@ export function ProductManagement() {
         productName: formData.productName,
         description: formData.description || undefined,
         boxQty: parseInt(formData.boxQty),
-        totalUnits: parseInt(formData.totalUnits)
+        totalUnits: parseInt(formData.totalUnits),
+        unitPrice: formData.unitPrice ? parseFloat(formData.unitPrice) : undefined,
+        supplier: formData.supplier || undefined,
+        status: formData.status
       }
 
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
@@ -355,7 +344,10 @@ export function ProductManagement() {
       productName: product.productName,
       description: product.description || "",
       boxQty: product.boxQty.toString(),
-      totalUnits: product.totalUnits.toString()
+      totalUnits: product.totalUnits.toString(),
+      unitPrice: product.unitPrice?.toString() || "",
+      supplier: product.supplier || "",
+      status: product.status
     })
     setIsAddProductOpen(true)
   }
@@ -557,6 +549,45 @@ export function ProductManagement() {
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="unitPrice">Unit Price</Label>
+                        <Input
+                          id="unitPrice"
+                          type="number"
+                          step="0.01"
+                          value={formData.unitPrice}
+                          onChange={(e) => setFormData(prev => ({ ...prev, unitPrice: e.target.value }))}
+                          placeholder="Price per unit"
+                          min="0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="supplier">Supplier</Label>
+                        <Input
+                          id="supplier"
+                          value={formData.supplier}
+                          onChange={(e) => setFormData(prev => ({ ...prev, supplier: e.target.value }))}
+                          placeholder="Supplier name"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="status">Status</Label>
+                      <select
+                        id="status"
+                        value={formData.status}
+                        onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="ACTIVE">Active</option>
+                        <option value="INACTIVE">Inactive</option>
+                        <option value="DISCONTINUED">Discontinued</option>
+                        <option value="OUT_OF_STOCK">Out of Stock</option>
+                      </select>
+                    </div>
+
                     <div className="flex justify-end gap-3 pt-4">
                       <Button 
                         type="button" 
@@ -641,24 +672,24 @@ export function ProductManagement() {
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50/80 border-b border-gray-200">
-                <TableHead className="w-[320px] py-4 px-6 font-semibold text-gray-700">Product Details</TableHead>
+                <TableHead className="w-[280px] py-4 px-6 font-semibold text-gray-700">Product Details</TableHead>
                 <TableHead className="w-[120px] py-4 px-6 font-semibold text-gray-700">Status</TableHead>
-                <TableHead className="w-[100px] py-4 px-6 font-semibold text-gray-700">Box Qty</TableHead>
-                <TableHead className="w-[120px] py-4 px-6 font-semibold text-gray-700">Total Units</TableHead>
-                <TableHead className="w-[150px] py-4 px-6 font-semibold text-gray-700">Created</TableHead>
+                <TableHead className="w-[120px] py-4 px-6 font-semibold text-gray-700">Stock Levels</TableHead>
+                <TableHead className="w-[100px] py-4 px-6 font-semibold text-gray-700">Unit Price</TableHead>
+                <TableHead className="w-[120px] py-4 px-6 font-semibold text-gray-700">Total Value</TableHead>
+                <TableHead className="w-[150px] py-4 px-6 font-semibold text-gray-700">Supplier</TableHead>
                 <TableHead className="w-[60px] py-4 px-6"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredProducts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     {searchTerm || selectedStatus !== "all" ? "No products found matching your criteria" : "No products available"}
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredProducts.map((product, index) => {
-                  const status = getStockStatus(product.totalUnits)
                   return (
                     <TableRow 
                       key={product.id} 
@@ -688,14 +719,21 @@ export function ProductManagement() {
                         </div>
                       </TableCell>
                       <TableCell className="py-4 px-6">
-                        {getStatusBadge(status)}
-                      </TableCell>
-                      <TableCell className="py-4 px-6">
-                        <span className="font-semibold text-gray-900">{product.boxQty}</span>
+                        <Badge className={`${
+                          product.status === 'ACTIVE' ? 'bg-green-50 text-green-700 border-green-200' :
+                          product.status === 'INACTIVE' ? 'bg-gray-50 text-gray-700 border-gray-200' :
+                          product.status === 'DISCONTINUED' ? 'bg-red-50 text-red-700 border-red-200' :
+                          'bg-amber-50 text-amber-700 border-amber-200'
+                        } font-medium`}>
+                          {product.status}
+                        </Badge>
                       </TableCell>
                       <TableCell className="py-4 px-6">
                         <div className="space-y-1">
-                          <span className="font-semibold text-gray-900">{product.totalUnits}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900">{product.totalUnits}</span>
+                            <span className="text-xs text-gray-500">/ {product.boxQty} per box</span>
+                          </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div 
                               className={`h-2 rounded-full ${
@@ -713,11 +751,26 @@ export function ProductManagement() {
                         </div>
                       </TableCell>
                       <TableCell className="py-4 px-6">
+                        <div className="text-sm">
+                          {product.unitPrice ? (
+                            <span className="font-semibold text-gray-900">₹{product.unitPrice.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4 px-6">
+                        <div className="text-sm">
+                          {product.unitPrice ? (
+                            <span className="font-semibold text-gray-900">₹{(product.unitPrice * product.totalUnits).toFixed(2)}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4 px-6">
                         <div className="text-sm text-gray-600">
-                          <p>{new Date(product.createdAt).toLocaleDateString()}</p>
-                          <p className="text-xs text-gray-400">
-                            {new Date(product.createdAt).toLocaleTimeString()}
-                          </p>
+                          {product.supplier || <span className="text-gray-400">-</span>}
                         </div>
                       </TableCell>
                       <TableCell className="py-4 px-6">

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { dailyClockIn, dailyClockOut, getDailyAttendanceStatus } from './daily-attendance.service';
 import { reEnableAttendance } from './attendance.service'
 import { prisma } from '@/lib/prisma';
+import { getTodayDate } from '@/utils/date';
 
 /**
  * =============================================================================
@@ -113,13 +114,19 @@ export const getDailyStatusController = async (req: Request, res: Response) => {
  */
 export const getRejectedAttendancesController = async (req: Request, res: Response) => {
   try {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const today = getTodayDate()
+
+    const start = today
+    const end = new Date(today)
+    end.setDate(end.getDate() + 1)
 
     const rejected = await prisma.attendance.findMany({
       where: {
         approvalStatus: 'REJECTED',
-        date: today
+        date: {
+          gte: start,
+          lt: end
+        }
       },
       include: {
         employee: {
@@ -150,6 +157,7 @@ export const getRejectedAttendancesController = async (req: Request, res: Respon
     })
   }
 }
+
 
 
 /**

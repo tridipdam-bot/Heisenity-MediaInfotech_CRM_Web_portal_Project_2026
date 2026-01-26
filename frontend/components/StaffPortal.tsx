@@ -16,7 +16,8 @@ import {
   LogOut,
   FileText,
   Car,
-  Upload
+  Upload,
+  QrCode
 } from "lucide-react"
 import { EmployeeSelfAttendance } from "./EmployeeSelfAttendance"
 import { LeaveApplicationForm } from "./LeaveApplicationForm"
@@ -25,6 +26,7 @@ import { EmployeeDocuments } from "./EmployeeDocuments"
 import { StaffTicketForm } from "./StaffTicketForm"
 import { StaffTicketList } from "./StaffTicketList"
 import { TaskCheckInOut } from "@/components/TaskCheckInOut"
+import BarcodeScanner from "@/components/barcodeScanner/BarcodeScanner"
 import { getMyFeatures, type StaffPortalFeature } from "@/lib/server-api"
 import { dayClockOut } from "@/lib/server-api"
 import { showToast, showConfirm } from "@/lib/toast-utils"
@@ -68,6 +70,7 @@ export function StaffPortal() {
   const [dayClockOutLoading, setDayClockOutLoading] = useState(false)
   const [pendingSupportRequests, setPendingSupportRequests] = useState(0)
   const [allowedFeatures, setAllowedFeatures] = useState<StaffPortalFeature[]>([])
+  const [lastScannedProduct, setLastScannedProduct] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === "loading") return
@@ -291,6 +294,12 @@ export function StaffPortal() {
     })
   }
 
+  const handleProductScan = (productId: string) => {
+    setLastScannedProduct(productId)
+    // Auto-hide notification after 5 seconds
+    setTimeout(() => setLastScannedProduct(null), 5000)
+  }
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -338,6 +347,14 @@ export function StaffPortal() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Scan notification */}
+      {lastScannedProduct && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2">
+          <QrCode className="h-4 w-4" />
+          <span className="text-sm font-medium">Product {lastScannedProduct} scanned!</span>
+        </div>
+      )}
+      
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -346,6 +363,12 @@ export function StaffPortal() {
               <h1 className="text-xl font-semibold text-gray-900">Staff Portal</h1>
             </div>
             <div className="flex items-center space-x-4">
+              {/* Barcode Scanner - Only for Field Engineers */}
+              {employeeProfile?.role === 'FIELD_ENGINEER' && (
+                <div className="flex items-center justify-center">
+                  <BarcodeScanner onScan={handleProductScan} />
+                </div>
+              )}
               <Button
                 variant="ghost"
                 size="sm"

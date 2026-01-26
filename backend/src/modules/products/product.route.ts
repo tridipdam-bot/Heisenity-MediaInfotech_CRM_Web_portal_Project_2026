@@ -1,23 +1,30 @@
 import { Router } from 'express';
-import { generateLabels, createProduct, getProducts, getProduct, updateProduct, deleteProduct, getBarcodeHistory, getBarcodePrefixes, addBarcodePrefix } from './product.controller';
+import { generateLabels, createProduct, getProducts, getProduct, updateProduct, deleteProduct, getBarcodeHistory, getBarcodePrefixes, addBarcodePrefix, lookupBarcode, createInventoryTransaction, getInventoryTransactions } from './product.controller';
 
 const router = Router();
 
-// Product CRUD routes
+// Barcode prefix management routes (specific routes first)
+router.get('/barcode-prefixes/list', getBarcodePrefixes);
+router.post('/barcode-prefixes/add', addBarcodePrefix);
+
+// Barcode lookup route for scanner
+router.get('/barcode/:barcodeValue', lookupBarcode);
+
+// Inventory transaction routes (specific routes first)
+router.post('/transactions', createInventoryTransaction);
+router.get('/transactions', getInventoryTransactions);
+
+// Barcode history route (specific routes first)
+router.get('/:productId/barcode-history', getBarcodeHistory);
+
+// Label generation route (specific routes first)
+router.post('/:productId/generate-labels', generateLabels);
+
+// Product CRUD routes (generic routes last)
 router.post('/', createProduct);
 router.get('/', getProducts);
 router.get('/:id', getProduct);
 router.put('/:id', updateProduct);
 router.delete('/:id', deleteProduct);
-
-// Barcode prefix management routes
-router.get('/barcode-prefixes/list', getBarcodePrefixes);
-router.post('/barcode-prefixes/add', addBarcodePrefix);
-
-// Barcode history route
-router.get('/:productId/barcode-history', getBarcodeHistory);
-
-// Label generation route
-router.post('/:productId/generate-labels', generateLabels);
 
 export default router;

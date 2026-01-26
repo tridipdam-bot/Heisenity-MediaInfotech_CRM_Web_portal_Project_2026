@@ -114,6 +114,7 @@ const formatTime = (dateString?: string) => {
 
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('en-US', {
+    timeZone: 'Asia/Kolkata',
     month: 'short',
     day: 'numeric',
     year: 'numeric'
@@ -186,7 +187,7 @@ export function AttendanceManagementPage() {
     status: ''
   })
   const [exportLoading, setExportLoading] = React.useState<'excel' | 'pdf' | null>(null)
-  
+
   // Edit dialog state
   const [editDialog, setEditDialog] = React.useState<{
     open: boolean
@@ -234,7 +235,7 @@ export function AttendanceManagementPage() {
 
         // Create combined data: all employees with their attendance sessions as separate rows
         const combined: AttendanceSessionRow[] = []
-        
+
         employees.forEach(employee => {
           const attendanceRecord = records.find(record => record.employeeId === employee.employeeId)
 
@@ -414,7 +415,7 @@ export function AttendanceManagementPage() {
 
     try {
       let url: string
-      
+
       // Check if this is a session update or attendance record update
       if (editDialog.record.sessionId) {
         // This is a session update - extract attendanceId from the composite ID
@@ -507,7 +508,7 @@ export function AttendanceManagementPage() {
 
   return (
     <div className="min-h-screen bg-gray-50/30">
-      
+
       {showAddForm ? (
         <AddAttendanceRecord
           onRecordAdded={handleRecordAdded}
@@ -516,581 +517,580 @@ export function AttendanceManagementPage() {
         />
       ) : (
         <div className="p-6 space-y-6">
-        {/* Header Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <h1 className="text-2xl font-bold text-gray-900">Office Attendance</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                className="border-gray-300 hover:bg-gray-50"
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="border-gray-300 hover:bg-gray-50"
-                    disabled={exportLoading !== null}
-                  >
-                    {exportLoading ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4 mr-2" />
-                    )}
-                    {exportLoading ? 'Exporting...' : 'Export to Excel'}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => handleExport()}
-                    disabled={exportLoading !== null}
-                  >
-                    <Filter className="h-4 w-4 mr-2" />
-                    Current Filter
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleExport('yesterday')}
-                    disabled={exportLoading !== null}
-                  >
-                    <Clock className="h-4 w-4 mr-2" />
-                    Yesterday
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleExport('15days')}
-                    disabled={exportLoading !== null}
-                  >
-                    <Timer className="h-4 w-4 mr-2" />
-                    Last 15 Days
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleExport('30days')}
-                    disabled={exportLoading !== null}
-                  >
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Last 30 Days
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button
-                onClick={() => setShowAddForm(true)}
-                className="bg-blue-600 hover:bg-blue-700 shadow-sm"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Office Employee
-              </Button>
-            </div>
-          </div>
-
-          <Separator className="my-4" />
-
-          {/* Status Indicators */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="text-gray-500 font-normal">
-                <Clock className="h-3 w-3 mr-1" />
-                Live
-              </Badge>
-            </div>
-
-            <div className="text-sm text-gray-500 flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              Updated: {new Date().toLocaleTimeString()}
-            </div>
-          </div>
-        </div>
-
-        {/* Analytics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Card className="bg-white shadow-sm border-gray-200 hover:shadow-md transition-shadow">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Present</CardTitle>
-                <div className="p-2 bg-green-50 rounded-lg">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
+          {/* Header Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="space-y-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-gray-900">{stats.present}</span>
-                </div>
-                <p className="text-xs text-gray-500">office employees present</p>
+                <h1 className="text-2xl font-bold text-gray-900">Office Attendance</h1>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-sm border-gray-200 hover:shadow-md transition-shadow">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-medium text-gray-600 uppercase tracking-wide">Late Arrivals</CardTitle>
-                <div className="p-2 bg-amber-50 rounded-lg">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-gray-900">{stats.late}</span>
-                </div>
-                <p className="text-xs text-gray-500">late arrivals</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-sm border-gray-200 hover:shadow-md transition-shadow">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-medium text-gray-600 uppercase tracking-wide">Absent</CardTitle>
-                <div className="p-2 bg-red-50 rounded-lg">
-                  <XCircle className="h-4 w-4 text-red-600" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-gray-900">{stats.absent}</span>
-                </div>
-                <p className="text-xs text-gray-500">office employees absent</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-sm border-gray-200 hover:shadow-md transition-shadow">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-medium text-gray-600 uppercase tracking-wide">Avg. Hours</CardTitle>
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <ClockIcon className="h-4 w-4 text-blue-600" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-gray-900">{stats.avgHours.toFixed(1)}</span>
-                </div>
-                <p className="text-xs text-gray-500">hours per day</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-sm border-gray-200 hover:shadow-md transition-shadow">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Overtime</CardTitle>
-                <div className="p-2 bg-orange-50 rounded-lg">
-                  <Timer className="h-4 w-4 text-orange-600" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-gray-900">{stats.totalOvertimeHours.toFixed(1)}</span>
-                </div>
-                <p className="text-xs text-gray-500">overtime hours</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters and Actions */}
-        <Card className="bg-white shadow-sm border-gray-200">
-          <CardContent className="p-4">
-            <div className="space-y-3">
-              {/* Main Filter Row */}
-              <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-                {/* Search Input */}
-                <div className="relative flex-1 max-w-sm">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search office employees..."
-                    className="pl-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                    value={filters.search}
-                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  />
-                </div>
-
-                {/* Status Filter */}
-                <div className="shrink-0">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="border-gray-300 hover:bg-gray-50 min-w-[100px]">
-                        <Filter className="h-4 w-4 mr-2" />
-                        <span className="flex-1 text-left">
-                          {filters.status || 'Status'}
-                        </span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-40">
-                      <DropdownMenuItem onClick={() => setFilters(prev => ({ ...prev, status: '' }))}>
-                        All Status
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setFilters(prev => ({ ...prev, status: 'PRESENT' }))}>
-                        Present
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setFilters(prev => ({ ...prev, status: 'LATE' }))}>
-                        Late
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setFilters(prev => ({ ...prev, status: 'ABSENT' }))}>
-                        Absent
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-
-              {/* Filter Summary Row */}
-              {(filters.search || filters.status) && (
-                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                  <div className="flex items-center gap-2">
-                    {filters.search && (
-                      <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
-                        Search: &quot;{filters.search}&quot;
-                        <X
-                          className="ml-1 h-3 w-3 cursor-pointer hover:text-blue-900"
-                          onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
-                        />
-                      </Badge>
-                    )}
-
-                    {filters.status && (
-                      <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
-                        {filters.status}
-                        <X
-                          className="ml-1 h-3 w-3 cursor-pointer hover:text-green-900"
-                          onClick={() => setFilters(prev => ({ ...prev, status: '' }))}
-                        />
-                      </Badge>
-                    )}
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setFilters({
-                        search: '',
-                        status: ''
-                      })
-                      setPagination(prev => ({ ...prev, page: 1 }))
-                    }}
-                    className="text-gray-500 hover:text-gray-700 h-7"
-                  >
-                    <X className="h-3 w-3 mr-1" />
-                    Clear All
-                  </Button>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <Badge variant="outline" className="text-gray-600">
-                  {combinedData.length} attendance sessions found
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Attendance Table */}
-        <Card className="bg-white shadow-sm border-gray-200 overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-              <span className="ml-2 text-gray-600">Loading attendance data...</span>
-            </div>
-          ) : error ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
-                <p className="text-red-600 font-medium">Error loading data</p>
-                <p className="text-gray-500 text-sm">{error}</p>
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
-                  className="mt-4"
+                  className="border-gray-300 hover:bg-gray-50"
                   onClick={handleRefresh}
+                  disabled={loading}
                 >
-                  Try Again
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="border-gray-300 hover:bg-gray-50"
+                      disabled={exportLoading !== null}
+                    >
+                      {exportLoading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      {exportLoading ? 'Exporting...' : 'Export to Excel'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => handleExport()}
+                      disabled={exportLoading !== null}
+                    >
+                      <Filter className="h-4 w-4 mr-2" />
+                      Current Filter
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleExport('yesterday')}
+                      disabled={exportLoading !== null}
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Yesterday
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleExport('15days')}
+                      disabled={exportLoading !== null}
+                    >
+                      <Timer className="h-4 w-4 mr-2" />
+                      Last 15 Days
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleExport('30days')}
+                      disabled={exportLoading !== null}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Last 30 Days
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  onClick={() => setShowAddForm(true)}
+                  className="bg-blue-600 hover:bg-blue-700 shadow-sm"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Office Employee
                 </Button>
               </div>
             </div>
-          ) : combinedData.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600 font-medium">No attendance sessions found</p>
-                <p className="text-gray-500 text-sm">Try adjusting your filters</p>
+
+            <Separator className="my-4" />
+
+            {/* Status Indicators */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="text-gray-500 font-normal">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Live
+                </Badge>
+              </div>
+
+              <div className="text-sm text-gray-500 flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                Updated: {new Date().toLocaleTimeString()}
               </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table className="min-w-full">
-                <TableHeader>
-                  <TableRow className="bg-gray-50/80 border-b border-gray-200">
-                    <TableHead className="w-[280px] py-4 px-6 font-semibold text-gray-700">Employee</TableHead>
-                    <TableHead className="w-[100px] py-4 px-6 font-semibold text-gray-700">Date</TableHead>
-                    <TableHead className="w-[80px] py-4 px-6 font-semibold text-gray-700">Session</TableHead>
-                    <TableHead className="w-[100px] py-4 px-6 font-semibold text-gray-700">Status</TableHead>
-                    <TableHead className="w-[120px] py-4 px-6 font-semibold text-gray-700">Clock In</TableHead>
-                    <TableHead className="w-[120px] py-4 px-6 font-semibold text-gray-700">Clock Out</TableHead>
-                    <TableHead className="w-[120px] py-4 px-6 font-semibold text-gray-700">Overtime</TableHead>
-                    <TableHead className="w-[60px] py-4 px-6 font-semibold text-gray-700">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {combinedData.map((record, index) => (
-                    <TableRow
-                      key={record.id}
-                      className={`hover:bg-gray-50/50 border-b border-gray-100 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                        } ${!record.hasAttendance ? 'opacity-60' : ''}`}
+          </div>
+
+          {/* Analytics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <Card className="bg-white shadow-sm border-gray-200 hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Present</CardTitle>
+                  <div className="p-2 bg-green-50 rounded-lg">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-gray-900">{stats.present}</span>
+                  </div>
+                  <p className="text-xs text-gray-500">office employees present</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white shadow-sm border-gray-200 hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-medium text-gray-600 uppercase tracking-wide">Late Arrivals</CardTitle>
+                  <div className="p-2 bg-amber-50 rounded-lg">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-gray-900">{stats.late}</span>
+                  </div>
+                  <p className="text-xs text-gray-500">late arrivals</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white shadow-sm border-gray-200 hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-medium text-gray-600 uppercase tracking-wide">Absent</CardTitle>
+                  <div className="p-2 bg-red-50 rounded-lg">
+                    <XCircle className="h-4 w-4 text-red-600" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-gray-900">{stats.absent}</span>
+                  </div>
+                  <p className="text-xs text-gray-500">office employees absent</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white shadow-sm border-gray-200 hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-medium text-gray-600 uppercase tracking-wide">Avg. Hours</CardTitle>
+                  <div className="p-2 bg-blue-50 rounded-lg">
+                    <ClockIcon className="h-4 w-4 text-blue-600" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-gray-900">{stats.avgHours.toFixed(1)}</span>
+                  </div>
+                  <p className="text-xs text-gray-500">hours per day</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white shadow-sm border-gray-200 hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Overtime</CardTitle>
+                  <div className="p-2 bg-orange-50 rounded-lg">
+                    <Timer className="h-4 w-4 text-orange-600" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-gray-900">{stats.totalOvertimeHours.toFixed(1)}</span>
+                  </div>
+                  <p className="text-xs text-gray-500">overtime hours</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters and Actions */}
+          <Card className="bg-white shadow-sm border-gray-200">
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                {/* Main Filter Row */}
+                <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                  {/* Search Input */}
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search office employees..."
+                      className="pl-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                      value={filters.search}
+                      onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    />
+                  </div>
+
+                  {/* Status Filter */}
+                  <div className="shrink-0">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="border-gray-300 hover:bg-gray-50 min-w-[100px]">
+                          <Filter className="h-4 w-4 mr-2" />
+                          <span className="flex-1 text-left">
+                            {filters.status || 'Status'}
+                          </span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-40">
+                        <DropdownMenuItem onClick={() => setFilters(prev => ({ ...prev, status: '' }))}>
+                          All Status
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setFilters(prev => ({ ...prev, status: 'PRESENT' }))}>
+                          Present
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setFilters(prev => ({ ...prev, status: 'LATE' }))}>
+                          Late
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setFilters(prev => ({ ...prev, status: 'ABSENT' }))}>
+                          Absent
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+
+                {/* Filter Summary Row */}
+                {(filters.search || filters.status) && (
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <div className="flex items-center gap-2">
+                      {filters.search && (
+                        <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+                          Search: &quot;{filters.search}&quot;
+                          <X
+                            className="ml-1 h-3 w-3 cursor-pointer hover:text-blue-900"
+                            onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
+                          />
+                        </Badge>
+                      )}
+
+                      {filters.status && (
+                        <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
+                          {filters.status}
+                          <X
+                            className="ml-1 h-3 w-3 cursor-pointer hover:text-green-900"
+                            onClick={() => setFilters(prev => ({ ...prev, status: '' }))}
+                          />
+                        </Badge>
+                      )}
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setFilters({
+                          search: '',
+                          status: ''
+                        })
+                        setPagination(prev => ({ ...prev, page: 1 }))
+                      }}
+                      className="text-gray-500 hover:text-gray-700 h-7"
                     >
-                      <TableCell className="py-4 px-6">
-                        <div className="flex items-center gap-4">
-                          <div className="relative">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm ${
-                              record.hasAttendance 
-                                ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
-                                : 'bg-gradient-to-br from-gray-400 to-gray-500'
-                            }`}>
-                              {record.employeeName.split(' ').map(n => n[0]).join('').toUpperCase()}
-                            </div>
-                            {record.hasAttendance ? (
-                              <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5">
-                                {getStatusIcon(record.status)}
-                              </div>
-                            ) : (
-                              <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5">
-                                <XCircle className="h-4 w-4 text-gray-400" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-gray-900 truncate">{record.employeeName}</p>
-                            <p className="text-xs text-gray-500 font-medium">{record.employeeId}</p>
-                            <p className="text-xs text-gray-400">{record.email}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-900">
-                            {formatDate(record.date)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 px-6">
-                        {record.sessionNumber ? (
-                          <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
-                            #{record.sessionNumber}
-                          </Badge>
-                        ) : (
-                          <span className="text-gray-400 text-sm">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(record.status)}
-                          {getStatusBadge(record.status)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <ClockIcon className="h-4 w-4 text-green-600" />
-                          <span className="text-sm font-semibold text-green-600">
-                            {record.hasAttendance && record.clockIn ? formatTime(record.clockIn) : '-'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <ClockIcon className="h-4 w-4 text-orange-600" />
-                          <span className="text-sm font-semibold text-orange-600">
-                            {record.hasAttendance && record.clockOut ? formatTime(record.clockOut) :
-                              (record.hasAttendance && record.clockIn ? 'Working...' : '-')}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 px-6">
-                        {(() => {
-                          const time = record.hasAttendance
-                            ? calculateWorkHours(record.clockIn, record.clockOut)
-                            : { worked: '-', overtime: '-' }
+                      <X className="h-3 w-3 mr-1" />
+                      Clear All
+                    </Button>
+                  </div>
+                )}
 
-                          return (
-                            <div className="flex items-center gap-2">
-                              <Timer className="h-4 w-4 text-orange-600" />
-                              <span
-                                className={`text-sm font-semibold ${time.overtime !== '0h 0m' && time.overtime !== '-' ? 'text-red-600' : 'text-gray-500'
-                                  }`}
-                              >
-                                {time.overtime}
-                              </span>
-                            </div>
-                          )
-                        })()}
-                      </TableCell>
-                      <TableCell className="py-4 px-6">
-                        {record.hasAttendance && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleEditAttendance(record)}>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit Times
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </TableCell>
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="text-gray-600">
+                    {combinedData.length} attendance sessions found
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Attendance Table */}
+          <Card className="bg-white shadow-sm border-gray-200 overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <span className="ml-2 text-gray-600">Loading attendance data...</span>
+              </div>
+            ) : error ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
+                  <p className="text-red-600 font-medium">Error loading data</p>
+                  <p className="text-gray-500 text-sm">{error}</p>
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={handleRefresh}
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              </div>
+            ) : combinedData.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-600 font-medium">No attendance sessions found</p>
+                  <p className="text-gray-500 text-sm">Try adjusting your filters</p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table className="min-w-full">
+                  <TableHeader>
+                    <TableRow className="bg-gray-50/80 border-b border-gray-200">
+                      <TableHead className="w-[280px] py-4 px-6 font-semibold text-gray-700">Employee</TableHead>
+                      <TableHead className="w-[100px] py-4 px-6 font-semibold text-gray-700">Date</TableHead>
+                      <TableHead className="w-[80px] py-4 px-6 font-semibold text-gray-700">Session</TableHead>
+                      <TableHead className="w-[100px] py-4 px-6 font-semibold text-gray-700">Status</TableHead>
+                      <TableHead className="w-[120px] py-4 px-6 font-semibold text-gray-700">Clock In</TableHead>
+                      <TableHead className="w-[120px] py-4 px-6 font-semibold text-gray-700">Clock Out</TableHead>
+                      <TableHead className="w-[120px] py-4 px-6 font-semibold text-gray-700">Overtime</TableHead>
+                      <TableHead className="w-[60px] py-4 px-6 font-semibold text-gray-700">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {combinedData.map((record, index) => (
+                      <TableRow
+                        key={record.id}
+                        className={`hover:bg-gray-50/50 border-b border-gray-100 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                          } ${!record.hasAttendance ? 'opacity-60' : ''}`}
+                      >
+                        <TableCell className="py-4 px-6">
+                          <div className="flex items-center gap-4">
+                            <div className="relative">
+                              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm ${record.hasAttendance
+                                ? 'bg-gradient-to-br from-blue-500 to-blue-600'
+                                : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                                }`}>
+                                {record.employeeName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                              </div>
+                              {record.hasAttendance ? (
+                                <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5">
+                                  {getStatusIcon(record.status)}
+                                </div>
+                              ) : (
+                                <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5">
+                                  <XCircle className="h-4 w-4 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-gray-900 truncate">{record.employeeName}</p>
+                              <p className="text-xs text-gray-500 font-medium">{record.employeeId}</p>
+                              <p className="text-xs text-gray-400">{record.email}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm text-gray-900">
+                              {formatDate(record.date)}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          {record.sessionNumber ? (
+                            <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+                              #{record.sessionNumber}
+                            </Badge>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(record.status)}
+                            {getStatusBadge(record.status)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            <ClockIcon className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-semibold text-green-600">
+                              {record.hasAttendance && record.clockIn ? formatTime(record.clockIn) : '-'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            <ClockIcon className="h-4 w-4 text-orange-600" />
+                            <span className="text-sm font-semibold text-orange-600">
+                              {record.hasAttendance && record.clockOut ? formatTime(record.clockOut) :
+                                (record.hasAttendance && record.clockIn ? 'Working...' : '-')}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          {(() => {
+                            const time = record.hasAttendance
+                              ? calculateWorkHours(record.clockIn, record.clockOut)
+                              : { worked: '-', overtime: '-' }
 
-        {/* Footer */}
-        {!loading && !error && combinedData.length > 0 && (
-          <div className="flex items-center justify-between text-sm text-gray-500 bg-white rounded-lg p-4 border border-gray-200">
-            <div>
-              Showing {combinedData.length} attendance sessions from {stats.total} office employees
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pagination.page <= 1}
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-              >
-                Previous
-              </Button>
-              <div className="flex items-center gap-1">
+                            return (
+                              <div className="flex items-center gap-2">
+                                <Timer className="h-4 w-4 text-orange-600" />
+                                <span
+                                  className={`text-sm font-semibold ${time.overtime !== '0h 0m' && time.overtime !== '-' ? 'text-red-600' : 'text-gray-500'
+                                    }`}
+                                >
+                                  {time.overtime}
+                                </span>
+                              </div>
+                            )
+                          })()}
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          {record.hasAttendance && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEditAttendance(record)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit Times
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </Card>
+
+          {/* Footer */}
+          {!loading && !error && combinedData.length > 0 && (
+            <div className="flex items-center justify-between text-sm text-gray-500 bg-white rounded-lg p-4 border border-gray-200">
+              <div>
+                Showing {combinedData.length} attendance sessions from {stats.total} office employees
+              </div>
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-blue-50 text-blue-600 border-blue-200"
+                  disabled={pagination.page <= 1}
+                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
                 >
-                  {pagination.page}
+                  Previous
                 </Button>
-                {pagination.totalPages > 1 && (
-                  <>
-                    {pagination.page < pagination.totalPages && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                      >
-                        {pagination.page + 1}
-                      </Button>
-                    )}
-                    {pagination.page < pagination.totalPages - 1 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 2 }))}
-                      >
-                        {pagination.page + 2}
-                      </Button>
-                    )}
-                  </>
-                )}
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-blue-50 text-blue-600 border-blue-200"
+                  >
+                    {pagination.page}
+                  </Button>
+                  {pagination.totalPages > 1 && (
+                    <>
+                      {pagination.page < pagination.totalPages && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                        >
+                          {pagination.page + 1}
+                        </Button>
+                      )}
+                      {pagination.page < pagination.totalPages - 1 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 2 }))}
+                        >
+                          {pagination.page + 2}
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pagination.page >= pagination.totalPages}
+                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                >
+                  Next
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pagination.page >= pagination.totalPages}
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-              >
-                Next
-              </Button>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
       )}
 
-    {/* Edit Attendance Dialog */}
-    <Dialog open={editDialog.open} onOpenChange={(open) => {
-      if (!open) {
-        setEditDialog({ open: false, record: null, clockIn: '', clockOut: '', loading: false })
-      }
-    }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Edit Attendance Times</DialogTitle>
-        </DialogHeader>
-        {editDialog.record && (
-          <div className="space-y-4">
-            <div className="text-sm text-gray-600">
-              <p><strong>Employee:</strong> {editDialog.record?.employeeName}</p>
-              <p><strong>Date:</strong> {editDialog.record ? formatDate(editDialog.record.date) : ''}</p>
-              {editDialog.record?.sessionNumber && (
-                <p><strong>Session:</strong> #{editDialog.record.sessionNumber}</p>
-              )}
-            </div>
-            
+      {/* Edit Attendance Dialog */}
+      <Dialog open={editDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          setEditDialog({ open: false, record: null, clockIn: '', clockOut: '', loading: false })
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Attendance Times</DialogTitle>
+          </DialogHeader>
+          {editDialog.record && (
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="clockIn">Clock In Time</Label>
-                <Input
-                  id="clockIn"
-                  type="datetime-local"
-                  value={editDialog.clockIn}
-                  onChange={(e) => setEditDialog(prev => ({ ...prev, clockIn: e.target.value }))}
-                  className="mt-1"
-                />
+              <div className="text-sm text-gray-600">
+                <p><strong>Employee:</strong> {editDialog.record?.employeeName}</p>
+                <p><strong>Date:</strong> {editDialog.record ? formatDate(editDialog.record.date) : ''}</p>
+                {editDialog.record?.sessionNumber && (
+                  <p><strong>Session:</strong> #{editDialog.record.sessionNumber}</p>
+                )}
               </div>
-              
-              <div>
-                <Label htmlFor="clockOut">Clock Out Time</Label>
-                <Input
-                  id="clockOut"
-                  type="datetime-local"
-                  value={editDialog.clockOut}
-                  onChange={(e) => setEditDialog(prev => ({ ...prev, clockOut: e.target.value }))}
-                  className="mt-1"
-                />
-              </div>
-            </div>
-            
-            <div className="flex gap-2 pt-4">
-              <Button
-                onClick={handleSaveEdit}
-                disabled={editDialog.loading}
-                className="flex-1"
-              >
-                {editDialog.loading ? 'Saving...' : 'Save Changes'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setEditDialog({ open: false, record: null, clockIn: '', clockOut: '', loading: false })}
-                disabled={editDialog.loading}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
 
-  </div>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="clockIn">Clock In Time</Label>
+                  <Input
+                    id="clockIn"
+                    type="datetime-local"
+                    value={editDialog.clockIn}
+                    onChange={(e) => setEditDialog(prev => ({ ...prev, clockIn: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="clockOut">Clock Out Time</Label>
+                  <Input
+                    id="clockOut"
+                    type="datetime-local"
+                    value={editDialog.clockOut}
+                    onChange={(e) => setEditDialog(prev => ({ ...prev, clockOut: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  onClick={handleSaveEdit}
+                  disabled={editDialog.loading}
+                  className="flex-1"
+                >
+                  {editDialog.loading ? 'Saving...' : 'Save Changes'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setEditDialog({ open: false, record: null, clockIn: '', clockOut: '', loading: false })}
+                  disabled={editDialog.loading}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+    </div>
   )
 }

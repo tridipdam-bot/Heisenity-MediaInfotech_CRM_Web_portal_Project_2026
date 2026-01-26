@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getTodayDate } from "@/utils/date";
+import { getDateAtMidnight, getTodayDate } from "@/utils/date";
 import { getDeviceInfo } from "@/utils/deviceinfo";
 import { VehicleService } from "../vehicles/vehicle.service";
 import { NotificationService } from "../../notifications/notification.service";
@@ -63,12 +63,16 @@ export async function dailyClockIn(data: DailyClockInData): Promise<DailyAttenda
     const deviceInfo = getDeviceInfo(data.userAgent);
     const deviceString = `${deviceInfo.os} - ${deviceInfo.browser} - ${deviceInfo.device}`;
 
-    // 1️⃣ Check if attendance already exists for today
-    let attendance = await prisma.attendance.findUnique({
+    const start = today
+    const end = new Date(today)
+    end.setDate(end.getDate() + 1)
+
+    let attendance = await prisma.attendance.findFirst({
       where: {
-        employeeId_date: {
-          employeeId: employee.id,
-          date: today
+        employeeId: employee.id,
+        date: {
+          gte: start,
+          lt: end
         }
       }
     });
@@ -146,7 +150,7 @@ export async function dailyClockIn(data: DailyClockInData): Promise<DailyAttenda
         // FIRST CLOCK-IN OF THE DAY - Store pending, don't create session yet
         await prisma.attendance.update({
           where: { id: attendance.id },
-          data: { 
+          data: {
             pendingCheckInAt: now,  // Store for admin approval
             photo: data.photo,
             location: data.locationText || attendance.location,
@@ -207,7 +211,7 @@ export async function dailyClockIn(data: DailyClockInData): Promise<DailyAttenda
             status: 'PRESENT'
           }
         });
-        
+
         if (notificationResult.success) {
           console.log('Admin notification created successfully for attendance:', attendance.id);
         } else {
@@ -262,11 +266,16 @@ export async function dailyClockOut(employeeId: string): Promise<DailyAttendance
       return { success: false, message: 'Clock-out not allowed for this role' };
     }
 
-    const attendance = await prisma.attendance.findUnique({
+    const start = today
+    const end = new Date(today)
+    end.setDate(end.getDate() + 1)
+
+    const attendance = await prisma.attendance.findFirst({
       where: {
-        employeeId_date: {
-          employeeId: employee.id,
-          date: today
+        employeeId: employee.id,
+        date: {
+          gte: start,
+          lt: end
         }
       }
     });
@@ -301,7 +310,7 @@ export async function dailyClockOut(employeeId: string): Promise<DailyAttendance
     // Update the main attendance record with the final clock-out time
     await prisma.attendance.update({
       where: { id: attendance.id },
-      data: { 
+      data: {
         clockOut: now,
         updatedAt: now
       }
@@ -317,7 +326,7 @@ export async function dailyClockOut(employeeId: string): Promise<DailyAttendance
       if (vehicleResult.success && vehicleResult.data) {
         const vehicle = vehicleResult.data;
         const unassignResult = await vehicleService.unassignVehicle(vehicle.id);
-        
+
         // Create specific notification for vehicle unassignment
         if (unassignResult.success) {
           const notificationService = new NotificationService();
@@ -389,11 +398,16 @@ export async function getDailyAttendanceStatus(employeeId: string) {
       return { success: false, message: 'Employee not found' };
     }
 
-    const attendance = await prisma.attendance.findUnique({
+    const start = today
+    const end = new Date(today)
+    end.setDate(end.getDate() + 1)
+
+    const attendance = await prisma.attendance.findFirst({
       where: {
-        employeeId_date: {
-          employeeId: employee.id,
-          date: today
+        employeeId: employee.id,
+        date: {
+          gte: start,
+          lt: end
         }
       },
       include: {
@@ -402,6 +416,7 @@ export async function getDailyAttendanceStatus(employeeId: string) {
         }
       }
     });
+
 
     if (!attendance) {
       return {
@@ -476,11 +491,10 @@ export async function approveDailyAttendance(attendanceId: string, adminId: stri
     throw new Error('Attendance is not pending');
   }
 
-  // Use pendingCheckInAt as the official clock-in time, fallback to now
   const clockInTime = attendance.pendingCheckInAt || new Date();
 
-  // Create the FIRST attendance session now that it's approved
-  // (subsequent sessions will be created directly by dailyClockIn)
+  const correctedDate = getDateAtMidnight(clockInTime)
+
   await prisma.attendanceSession.create({
     data: {
       attendanceId: attendance.id,
@@ -498,8 +512,9 @@ export async function approveDailyAttendance(attendanceId: string, adminId: stri
       approvalStatus: 'APPROVED',
       approvedBy: adminId,
       approvedAt: new Date(),
-      clockIn: clockInTime,  // NOW set the official clock-in time
-      pendingCheckInAt: null  // Clear the pending timestamp
+      clockIn: clockInTime,
+      pendingCheckInAt: null,
+      date: correctedDate
     }
   });
 

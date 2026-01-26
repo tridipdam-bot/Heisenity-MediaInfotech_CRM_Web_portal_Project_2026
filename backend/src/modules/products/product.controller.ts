@@ -6,7 +6,7 @@ import * as fs from 'fs-extra';
 
 export const createProduct = async (req: Request, res: Response) => {
   try {
-    const { sku, productName, description, boxQty, totalUnits, reorderThreshold } = req.body;
+    const { sku, productName, description, boxQty, totalUnits, reorderThreshold, unitPrice, supplier, status } = req.body;
 
     // Validate required fields
     if (!productName || boxQty === undefined || totalUnits === undefined) {
@@ -71,6 +71,9 @@ export const createProduct = async (req: Request, res: Response) => {
         boxQty: parseInt(boxQty),
         totalUnits: parseInt(totalUnits),
         reorderThreshold: reorderThreshold ? parseInt(reorderThreshold) : 0,
+        unitPrice: unitPrice ? parseFloat(unitPrice) : null,
+        supplier: supplier || null,
+        status: status || 'ACTIVE',
       }
     });
 
@@ -83,6 +86,9 @@ export const createProduct = async (req: Request, res: Response) => {
       boxQty: product.boxQty,
       totalUnits: product.totalUnits,
       reorderThreshold: product.reorderThreshold,
+      unitPrice: product.unitPrice ? parseFloat(product.unitPrice.toString()) : null,
+      supplier: product.supplier,
+      status: product.status,
       isActive: product.isActive,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt
@@ -132,6 +138,9 @@ export const getProducts = async (req: Request, res: Response) => {
       boxQty: product.boxQty,
       totalUnits: product.totalUnits,
       reorderThreshold: product.reorderThreshold,
+      unitPrice: product.unitPrice ? parseFloat(product.unitPrice.toString()) : null,
+      supplier: product.supplier,
+      status: product.status,
       isActive: product.isActive,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt
@@ -237,7 +246,7 @@ export const getProduct = async (req: Request, res: Response) => {
 export const updateProduct = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { sku, productName, description, boxQty, totalUnits, reorderThreshold } = req.body;
+    const { sku, productName, description, boxQty, totalUnits, reorderThreshold, unitPrice, supplier, status } = req.body;
 
     // Check if product exists
     const existingProduct = await prisma.product.findUnique({
@@ -263,7 +272,10 @@ export const updateProduct = async (req: Request, res: Response) => {
         ...(description !== undefined && { description }),
         ...(boxQty !== undefined && { boxQty: parseInt(boxQty) }),
         ...(totalUnits !== undefined && { totalUnits: parseInt(totalUnits) }),
-        ...(reorderThreshold !== undefined && { reorderThreshold: parseInt(reorderThreshold) })
+        ...(reorderThreshold !== undefined && { reorderThreshold: parseInt(reorderThreshold) }),
+        ...(unitPrice !== undefined && { unitPrice: unitPrice ? parseFloat(unitPrice) : null }),
+        ...(supplier !== undefined && { supplier }),
+        ...(status && { status })
       }
     });
 
@@ -276,6 +288,9 @@ export const updateProduct = async (req: Request, res: Response) => {
       boxQty: product.boxQty,
       totalUnits: product.totalUnits,
       reorderThreshold: product.reorderThreshold,
+      unitPrice: product.unitPrice ? parseFloat(product.unitPrice.toString()) : null,
+      supplier: product.supplier,
+      status: product.status,
       isActive: product.isActive,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt
@@ -619,5 +634,484 @@ export const generateLabels = async (req: Request, res: Response) => {
         message: error.message
       });
     }
+  }
+};
+
+// Create inventory transaction when barcode is scanned
+export const createInventoryTransaction = async (req: Request, res: Response) => {
+  try {
+    const { barcodeValue, transactionType, checkoutQty, returnedQty, usedQty, remarks, employeeId } = req.body;
+
+    console.log('📦 Creating inventory transaction:', {
+      barcodeValue,
+      transactionType,
+      checkoutQty,
+      returnedQty,
+      usedQty,
+      employeeId
+    });
+
+    // Validate required fields
+    if (!barcodeValue || !transactionType || !employeeId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: barcodeValue, transactionType, employeeId'
+      });
+    }
+
+    // Find the barcode
+    const barcode = await prisma.barcode.findFirst({
+      where: {
+        OR: [
+          { barcodeValue: barcodeValue },
+          { serialNumber: barcodeValue }
+        ]
+      },
+      include: {
+        product: true
+      }
+    });
+
+    if (!barcode) {
+      return res.status(404).json({
+        success: false,
+        error: 'Barcode not found in inventory'
+      });
+    }
+
+    // Validate employee exists
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId }
+    });
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found'
+      });
+    }
+
+    // Create the inventory transaction
+    const transaction = await prisma.inventoryTransaction.create({
+      data: {
+        transactionType,
+        checkoutQty: checkoutQty || 0,
+        returnedQty: returnedQty || 0,
+        usedQty: usedQty || 0,
+        remarks: remarks || null,
+        barcodeId: barcode.id,
+        productId: barcode.productId,
+        employeeId: employeeId
+      },
+      include: {
+        barcode: true,
+        product: true,
+        employee: {
+          select: {
+            id: true,
+            name: true,
+            employeeId: true
+          }
+        }
+      }
+    });
+
+    // Update barcode status if it's a checkout
+    if (transactionType === 'CHECKOUT') {
+      await prisma.barcode.update({
+        where: { id: barcode.id },
+        data: { status: 'CHECKED_OUT' }
+      });
+
+      // Create or update barcode checkout record
+      await prisma.barcodeCheckout.create({
+        data: {
+          barcodeId: barcode.id,
+          employeeId: employeeId,
+          isReturned: false
+        }
+      });
+
+      // Update or create allocation
+      const existingAllocation = await prisma.allocation.findUnique({
+        where: {
+          employeeId_productId: {
+            employeeId: employeeId,
+            productId: barcode.productId
+          }
+        }
+      });
+
+      if (existingAllocation) {
+        await prisma.allocation.update({
+          where: { id: existingAllocation.id },
+          data: {
+            allocatedUnits: existingAllocation.allocatedUnits + (checkoutQty || barcode.boxQty)
+          }
+        });
+      } else {
+        await prisma.allocation.create({
+          data: {
+            employeeId: employeeId,
+            productId: barcode.productId,
+            allocatedUnits: checkoutQty || barcode.boxQty
+          }
+        });
+      }
+    }
+
+    // Handle return transaction
+    if (transactionType === 'RETURN') {
+      await prisma.barcode.update({
+        where: { id: barcode.id },
+        data: { status: 'AVAILABLE' }
+      });
+
+      // Update barcode checkout record
+      await prisma.barcodeCheckout.updateMany({
+        where: {
+          barcodeId: barcode.id,
+          employeeId: employeeId,
+          isReturned: false
+        },
+        data: {
+          isReturned: true,
+          returnTime: new Date()
+        }
+      });
+
+      // Update allocation
+      const existingAllocation = await prisma.allocation.findUnique({
+        where: {
+          employeeId_productId: {
+            employeeId: employeeId,
+            productId: barcode.productId
+          }
+        }
+      });
+
+      if (existingAllocation) {
+        const newAllocatedUnits = Math.max(0, existingAllocation.allocatedUnits - (returnedQty || barcode.boxQty));
+        if (newAllocatedUnits === 0) {
+          await prisma.allocation.delete({
+            where: { id: existingAllocation.id }
+          });
+        } else {
+          await prisma.allocation.update({
+            where: { id: existingAllocation.id },
+            data: { allocatedUnits: newAllocatedUnits }
+          });
+        }
+      }
+    }
+
+    // Convert BigInt to string for JSON serialization
+    const serializedTransaction = {
+      id: transaction.id.toString(),
+      transactionType: transaction.transactionType,
+      checkoutQty: transaction.checkoutQty,
+      returnedQty: transaction.returnedQty,
+      usedQty: transaction.usedQty,
+      remarks: transaction.remarks,
+      createdAt: transaction.createdAt,
+      barcode: {
+        id: transaction.barcode.id.toString(),
+        barcodeValue: transaction.barcode.barcodeValue,
+        serialNumber: transaction.barcode.serialNumber,
+        status: transaction.barcode.status
+      },
+      product: {
+        id: transaction.product.id.toString(),
+        sku: transaction.product.sku,
+        productName: transaction.product.productName,
+        boxQty: transaction.barcode.boxQty
+      },
+      employee: transaction.employee
+    };
+
+    return res.status(201).json({
+      success: true,
+      data: serializedTransaction,
+      message: `${transactionType.toLowerCase()} transaction created successfully`
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error creating inventory transaction:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to create inventory transaction',
+      message: error.message
+    });
+  }
+};
+
+// Get all inventory transactions
+export const getInventoryTransactions = async (req: Request, res: Response) => {
+  try {
+    const { page = 1, limit = 50, employeeId, productId, transactionType } = req.query;
+
+    console.log('📦 Fetching inventory transactions with params:', {
+      page,
+      limit,
+      employeeId,
+      productId,
+      transactionType
+    });
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Build where clause
+    const where: any = {};
+    if (employeeId) where.employeeId = employeeId;
+    if (productId) {
+      try {
+        where.productId = BigInt(productId as string);
+      } catch (error) {
+        console.error('Invalid productId format:', productId);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid productId format'
+        });
+      }
+    }
+    if (transactionType) where.transactionType = transactionType;
+
+    console.log('📦 Query where clause:', where);
+
+    const [transactions, total] = await Promise.all([
+      prisma.inventoryTransaction.findMany({
+        where,
+        include: {
+          barcode: {
+            select: {
+              id: true,
+              barcodeValue: true,
+              serialNumber: true,
+              status: true,
+              boxQty: true
+            }
+          },
+          product: {
+            select: {
+              id: true,
+              sku: true,
+              productName: true,
+              description: true
+            }
+          },
+          employee: {
+            select: {
+              id: true,
+              name: true,
+              employeeId: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        skip,
+        take: Number(limit)
+      }),
+      prisma.inventoryTransaction.count({ where })
+    ]);
+
+    console.log('📦 Found transactions:', transactions.length);
+
+    // Convert BigInt to string for JSON serialization
+    const serializedTransactions = transactions.map(transaction => ({
+      id: transaction.id.toString(),
+      transactionType: transaction.transactionType,
+      checkoutQty: transaction.checkoutQty,
+      returnedQty: transaction.returnedQty,
+      usedQty: transaction.usedQty,
+      remarks: transaction.remarks,
+      createdAt: transaction.createdAt,
+      barcode: {
+        id: transaction.barcode.id.toString(),
+        barcodeValue: transaction.barcode.barcodeValue,
+        serialNumber: transaction.barcode.serialNumber,
+        status: transaction.barcode.status,
+        boxQty: transaction.barcode.boxQty
+      },
+      product: {
+        id: transaction.product.id.toString(),
+        sku: transaction.product.sku,
+        productName: transaction.product.productName,
+        description: transaction.product.description
+      },
+      employee: transaction.employee
+    }));
+
+    return res.json({
+      success: true,
+      data: {
+        transactions: serializedTransactions,
+        pagination: {
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit))
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error fetching inventory transactions:', error);
+    console.error('❌ Error stack:', error.stack);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch inventory transactions',
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+// Barcode lookup endpoint for scanner
+export const lookupBarcode = async (req: Request, res: Response) => {
+  try {
+    const { barcodeValue } = req.params;
+
+    console.log('🔍 Looking up barcode:', barcodeValue);
+    console.log('🔍 Barcode type:', typeof barcodeValue);
+    console.log('🔍 Barcode length:', barcodeValue?.length);
+
+    if (!barcodeValue) {
+      return res.status(400).json({
+        success: false,
+        error: 'Barcode value is required'
+      });
+    }
+
+    // First, let's check if we can connect to the database
+    try {
+      const testConnection = await prisma.$queryRaw`SELECT 1 as test`;
+      console.log('✅ Database connection successful');
+    } catch (dbError) {
+      console.error('❌ Database connection failed:', dbError);
+      return res.status(500).json({
+        success: false,
+        error: 'Database connection failed',
+        details: dbError
+      });
+    }
+
+    // Let's also check what barcodes exist in the database
+    const allBarcodes = await prisma.barcode.findMany({
+      select: {
+        barcodeValue: true,
+        serialNumber: true,
+        id: true
+      },
+      take: 10 // Just get first 10 for debugging
+    });
+    
+    console.log('📊 Sample barcodes in database:', allBarcodes.map(b => ({
+      id: b.id.toString(),
+      barcodeValue: b.barcodeValue,
+      serialNumber: b.serialNumber
+    })));
+
+    // Find the barcode in the database
+    console.log('🔍 Searching for barcode with exact match...');
+    const barcode = await prisma.barcode.findFirst({
+      where: {
+        OR: [
+          { barcodeValue: barcodeValue },
+          { serialNumber: barcodeValue }
+        ]
+      },
+      include: {
+        product: {
+          select: {
+            id: true,
+            sku: true,
+            productName: true,
+            description: true,
+            boxQty: true,
+            totalUnits: true,
+            reorderThreshold: true,
+            isActive: true
+          }
+        }
+      }
+    });
+
+    console.log('📦 Barcode lookup result:', barcode ? 'Found' : 'Not found');
+    
+    if (barcode) {
+      console.log('✅ Found barcode details:', {
+        id: barcode.id.toString(),
+        barcodeValue: barcode.barcodeValue,
+        serialNumber: barcode.serialNumber,
+        productName: barcode.product.productName
+      });
+    } else {
+      // Let's try a partial search to see if there are similar barcodes
+      console.log('🔍 Trying partial search...');
+      const partialMatches = await prisma.barcode.findMany({
+        where: {
+          OR: [
+            { barcodeValue: { contains: barcodeValue } },
+            { serialNumber: { contains: barcodeValue } }
+          ]
+        },
+        select: {
+          barcodeValue: true,
+          serialNumber: true,
+          product: {
+            select: {
+              productName: true
+            }
+          }
+        },
+        take: 5
+      });
+      
+      console.log('🔍 Partial matches found:', partialMatches);
+    }
+
+    if (!barcode) {
+      return res.status(404).json({
+        success: false,
+        error: 'Barcode not found in inventory'
+      });
+    }
+
+    // Convert BigInt to string for JSON serialization
+    const responseData = {
+      product: {
+        id: barcode.product.id.toString(),
+        sku: barcode.product.sku,
+        productName: barcode.product.productName,
+        boxQty: barcode.boxQty, // This comes from the barcode, not the product
+        description: barcode.product.description,
+        totalUnits: barcode.product.totalUnits,
+        reorderThreshold: barcode.product.reorderThreshold,
+        isActive: barcode.product.isActive
+      },
+      serialNumber: barcode.serialNumber,
+      barcodeValue: barcode.barcodeValue,
+      status: barcode.status,
+      createdAt: barcode.createdAt.toISOString()
+    };
+
+    console.log('✅ Returning barcode data for:', barcode.product.productName);
+
+    // Return the product information
+    return res.json({
+      success: true,
+      data: responseData
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error looking up barcode:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to lookup barcode',
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };

@@ -22,7 +22,6 @@ import {
 import { format, isToday, isTomorrow, isThisWeek } from "date-fns";
 import CreateMeetingDialog from "@/components/CreateMeetingDialog";
 import MeetingDetailsDialog from "@/components/MeetingDetailsDialog";
-import CalendlyIntegrationStatus from "@/components/CalendlyIntegrationStatus";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import {
@@ -274,10 +273,7 @@ export default function MeetingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Meetings & Tasks</h1>
-          <p className="text-gray-600 mt-1">
-            {meetings.length} total meetings • {todaysMeetings.length} today • {upcomingMeetings.length} upcoming
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900">Meetings</h1>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -290,31 +286,15 @@ export default function MeetingsPage() {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              const calendlyUrl = process.env.NEXT_PUBLIC_CALENDLY_URL || 'https://calendly.com/your-calendly-username';
-              window.open(calendlyUrl, '_blank', 'width=900,height=700,scrollbars=yes,resizable=yes');
-            }}
-            className="flex items-center gap-2"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Quick Calendly
-          </Button>
-          <Button onClick={() => setCreateDialogOpen(true)} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Schedule Meeting
-          </Button>
         </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview & All Meetings</TabsTrigger>
           <TabsTrigger value="today">Today&apos;s Schedule</TabsTrigger>
           <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
           <TabsTrigger value="all">Detailed View</TabsTrigger>
-          <TabsTrigger value="calendly">Calendly Sync</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -322,25 +302,7 @@ export default function MeetingsPage() {
           {/* Quick Actions Bar */}
           <Card className="bg-linear-to-r from-blue-50 to-purple-50 border-blue-200">
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">{meetings.filter(m => m.status === 'SCHEDULED').length}</div>
-                    <div className="text-xs text-gray-600">Scheduled</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">{meetings.filter(m => m.status === 'IN_PROGRESS').length}</div>
-                    <div className="text-xs text-gray-600">In Progress</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-600">{meetings.filter(m => m.status === 'COMPLETED').length}</div>
-                    <div className="text-xs text-gray-600">Completed</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600">{meetings.filter(m => m.meetingType === 'CLIENT').length}</div>
-                    <div className="text-xs text-gray-600">Client Meetings</div>
-                  </div>
-                </div>
+              <div className="flex items-center justify-end">
                 <div className="flex items-center gap-2">
                   <Button 
                     size="sm" 
@@ -375,65 +337,6 @@ export default function MeetingsPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-blue-600" />
-                  Today&apos;s Meetings
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{todaysMeetings.length}</div>
-                <p className="text-xs text-gray-500">scheduled for today</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-green-600" />
-                  Upcoming
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">{upcomingMeetings.length}</div>
-                <p className="text-xs text-gray-500">meetings scheduled</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Users className="h-4 w-4 text-purple-600" />
-                  Total Meetings
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-purple-600">{meetings.length}</div>
-                <p className="text-xs text-gray-500">all meetings</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <CheckCircle className="h-4 w-4 text-orange-600" />
-                  Active Tasks
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-orange-600">
-                  {Array.isArray(meetings) ? meetings.flatMap(meeting => 
-                    Array.isArray(meeting.tasks) ? meeting.tasks.filter(task => task.status !== 'COMPLETED') : []
-                  ).length : 0}
-                </div>
-                <p className="text-xs text-gray-500">pending tasks</p>
-              </CardContent>
-            </Card>
-          </div>
 
           {/* All Meetings Overview */}
           <Card>
@@ -581,105 +484,7 @@ export default function MeetingsPage() {
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Today&apos;s Meetings Detail */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-blue-600" />
-                  Today&apos;s Schedule
-                </CardTitle>
-                <CardDescription>
-                  {format(new Date(), 'EEEE, MMMM d, yyyy')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {todaysMeetings.length === 0 ? (
-                  <p className="text-gray-500 text-sm text-center py-4">No meetings today</p>
-                ) : (
-                  <div className="space-y-3">
-                    {Array.isArray(todaysMeetings) && todaysMeetings.slice(0, 5).map((meeting) => (
-                      <div 
-                        key={meeting.id} 
-                        className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleMeetingClick(meeting)}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="font-medium text-sm">{meeting.title}</h4>
-                          {getStatusBadge(meeting.status)}
-                        </div>
-                        <p className="text-xs text-gray-600">
-                          {format(new Date(meeting.startTime), 'h:mm a')} - {format(new Date(meeting.endTime), 'h:mm a')}
-                        </p>
-                        {meeting.customer && (
-                          <p className="text-xs text-gray-500">with {meeting.customer.name}</p>
-                        )}
-                      </div>
-                    ))}
-                    {todaysMeetings.length > 5 && (
-                      <p className="text-xs text-gray-500 text-center">+{todaysMeetings.length - 5} more meetings today</p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
-            {/* Active Tasks */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-purple-600" />
-                  Active Tasks
-                </CardTitle>
-                <CardDescription>
-                  Tasks from all meetings
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {Array.isArray(meetings) && meetings.flatMap(meeting => 
-                    Array.isArray(meeting.tasks) ? meeting.tasks.filter(task => task.status !== 'COMPLETED') : []
-                  ).length === 0 ? (
-                    <p className="text-gray-500 text-sm text-center py-4">No active tasks</p>
-                  ) : (
-                    Array.isArray(meetings) && meetings.flatMap(meeting => 
-                      Array.isArray(meeting.tasks) ? meeting.tasks.filter(task => task.status !== 'COMPLETED') : []
-                    ).slice(0, 5).map((task) => (
-                      <div key={task.id} className="p-3 border rounded-lg">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="font-medium text-sm">{task.title}</h4>
-                          <Badge className={
-                            task.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                            'bg-gray-100 text-gray-800'
-                          }>
-                            {task.status.replace('_', ' ')}
-                          </Badge>
-                        </div>
-                        {task.assignee && (
-                          <p className="text-xs text-gray-600">
-                            Assigned to: {task.assignee.name}
-                          </p>
-                        )}
-                        {task.dueDate && (
-                          <p className="text-xs text-gray-500">
-                            Due: {format(new Date(task.dueDate), 'MMM d, yyyy')}
-                          </p>
-                        )}
-                      </div>
-                    ))
-                  )}
-                  {Array.isArray(meetings) && meetings.flatMap(meeting => 
-                    Array.isArray(meeting.tasks) ? meeting.tasks.filter(task => task.status !== 'COMPLETED') : []
-                  ).length > 5 && (
-                    <p className="text-xs text-gray-500 text-center">+{meetings.flatMap(meeting => 
-                      Array.isArray(meeting.tasks) ? meeting.tasks.filter(task => task.status !== 'COMPLETED') : []
-                    ).length - 5} more active tasks</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </TabsContent>
 
         {/* Today&apos;s Schedule Tab */}
@@ -998,11 +803,6 @@ export default function MeetingsPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Calendly Sync Tab */}
-        <TabsContent value="calendly" className="space-y-4">
-          <CalendlyIntegrationStatus />
         </TabsContent>
       </Tabs>
 

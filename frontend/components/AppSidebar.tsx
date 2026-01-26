@@ -59,7 +59,7 @@ const navigationItems = [
         description: "Task tracking"
     },
     {
-        title: "Meetings & Tasks",
+        title: "Meetings",
         url: "/meetings",
         icon: Bell,
         badge: null,

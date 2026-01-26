@@ -41,6 +41,7 @@ export interface MeetingFilters {
   meetingType?: MeetingType;
   startDate?: Date;
   endDate?: Date;
+  calendly?: boolean;
 }
 
 // Create a new meeting
@@ -179,17 +180,17 @@ export const getMeetings = async (
   filters: MeetingFilters = {}
 ) => {
   const skip = (page - 1) * limit;
-  
+
   const where: any = {};
-  
+
   if (filters.organizerAdminId) {
     where.organizerAdminId = filters.organizerAdminId;
   }
-  
+
   if (filters.organizerEmployeeId) {
     where.organizerEmployeeId = filters.organizerEmployeeId;
   }
-  
+
   if (filters.attendeeId) {
     where.attendees = {
       some: {
@@ -197,19 +198,25 @@ export const getMeetings = async (
       }
     };
   }
-  
+
   if (filters.customerId) {
     where.customerId = filters.customerId;
   }
-  
+
   if (filters.status) {
     where.status = filters.status;
   }
-  
+
+  if (filters.calendly) {
+    where.calendlyMeeting = {
+      isNot: null
+    };
+  }
+
   if (filters.meetingType) {
     where.meetingType = filters.meetingType;
   }
-  
+
   if (filters.startDate || filters.endDate) {
     where.startTime = {};
     if (filters.startDate) {
@@ -388,8 +395,8 @@ export const removeAttendee = async (meetingId: string, employeeId: string) => {
 
 // Update attendee response
 export const updateAttendeeResponse = async (
-  meetingId: string, 
-  employeeId: string, 
+  meetingId: string,
+  employeeId: string,
   response: AttendeeResponse
 ) => {
   const attendee = await prisma.meetingAttendee.update({
@@ -402,8 +409,8 @@ export const updateAttendeeResponse = async (
     data: {
       response,
       status: response === AttendeeResponse.ACCEPTED ? AttendeeStatus.CONFIRMED :
-              response === AttendeeResponse.DECLINED ? AttendeeStatus.DECLINED :
-              AttendeeStatus.TENTATIVE
+        response === AttendeeResponse.DECLINED ? AttendeeStatus.DECLINED :
+          AttendeeStatus.TENTATIVE
     },
     include: {
       employee: {
@@ -423,12 +430,12 @@ export const updateAttendeeResponse = async (
 // Get upcoming meetings for an employee
 export const getUpcomingMeetings = async (employeeId: string, limit: number = 10) => {
   const now = new Date();
-  
+
   const meetings = await prisma.meeting.findMany({
     where: {
       OR: [
         { organizerEmployeeId: employeeId },
-        { 
+        {
           attendees: {
             some: {
               employeeId: employeeId
@@ -494,12 +501,12 @@ export const getTodaysMeetings = async (employeeId: string) => {
   const today = new Date();
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-  
+
   const meetings = await prisma.meeting.findMany({
     where: {
       OR: [
         { organizerEmployeeId: employeeId },
-        { 
+        {
           attendees: {
             some: {
               employeeId: employeeId

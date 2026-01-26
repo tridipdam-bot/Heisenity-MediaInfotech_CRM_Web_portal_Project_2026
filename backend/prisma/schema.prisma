@@ -979,6 +979,9 @@ model Product {
   boxQty           Int      @map("box_qty")
   totalUnits       Int      @map("total_units")
   reorderThreshold Int      @default(0) @map("reorder_threshold")
+  unitPrice        Decimal? @db.Decimal(10, 2) @map("unit_price")
+  supplier         String?
+  status           ProductStatus @default(ACTIVE)
   isActive         Boolean  @default(true) @map("is_active")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
@@ -1249,4 +1252,11 @@ enum AttendeeResponse {
   ACCEPTED
   DECLINED
   TENTATIVE
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  DISCONTINUED
+  OUT_OF_STOCK
 }

@@ -47,7 +47,7 @@ export const createMeetingController = async (req: Request, res: Response) => {
     // Validate meeting times
     const start = new Date(startTime);
     const end = new Date(endTime);
-    
+
     if (start >= end) {
       return res.status(400).json({
         success: false,
@@ -66,7 +66,7 @@ export const createMeetingController = async (req: Request, res: Response) => {
     // We need to check the session or user type to determine this
     // For now, let's assume we get this information from the request
     const { userType } = req.body; // This should come from auth middleware
-    
+
     const meetingData: CreateMeetingData = {
       title,
       description,
@@ -138,9 +138,14 @@ export const getMeetingsController = async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
-    
+
     const filters: MeetingFilters = {};
-    
+
+    if (req.query.calendly === 'true') {
+      filters.calendly = true;
+    }
+
+
     if (req.query.organizerAdminId) filters.organizerAdminId = req.query.organizerAdminId as string;
     if (req.query.organizerEmployeeId) filters.organizerEmployeeId = req.query.organizerEmployeeId as string;
     // Keep backward compatibility
@@ -192,7 +197,7 @@ export const updateMeetingController = async (req: Request, res: Response) => {
     if (updateData.startTime && updateData.endTime) {
       const start = new Date(updateData.startTime);
       const end = new Date(updateData.endTime);
-      
+
       if (start >= end) {
         return res.status(400).json({
           success: false,

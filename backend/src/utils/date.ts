@@ -26,3 +26,13 @@ export function formatDateLocal(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
+
+// returns Date objects representing UTC start and end that correspond to the provided local-midnight Date
+export function getUtcRangeForLocalDate(localMidnightDate: Date): { startUtc: Date; endUtc: Date } {
+  // localMidnightDate should be a Date at local 00:00 created with getDateAtMidnight()
+  const startUtcIso = localMidnightDate.toISOString(); // e.g. 2026-01-25T18:30:00.000Z for India
+  const startUtc = new Date(startUtcIso);
+  const endUtc = new Date(startUtc.getTime() + 24 * 60 * 60 * 1000);
+  return { startUtc, endUtc };
+}
+

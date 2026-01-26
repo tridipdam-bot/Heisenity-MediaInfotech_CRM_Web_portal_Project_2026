@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Plus, Info, AlertTriangle } from "lucide-react"
+import { Plus, Info } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { z } from "zod"
 
@@ -18,6 +18,9 @@ const StockItemSchema = z
     description: z.string().optional(),
     boxQty: z.coerce.number().int().min(0, "Units per box cannot be negative"),
     totalUnits: z.coerce.number().int().min(0, "Total units cannot be negative"),
+    unitPrice: z.coerce.number().min(0, "Unit price cannot be negative").optional(),
+    supplier: z.string().optional(),
+    status: z.enum(["ACTIVE", "INACTIVE", "DISCONTINUED", "OUT_OF_STOCK"]).default("ACTIVE"),
   })
 
 
@@ -27,6 +30,9 @@ type StockItemFormState = {
   description: string
   boxQty: string
   totalUnits: string
+  unitPrice: string
+  supplier: string
+  status: string
 }
 
 type FormErrors = Partial<Record<keyof StockItemFormState, string>>
@@ -42,6 +48,9 @@ export default function AddStockItem({ onSuccess }: AddNewStockItemProps): React
     description: "",
     boxQty: "0",
     totalUnits: "0",
+    unitPrice: "",
+    supplier: "",
+    status: "ACTIVE",
   })
 
   const [errors, setErrors] = React.useState<FormErrors>({})
@@ -87,7 +96,7 @@ export default function AddStockItem({ onSuccess }: AddNewStockItemProps): React
         throw new Error(errorData.error || 'Failed to create product')
       }
 
-      const data = await response.json()
+      const result = await response.json()
       
       toast({
         title: "Success",
@@ -101,6 +110,9 @@ export default function AddStockItem({ onSuccess }: AddNewStockItemProps): React
         description: "",
         boxQty: "0",
         totalUnits: "0",
+        unitPrice: "",
+        supplier: "",
+        status: "ACTIVE",
       })
 
       // Call success callback
@@ -117,8 +129,6 @@ export default function AddStockItem({ onSuccess }: AddNewStockItemProps): React
       setIsSubmitting(false)
     }
   }
-
-  const lowStockRisk: boolean = false // Removed reorder threshold logic
 
   return (
     <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -209,6 +219,59 @@ export default function AddStockItem({ onSuccess }: AddNewStockItemProps): React
           </div>
         </section>
 
+        {/* Pricing & Supplier */}
+        <section className="space-y-4">
+          <h3 className="font-semibold">Pricing & Supplier</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Unit Price</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                name="unitPrice"
+                placeholder="e.g. 1299.99"
+                value={form.unitPrice}
+                onChange={onChange}
+              />
+              {errors.unitPrice && (
+                <p className="text-xs text-red-600">{errors.unitPrice}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Supplier</Label>
+              <Input
+                name="supplier"
+                placeholder="e.g. TechSupply Co."
+                value={form.supplier}
+                onChange={onChange}
+              />
+              {errors.supplier && (
+                <p className="text-xs text-red-600">{errors.supplier}</p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Status */}
+        <section className="space-y-2">
+          <Label>Status</Label>
+          <select
+            name="status"
+            value={form.status}
+            onChange={onChange}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+            <option value="DISCONTINUED">Discontinued</option>
+            <option value="OUT_OF_STOCK">Out of Stock</option>
+          </select>
+          {errors.status && (
+            <p className="text-xs text-red-600">{errors.status}</p>
+          )}
+        </section>
+
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-6">
           <Button variant="outline" disabled={isSubmitting}>Cancel</Button>
@@ -244,6 +307,27 @@ export default function AddStockItem({ onSuccess }: AddNewStockItemProps): React
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Units per Box</span>
               <span className="font-medium">{form.boxQty}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Unit Price</span>
+              <span className="font-medium">{form.unitPrice ? `₹${form.unitPrice}` : "—"}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Total Value</span>
+              <span className="font-medium">
+                {form.unitPrice && form.totalUnits ? 
+                  `₹${(parseFloat(form.unitPrice) * parseInt(form.totalUnits || "0")).toFixed(2)}` : 
+                  "—"
+                }
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Supplier</span>
+              <span className="font-medium">{form.supplier || "—"}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Status</span>
+              <span className="font-medium">{form.status}</span>
             </div>
           </CardContent>
         </Card>

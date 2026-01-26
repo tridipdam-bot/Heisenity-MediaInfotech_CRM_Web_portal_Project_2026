@@ -24,7 +24,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Clock, Users, MapPin, Video, FileText, ExternalLink, XCircle } from "lucide-react";
+import { useAuthenticatedFetch } from "@/hooks/useAuthenticatedFetch";
+import { Calendar, Clock, Users, Video, FileText, ExternalLink, XCircle } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -54,6 +55,7 @@ export default function CreateMeetingDialog({
 }: CreateMeetingDialogProps) {
   const { data: session } = useSession();
   const { toast } = useToast();
+  const { authenticatedFetch, isAuthenticated } = useAuthenticatedFetch();
   
   const [loading, setLoading] = useState(false);
   const [employeesLoading, setEmployeesLoading] = useState(false);
@@ -98,16 +100,16 @@ export default function CreateMeetingDialog({
 
   // Fetch employees and customers
   useEffect(() => {
-    if (open) {
+    if (open && isAuthenticated) {
       fetchEmployees();
       fetchCustomers();
     }
-  }, [open]);
+  }, [open, isAuthenticated]);
 
   const fetchEmployees = async () => {
     try {
       setEmployeesLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employees`);
+      const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employees`);
       const result = await response.json();
       
       console.log('Employees API response:', result);
@@ -133,32 +135,35 @@ export default function CreateMeetingDialog({
   };
 
   const fetchCustomers = async () => {
-    try {
-      setCustomersLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/customers`);
-      const result = await response.json();
-      
-      console.log('Customers API response:', result);
-      
-      if (Array.isArray(result.customers)) {
-        console.log('Setting customers:', result.customers);
-        setCustomers(result.customers);
-      } else {
-        console.warn('Invalid customers data received:', result);
-        setCustomers([]);
-      }
-    } catch (error) {
-      console.error('Error fetching customers:', error);
+  try {
+    setCustomersLoading(true);
+    const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/customers`);
+    const result = await response.json();
+
+    console.log('Customers API response:', result);
+
+    const customersArray = Array.isArray(result.customers)
+      ? result.customers
+      : result?.data?.customers || [];
+
+    if (Array.isArray(customersArray) && customersArray.length > 0) {
+      setCustomers(customersArray);
+    } else {
+      console.warn('No customers received or invalid shape', result);
       setCustomers([]);
-      toast({
-        title: "Error",
-        description: "Failed to fetch customers",
-        variant: "destructive"
-      });
-    } finally {
-      setCustomersLoading(false);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching customers:', error);
+    setCustomers([]);
+    toast({
+      title: "Error",
+      description: "Failed to fetch customers",
+      variant: "destructive"
+    });
+  } finally {
+    setCustomersLoading(false);
+  }
+};
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -273,11 +278,8 @@ export default function CreateMeetingDialog({
         attendeeIds: selectedAttendees.length > 0 ? selectedAttendees : undefined
       };
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings`, {
+      const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/meetings`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(meetingData)
       });
 
@@ -430,42 +432,35 @@ export default function CreateMeetingDialog({
             </div>
           </div>
 
-          {/* Location and Link */}
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="location">Location</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  placeholder="Meeting location (optional)"
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="meetingLink">Meeting Link</Label>
-              <div className="relative">
-                <Video className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  id="meetingLink"
-                  value={formData.meetingLink}
-                  onChange={(e) => handleInputChange('meetingLink', e.target.value)}
-                  placeholder="Video call link (optional)"
-                  className="pl-10"
-                />
-              </div>
+          {/* Meeting Link */}
+          <div>
+            <Label htmlFor="meetingLink">Meeting Link</Label>
+            <div className="relative">
+              <Video className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                id="meetingLink"
+                value={formData.meetingLink}
+                onChange={(e) => handleInputChange('meetingLink', e.target.value)}
+                placeholder="Video call link (optional)"
+                className="pl-10"
+              />
             </div>
           </div>
 
-          {/* Customer Selection */}
+              {/* Customer Selection */}
           {formData.meetingType === 'CLIENT' && (
             <div>
               <Label htmlFor="customerId">Customer</Label>
-              {Array.isArray(customers) && customers.length > 0 ? (
+              {customersLoading ? (
+                <div className="flex items-center justify-center h-10 px-3 py-2 border border-input bg-background rounded-md">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-xs text-gray-500">Loading customers...</span>
+                </div>
+              ) : !isAuthenticated ? (
+                <div className="flex items-center justify-center h-10 px-3 py-2 border border-input bg-background rounded-md text-sm text-muted-foreground">
+                  Please log in to view customers
+                </div>
+              ) : Array.isArray(customers) && customers.length > 0 ? (
                 <Select value={formData.customerId} onValueChange={(value) => handleInputChange('customerId', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a customer" />
@@ -664,7 +659,16 @@ export default function CreateMeetingDialog({
               {/* Customer Selection */}
               <div>
                 <Label htmlFor="calendly-customer">Select Customer</Label>
-                {Array.isArray(customers) && customers.length > 0 ? (
+                {customersLoading ? (
+                  <div className="flex items-center justify-center h-10 px-3 py-2 border border-input bg-background rounded-md">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <span className="ml-2 text-xs text-gray-500">Loading customers...</span>
+                  </div>
+                ) : !isAuthenticated ? (
+                  <div className="flex items-center justify-center h-10 px-3 py-2 border border-input bg-background rounded-md text-sm text-muted-foreground">
+                    Please log in to view customers
+                  </div>
+                ) : Array.isArray(customers) && customers.length > 0 ? (
                   <Select 
                     value={formData.customerId} 
                     onValueChange={(value) => handleInputChange('customerId', value)}
@@ -854,40 +858,11 @@ export default function CreateMeetingDialog({
 
         {/* Calendly Features */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-purple-600" />
-              Calendly Features
-            </CardTitle>
-            <CardDescription>
-              Available meeting types and features
-            </CardDescription>
-          </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center p-4 border rounded-lg">
-                <Clock className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                <h4 className="font-medium">15-minute consultation</h4>
-                <p className="text-sm text-gray-600">Quick sync or status update</p>
-              </div>
-              
-              <div className="text-center p-4 border rounded-lg">
-                <Users className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                <h4 className="font-medium">30-minute discussion</h4>
-                <p className="text-sm text-gray-600">Project planning or review</p>
-              </div>
-              
-              <div className="text-center p-4 border rounded-lg">
-                <FileText className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                <h4 className="font-medium">60-minute workshop</h4>
-                <p className="text-sm text-gray-600">Detailed planning session</p>
-              </div>
-            </div>
-
             <div className="mt-4 p-4 bg-blue-50 rounded-lg">
               <h4 className="font-medium text-blue-900 mb-2">How it works:</h4>
               <ol className="text-sm text-blue-800 space-y-1">
-                <li>1. Select meeting type and customer/attendees</li>
+                <li>1. Select meeting type and attendees</li>
                 <li>2. Click to open Calendly with pre-filled details</li>
                 <li>3. Choose available time slots</li>
                 <li>4. Calendly sends invitations automatically</li>

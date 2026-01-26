@@ -19,13 +19,44 @@ function zeroPad(num: number, width = 6) {
 }
 
 async function renderBarcodePng(text: string): Promise<Buffer> {
-  return bwipjs.toBuffer({
-    bcid: 'code128',
-    text,
-    scale: 3,
-    height: 10,
-    includetext: false
-  });
+  console.log('🏷️  Generating barcode for text:', text);
+  console.log('🏷️  Text length:', text.length);
+  console.log('🏷️  Text type:', typeof text);
+  
+  try {
+    // Try with different Code128 options to ensure proper encoding
+    const buffer = await bwipjs.toBuffer({
+      bcid: 'code128',
+      text: text,
+      scale: 3,
+      height: 10,
+      includetext: false,
+      textxalign: 'center',
+      // Force Code128 Auto mode for better compatibility
+      parsefnc: true
+    });
+    
+    console.log('✅ Barcode generated successfully for:', text);
+    return buffer;
+  } catch (error) {
+    console.error('❌ Barcode generation failed for:', text, error);
+    
+    // Fallback: try with simpler options
+    try {
+      console.log('🔄 Trying fallback barcode generation...');
+      const fallbackBuffer = await bwipjs.toBuffer({
+        bcid: 'code128',
+        text: text,
+        scale: 2,
+        height: 8
+      });
+      console.log('✅ Fallback barcode generated for:', text);
+      return fallbackBuffer;
+    } catch (fallbackError) {
+      console.error('❌ Fallback barcode generation also failed:', fallbackError);
+      throw fallbackError;
+    }
+  }
 }
 
 async function createPdfFromLabels(
@@ -110,6 +141,11 @@ export async function generateLabelsForProduct(params: {
     for (let i = 0; i < count; i++) {
       lastIndex++;
       const serial = `${prefix}${zeroPad(lastIndex)}`;
+      
+      console.log('🔢 Generated serial:', serial);
+      console.log('🔢 Prefix:', prefix);
+      console.log('🔢 LastIndex:', lastIndex);
+      console.log('🔢 ZeroPad result:', zeroPad(lastIndex));
 
       const barcode = await tx.barcode.create({
         data: {
