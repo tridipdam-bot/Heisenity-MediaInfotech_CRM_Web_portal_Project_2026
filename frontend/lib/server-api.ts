@@ -2472,6 +2472,7 @@ export async function getTicketById(ticketId: string): Promise<GetTicketResponse
 export type DatabaseStats = {
   admins: number
   employees: number
+  products: number
   teams: number
   attendance: number
   tasks: number

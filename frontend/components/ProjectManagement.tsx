@@ -200,12 +200,18 @@ export function ProjectManagement() {
     const onHoldProjects = projectsData.filter(p => p.status === 'ON_HOLD').length
 
     const totalRevenue = projectsData.reduce((sum, project) => {
-      const receivedAmount = project.payments.reduce((pSum, payment) => pSum + (payment.receivedPayment || 0), 0)
+      const receivedAmount = project.payments.reduce(
+        (pSum, payment) => pSum + Number(payment.receivedPayment || 0),
+        0
+      )
       return sum + receivedAmount
     }, 0)
 
     const pendingPayments = projectsData.reduce((sum, project) => {
-      const pendingAmount = project.payments.reduce((pSum, payment) => pSum + (payment.pendingPayment || 0), 0)
+      const pendingAmount = project.payments.reduce(
+        (pSum, payment) => pSum + Number(payment.pendingPayment || 0),
+        0
+      )
       return sum + pendingAmount
     }, 0)
 
@@ -218,6 +224,7 @@ export function ProjectManagement() {
       pendingPayments
     })
   }
+
 
   React.useEffect(() => {
     fetchProjects()
@@ -381,18 +388,18 @@ export function ProjectManagement() {
   // Add product
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!selectedProject) return
-    
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/projects/${selectedProject.id}/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productForm)
       })
-      
+
       const result = await response.json()
-      
+
       if (result.success) {
         await fetchProjects()
         setIsProductDialogOpen(false)
@@ -606,7 +613,7 @@ export function ProjectManagement() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Total Revenue</p>
-                <p className="text-2xl font-semibold text-slate-900 mt-1">₹{stats.totalRevenue.toLocaleString()}</p>
+                <p className="text-2xl font-semibold text-slate-900 mt-1">₹{stats.totalRevenue.toLocaleString('en-IN')}</p>
               </div>
               <div className="h-10 w-10 rounded-md bg-slate-100 flex items-center justify-center">
                 <IndianRupee className="h-5 w-5 text-slate-600" />
@@ -620,7 +627,7 @@ export function ProjectManagement() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Pending Payments</p>
-                <p className="text-2xl font-semibold text-slate-900 mt-1">₹{stats.pendingPayments.toLocaleString()}</p>
+                <p className="text-2xl font-semibold text-slate-900 mt-1">₹{stats.pendingPayments.toLocaleString('en-IN')}</p>
               </div>
               <div className="h-10 w-10 rounded-md bg-slate-100 flex items-center justify-center">
                 <Clock className="h-5 w-5 text-slate-600" />
@@ -855,7 +862,7 @@ export function ProjectManagement() {
                     )}
                   </div>
                 </TabsContent>
-                
+
                 <TabsContent value="products" className="space-y-3 mt-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700">Products Used</span>
@@ -871,7 +878,7 @@ export function ProjectManagement() {
                       Add
                     </Button>
                   </div>
-                  
+
                   <div className="space-y-2 max-h-32 overflow-y-auto">
                     {project.products?.length === 0 || !project.products ? (
                       <p className="text-sm text-gray-500 text-center py-4">No products added</p>
@@ -1521,7 +1528,7 @@ export function ProjectManagement() {
                 required
               />
             </div>
-            
+
             <div>
               <Label htmlFor="product-category">Category</Label>
               <Input
@@ -1531,7 +1538,7 @@ export function ProjectManagement() {
                 placeholder="Product category"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="product-vendor">Vendor</Label>
               <Input
@@ -1541,7 +1548,7 @@ export function ProjectManagement() {
                 placeholder="Vendor/Supplier name"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="product-notes">Notes</Label>
               <Textarea
@@ -1552,7 +1559,7 @@ export function ProjectManagement() {
                 className="min-h-[60px]"
               />
             </div>
-            
+
             <div className="flex gap-2 pt-4">
               <Button type="submit" className="flex-1">
                 <Package className="h-4 w-4 mr-2" />

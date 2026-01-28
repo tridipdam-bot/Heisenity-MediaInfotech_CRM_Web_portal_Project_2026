@@ -128,6 +128,15 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
   const { toast } = useToast()
   const { authenticatedFetch, isAuthenticated } = useAuthenticatedFetch()
 
+  const START_YEAR = 2018
+  const END_YEAR = new Date().getFullYear() + 2
+
+  const yearOptions = Array.from(
+    { length: END_YEAR - START_YEAR + 1 },
+    (_, i) => START_YEAR + i
+  )
+
+
   const months = [
     { value: 1, label: 'January' },
     { value: 2, label: 'February' },
@@ -147,7 +156,7 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
     try {
       const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/employees`)
       const result = await response.json()
-      
+
       if (result.success && result.data && Array.isArray(result.data.employees)) {
         setEmployees(result.data.employees)
       } else {
@@ -169,7 +178,7 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
     try {
       const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/payroll`)
       const result = await response.json()
-      
+
       if (result.success && Array.isArray(result.data)) {
         setPayrollRecords(result.data)
       } else {
@@ -212,24 +221,24 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
   }
 
   const calculateTotals = () => {
-    const totalDeductions = (formData.professionalTax || 0) + (formData.providentFund || 0) + 
-                           (formData.esi || 0) + (formData.incomeTax || 0) + (formData.personalLoan || 0) + 
-                           (formData.otherAdvance || 0)
+    const totalDeductions = (formData.professionalTax || 0) + (formData.providentFund || 0) +
+      (formData.esi || 0) + (formData.incomeTax || 0) + (formData.personalLoan || 0) +
+      (formData.otherAdvance || 0)
 
-    const totalReimbursements = (formData.medicalExp || 0) + (formData.lta || 0) + 
-                               (formData.repairMaintenance || 0) + (formData.fuelExp || 0)
+    const totalReimbursements = (formData.medicalExp || 0) + (formData.lta || 0) +
+      (formData.repairMaintenance || 0) + (formData.fuelExp || 0)
 
-    const totalIncome = (formData.basicSalary || 0) + (formData.houseRentAllowance || 0) + 
-                       (formData.skillAllowance || 0) + (formData.conveyanceAllowance || 0) + 
-                       (formData.medicalAllowance || 0)
+    const totalIncome = (formData.basicSalary || 0) + (formData.houseRentAllowance || 0) +
+      (formData.skillAllowance || 0) + (formData.conveyanceAllowance || 0) +
+      (formData.medicalAllowance || 0)
 
     const netPay = totalIncome - totalDeductions + totalReimbursements
 
-    return { 
-      totalIncome: Number(totalIncome) || 0, 
-      totalDeductions: Number(totalDeductions) || 0, 
-      totalReimbursements: Number(totalReimbursements) || 0, 
-      netPay: Number(netPay) || 0 
+    return {
+      totalIncome: Number(totalIncome) || 0,
+      totalDeductions: Number(totalDeductions) || 0,
+      totalReimbursements: Number(totalReimbursements) || 0,
+      netPay: Number(netPay) || 0
     }
   }
 
@@ -246,14 +255,14 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
     setGenerating(true)
     try {
       const { totalIncome, totalDeductions, netPay } = calculateTotals()
-      
+
       const payrollData = {
         employeeId: formData.employeeId,
         month: formData.month,
         year: formData.year,
         basicSalary: formData.basicSalary,
-        allowances: formData.houseRentAllowance + formData.skillAllowance + 
-                   formData.conveyanceAllowance + formData.medicalAllowance,
+        allowances: formData.houseRentAllowance + formData.skillAllowance +
+          formData.conveyanceAllowance + formData.medicalAllowance,
         deductions: totalDeductions,
         overtime: 0,
         netSalary: netPay,
@@ -276,7 +285,7 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
           title: "Success",
           description: "Payslip generated successfully and saved to employee documents"
         })
-        
+
         // Reset form
         setFormData({
           employeeId: '',
@@ -304,7 +313,7 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
           fuelExp: 0
         })
         setSelectedEmployee(null)
-        
+
         // Refresh payroll records
         fetchPayrollRecords()
       } else {
@@ -363,11 +372,11 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
     setGenerating(true)
     try {
       const { totalIncome, totalDeductions, netPay } = calculateTotals()
-      
+
       const updateData = {
         basicSalary: formData.basicSalary,
-        allowances: formData.houseRentAllowance + formData.skillAllowance + 
-                   formData.conveyanceAllowance + formData.medicalAllowance,
+        allowances: formData.houseRentAllowance + formData.skillAllowance +
+          formData.conveyanceAllowance + formData.medicalAllowance,
         deductions: totalDeductions,
         overtime: 0,
         netSalary: netPay,
@@ -389,11 +398,11 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
           title: "Success",
           description: "Payroll record updated successfully"
         })
-        
+
         // Reset editing state
         setEditingRecord(null)
         setSelectedEmployee(null)
-        
+
         // Reset form
         setFormData({
           employeeId: '',
@@ -420,7 +429,7 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
           repairMaintenance: 0,
           fuelExp: 0
         })
-        
+
         // Refresh payroll records
         fetchPayrollRecords()
       } else {
@@ -452,7 +461,7 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
           title: "Success",
           description: result.message
         })
-        
+
         // Refresh payroll records to update status
         fetchPayrollRecords()
       } else {
@@ -536,8 +545,8 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="employee">Select Employee</Label>
-              <Select 
-                onValueChange={handleEmployeeSelect} 
+              <Select
+                onValueChange={handleEmployeeSelect}
                 value={formData.employeeId}
                 disabled={!!editingRecord}
               >
@@ -561,7 +570,7 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
 
             <div className="space-y-2">
               <Label htmlFor="month">Month</Label>
-              <Select 
+              <Select
                 onValueChange={(value) => {
                   const month = parseInt(value)
                   const date = new Date(formData.year, month - 1, 1)
@@ -571,7 +580,7 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
                     selectedDate: date,
                     daysPaid: getDaysInMonth(date)
                   }))
-                }} 
+                }}
                 value={formData.month.toString()}
                 disabled={!!editingRecord}
               >
@@ -590,340 +599,337 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
 
             <div className="space-y-2">
               <Label htmlFor="year">Year</Label>
-              <Select 
-                onValueChange={(value) => {
-                  const year = parseInt(value)
+              <Input
+                id="year"
+                type="number"
+                min={1900}
+                step={1}
+                value={formData.year}
+                disabled={!!editingRecord}
+                onChange={(e) => {
+                  const year = Number(e.target.value)
+                  if (!year || year < 1900) return
+
                   const date = new Date(year, formData.month - 1, 1)
+
                   setFormData(prev => ({
                     ...prev,
                     year,
                     selectedDate: date,
                     daysPaid: getDaysInMonth(date)
                   }))
-                }} 
-                value={formData.year.toString()}
-                disabled={!!editingRecord}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Days Paid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="daysPaid">Days Paid</Label>
-              <Input
-                id="daysPaid"
-                type="number"
-                min="1"
-                max="31"
-                value={formData.daysPaid === 0 ? '' : formData.daysPaid}
-                onChange={(e) => handleInputChange('daysPaid', e.target.value)}
-                className="w-full"
+                }}
+                placeholder="e.g. 2050"
               />
-              <div className="text-sm text-gray-500">
-                Days in {months.find(m => m.value === formData.month)?.label} {formData.year}: {getDaysInMonth(new Date(formData.year, formData.month - 1, 1))}
-              </div>
             </div>
-          </div>
+            </div>
 
-          {selectedEmployee && (
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex items-center gap-4 mb-3">
-                <User className="h-5 w-5 text-blue-600" />
-                <div>
-                  <p className="font-medium text-blue-900">{selectedEmployee.name}</p>
-                  <p className="text-sm text-blue-700">
-                    ID: {selectedEmployee.employeeId} | Role: {selectedEmployee.role}
-                    {selectedEmployee.team && ` | Team: ${selectedEmployee.team.name}`}
-                  </p>
+            {/* Days Paid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="daysPaid">Days Paid</Label>
+                <Input
+                  id="daysPaid"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={formData.daysPaid === 0 ? '' : formData.daysPaid}
+                  onChange={(e) => handleInputChange('daysPaid', e.target.value)}
+                  className="w-full"
+                />
+                <div className="text-sm text-gray-500">
+                  Days in {months.find(m => m.value === formData.month)?.label} {formData.year}: {getDaysInMonth(new Date(formData.year, formData.month - 1, 1))}
                 </div>
               </div>
             </div>
-          )}
 
-          {/* UAN, ESI and Bank Account Input Fields */}
-          {selectedEmployee && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="uanNumber">UAN Number</Label>
-                <Input
-                  id="uanNumber"
-                  type="text"
-                  value={formData.uanNumber}
-                  onChange={(e) => setFormData(prev => ({ ...prev, uanNumber: e.target.value }))}
-                  placeholder="Enter UAN number"
-                />
+            {selectedEmployee && (
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="flex items-center gap-4 mb-3">
+                  <User className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <p className="font-medium text-blue-900">{selectedEmployee.name}</p>
+                    <p className="text-sm text-blue-700">
+                      ID: {selectedEmployee.employeeId} | Role: {selectedEmployee.role}
+                      {selectedEmployee.team && ` | Team: ${selectedEmployee.team.name}`}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="esiNumber">ESI Number</Label>
-                <Input
-                  id="esiNumber"
-                  type="text"
-                  value={formData.esiNumber}
-                  onChange={(e) => setFormData(prev => ({ ...prev, esiNumber: e.target.value }))}
-                  placeholder="Enter ESI number"
-                />
+            )}
+
+            {/* UAN, ESI and Bank Account Input Fields */}
+            {selectedEmployee && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="uanNumber">UAN Number</Label>
+                  <Input
+                    id="uanNumber"
+                    type="text"
+                    value={formData.uanNumber}
+                    onChange={(e) => setFormData(prev => ({ ...prev, uanNumber: e.target.value }))}
+                    placeholder="Enter UAN number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="esiNumber">ESI Number</Label>
+                  <Input
+                    id="esiNumber"
+                    type="text"
+                    value={formData.esiNumber}
+                    onChange={(e) => setFormData(prev => ({ ...prev, esiNumber: e.target.value }))}
+                    placeholder="Enter ESI number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
+                  <Input
+                    id="bankAccountNumber"
+                    type="text"
+                    value={formData.bankAccountNumber}
+                    onChange={(e) => setFormData(prev => ({ ...prev, bankAccountNumber: e.target.value }))}
+                    placeholder="Enter bank account number"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="bankAccountNumber">Bank Account Number</Label>
-                <Input
-                  id="bankAccountNumber"
-                  type="text"
-                  value={formData.bankAccountNumber}
-                  onChange={(e) => setFormData(prev => ({ ...prev, bankAccountNumber: e.target.value }))}
-                  placeholder="Enter bank account number"
-                />
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Income Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-green-700 flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Income
+                </h3>
+
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="basicSalary">Basic Salary</Label>
+                    <Input
+                      id="basicSalary"
+                      type="number"
+                      value={formData.basicSalary === 0 ? '' : formData.basicSalary}
+                      onChange={(e) => handleInputChange('basicSalary', e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="houseRentAllowance">House Rent Allowance</Label>
+                    <Input
+                      id="houseRentAllowance"
+                      type="number"
+                      value={formData.houseRentAllowance === 0 ? '' : formData.houseRentAllowance}
+                      onChange={(e) => handleInputChange('houseRentAllowance', e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="skillAllowance">Skill Allowance</Label>
+                    <Input
+                      id="skillAllowance"
+                      type="number"
+                      value={formData.skillAllowance === 0 ? '' : formData.skillAllowance}
+                      onChange={(e) => handleInputChange('skillAllowance', e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="conveyanceAllowance">Conveyance Allowance</Label>
+                    <Input
+                      id="conveyanceAllowance"
+                      type="number"
+                      value={formData.conveyanceAllowance === 0 ? '' : formData.conveyanceAllowance}
+                      onChange={(e) => handleInputChange('conveyanceAllowance', e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="medicalAllowance">Medical Allowance</Label>
+                    <Input
+                      id="medicalAllowance"
+                      type="number"
+                      value={formData.medicalAllowance === 0 ? '' : formData.medicalAllowance}
+                      onChange={(e) => handleInputChange('medicalAllowance', e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <Separator />
+                <div className="flex justify-between items-center font-semibold text-green-700">
+                  <span>Total Income:</span>
+                  <span>₹{totalIncome.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Deductions Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-red-700">Deductions</h3>
+
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="professionalTax">Professional Tax</Label>
+                    <Input
+                      id="professionalTax"
+                      type="number"
+                      value={formData.professionalTax === 0 ? '' : formData.professionalTax}
+                      onChange={(e) => handleInputChange('professionalTax', e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="providentFund">Provident Fund</Label>
+                    <Input
+                      id="providentFund"
+                      type="number"
+                      value={formData.providentFund === 0 ? '' : formData.providentFund}
+                      onChange={(e) => handleInputChange('providentFund', e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="esi">ESI</Label>
+                    <Input
+                      id="esi"
+                      type="number"
+                      value={formData.esi === 0 ? '' : formData.esi}
+                      onChange={(e) => handleInputChange('esi', e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="incomeTax">Income Tax</Label>
+                    <Input
+                      id="incomeTax"
+                      type="number"
+                      value={formData.incomeTax === 0 ? '' : formData.incomeTax}
+                      onChange={(e) => handleInputChange('incomeTax', e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="personalLoan">Personal Loan</Label>
+                    <Input
+                      id="personalLoan"
+                      type="number"
+                      value={formData.personalLoan === 0 ? '' : formData.personalLoan}
+                      onChange={(e) => handleInputChange('personalLoan', e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="otherAdvance">Other Advance</Label>
+                    <Input
+                      id="otherAdvance"
+                      type="number"
+                      value={formData.otherAdvance === 0 ? '' : formData.otherAdvance}
+                      onChange={(e) => handleInputChange('otherAdvance', e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <Separator />
+                <div className="flex justify-between items-center font-semibold text-red-700">
+                  <span>Total Deductions:</span>
+                  <span>₹{totalDeductions.toFixed(2)}</span>
+                </div>
               </div>
             </div>
-          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Income Section */}
+            {/* Reimbursements Section */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-green-700 flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Income
-              </h3>
-              
-              <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-blue-700">Reimbursements</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="basicSalary">Basic Salary</Label>
+                  <Label htmlFor="medicalExp">Medical Exp.</Label>
                   <Input
-                    id="basicSalary"
+                    id="medicalExp"
                     type="number"
-                    value={formData.basicSalary === 0 ? '' : formData.basicSalary}
-                    onChange={(e) => handleInputChange('basicSalary', e.target.value)}
+                    value={formData.medicalExp === 0 ? '' : formData.medicalExp}
+                    onChange={(e) => handleInputChange('medicalExp', e.target.value)}
                     placeholder="0.00"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="houseRentAllowance">House Rent Allowance</Label>
+                  <Label htmlFor="lta">LTA</Label>
                   <Input
-                    id="houseRentAllowance"
+                    id="lta"
                     type="number"
-                    value={formData.houseRentAllowance === 0 ? '' : formData.houseRentAllowance}
-                    onChange={(e) => handleInputChange('houseRentAllowance', e.target.value)}
+                    value={formData.lta === 0 ? '' : formData.lta}
+                    onChange={(e) => handleInputChange('lta', e.target.value)}
                     placeholder="0.00"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="skillAllowance">Skill Allowance</Label>
+                  <Label htmlFor="repairMaintenance">Rep & Main. Of Car</Label>
                   <Input
-                    id="skillAllowance"
+                    id="repairMaintenance"
                     type="number"
-                    value={formData.skillAllowance === 0 ? '' : formData.skillAllowance}
-                    onChange={(e) => handleInputChange('skillAllowance', e.target.value)}
+                    value={formData.repairMaintenance === 0 ? '' : formData.repairMaintenance}
+                    onChange={(e) => handleInputChange('repairMaintenance', e.target.value)}
                     placeholder="0.00"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="conveyanceAllowance">Conveyance Allowance</Label>
+                  <Label htmlFor="fuelExp">Fuel exp. Of Car</Label>
                   <Input
-                    id="conveyanceAllowance"
+                    id="fuelExp"
                     type="number"
-                    value={formData.conveyanceAllowance === 0 ? '' : formData.conveyanceAllowance}
-                    onChange={(e) => handleInputChange('conveyanceAllowance', e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="medicalAllowance">Medical Allowance</Label>
-                  <Input
-                    id="medicalAllowance"
-                    type="number"
-                    value={formData.medicalAllowance === 0 ? '' : formData.medicalAllowance}
-                    onChange={(e) => handleInputChange('medicalAllowance', e.target.value)}
+                    value={formData.fuelExp === 0 ? '' : formData.fuelExp}
+                    onChange={(e) => handleInputChange('fuelExp', e.target.value)}
                     placeholder="0.00"
                   />
                 </div>
               </div>
 
-              <Separator />
-              <div className="flex justify-between items-center font-semibold text-green-700">
-                <span>Total Income:</span>
-                <span>₹{totalIncome.toFixed(2)}</span>
+              <div className="flex justify-between items-center font-semibold text-blue-700">
+                <span>Total Reimbursements:</span>
+                <span>₹{totalReimbursements.toFixed(2)}</span>
               </div>
             </div>
 
-            {/* Deductions Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-red-700">Deductions</h3>
-              
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="professionalTax">Professional Tax</Label>
-                  <Input
-                    id="professionalTax"
-                    type="number"
-                    value={formData.professionalTax === 0 ? '' : formData.professionalTax}
-                    onChange={(e) => handleInputChange('professionalTax', e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="providentFund">Provident Fund</Label>
-                  <Input
-                    id="providentFund"
-                    type="number"
-                    value={formData.providentFund === 0 ? '' : formData.providentFund}
-                    onChange={(e) => handleInputChange('providentFund', e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="esi">ESI</Label>
-                  <Input
-                    id="esi"
-                    type="number"
-                    value={formData.esi === 0 ? '' : formData.esi}
-                    onChange={(e) => handleInputChange('esi', e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="incomeTax">Income Tax</Label>
-                  <Input
-                    id="incomeTax"
-                    type="number"
-                    value={formData.incomeTax === 0 ? '' : formData.incomeTax}
-                    onChange={(e) => handleInputChange('incomeTax', e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="personalLoan">Personal Loan</Label>
-                  <Input
-                    id="personalLoan"
-                    type="number"
-                    value={formData.personalLoan === 0 ? '' : formData.personalLoan}
-                    onChange={(e) => handleInputChange('personalLoan', e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="otherAdvance">Other Advance</Label>
-                  <Input
-                    id="otherAdvance"
-                    type="number"
-                    value={formData.otherAdvance === 0 ? '' : formData.otherAdvance}
-                    onChange={(e) => handleInputChange('otherAdvance', e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-
-              <Separator />
-              <div className="flex justify-between items-center font-semibold text-red-700">
-                <span>Total Deductions:</span>
-                <span>₹{totalDeductions.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Reimbursements Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-blue-700">Reimbursements</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="medicalExp">Medical Exp.</Label>
-                <Input
-                  id="medicalExp"
-                  type="number"
-                  value={formData.medicalExp === 0 ? '' : formData.medicalExp}
-                  onChange={(e) => handleInputChange('medicalExp', e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="lta">LTA</Label>
-                <Input
-                  id="lta"
-                  type="number"
-                  value={formData.lta === 0 ? '' : formData.lta}
-                  onChange={(e) => handleInputChange('lta', e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="repairMaintenance">Rep & Main. Of Car</Label>
-                <Input
-                  id="repairMaintenance"
-                  type="number"
-                  value={formData.repairMaintenance === 0 ? '' : formData.repairMaintenance}
-                  onChange={(e) => handleInputChange('repairMaintenance', e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="fuelExp">Fuel exp. Of Car</Label>
-                <Input
-                  id="fuelExp"
-                  type="number"
-                  value={formData.fuelExp === 0 ? '' : formData.fuelExp}
-                  onChange={(e) => handleInputChange('fuelExp', e.target.value)}
-                  placeholder="0.00"
-                />
+            {/* Net Pay Summary */}
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <div className="flex justify-between items-center text-xl font-bold">
+                <span>Net Pay:</span>
+                <span className="text-green-600">₹{netPay.toFixed(2)}</span>
               </div>
             </div>
 
-            <div className="flex justify-between items-center font-semibold text-blue-700">
-              <span>Total Reimbursements:</span>
-              <span>₹{totalReimbursements.toFixed(2)}</span>
+            {/* Generate/Update Button */}
+            <div className="flex justify-end">
+              <Button
+                onClick={editingRecord ? updatePayrollRecord : generatePayslip}
+                disabled={!selectedEmployee || generating}
+                className="px-8"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {editingRecord ? 'Updating...' : 'Generating...'}
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    {editingRecord ? 'Update Payslip' : 'Generate Payslip'}
+                  </>
+                )}
+              </Button>
             </div>
-          </div>
-
-          {/* Net Pay Summary */}
-          <div className="bg-gray-50 p-6 rounded-lg">
-            <div className="flex justify-between items-center text-xl font-bold">
-              <span>Net Pay:</span>
-              <span className="text-green-600">₹{netPay.toFixed(2)}</span>
-            </div>
-          </div>
-
-          {/* Generate/Update Button */}
-          <div className="flex justify-end">
-            <Button 
-              onClick={editingRecord ? updatePayrollRecord : generatePayslip} 
-              disabled={!selectedEmployee || generating}
-              className="px-8"
-            >
-              {generating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {editingRecord ? 'Updating...' : 'Generating...'}
-                </>
-              ) : (
-                <>
-                  <FileText className="h-4 w-4 mr-2" />
-                  {editingRecord ? 'Update Payslip' : 'Generate Payslip'}
-                </>
-              )}
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
@@ -956,7 +962,7 @@ export function PayslipManagement({ adminId }: PayslipManagementProps) {
                   <div className="flex items-center gap-4">
                     <div className="text-right">
                       <p className="font-semibold">₹{Number(record.netSalary || 0).toFixed(2)}</p>
-                      <Badge 
+                      <Badge
                         variant={record.status === 'PAID' ? 'default' : record.status === 'PROCESSED' ? 'secondary' : 'outline'}
                       >
                         {record.status}

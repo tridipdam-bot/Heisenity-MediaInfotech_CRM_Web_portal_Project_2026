@@ -119,6 +119,7 @@ export class DatabaseController {
       const stats = {
         admins: await prisma.admin.count(),
         employees: await prisma.employee.count(),
+        products: await prisma.product.count(),
         teams: await prisma.team.count(),
         attendance: await prisma.attendance.count(),
         tasks: await prisma.task.count(),

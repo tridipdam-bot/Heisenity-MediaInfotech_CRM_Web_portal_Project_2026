@@ -26,6 +26,7 @@ type DatabaseStats = {
   admins: number
   employees: number
   teams: number
+  products: number
   attendance: number
   tasks: number
   vehicles: number
@@ -66,6 +67,7 @@ export function Dashboard() {
   const [dbStats, setDbStats] = React.useState<DatabaseStats>({
     admins: 0,
     employees: 0,
+    products: 0,
     teams: 0,
     attendance: 0,
     tasks: 0,
@@ -310,7 +312,7 @@ export function Dashboard() {
             <CardContent>
               <div className="space-y-2">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-gray-900">1,247</span>
+                  <span className="text-3xl font-bold text-gray-900">{loadingStats ? '...': dbStats.products}</span>
                 </div>
                 <p className="text-sm text-gray-500">items in inventory</p>
               </div>
