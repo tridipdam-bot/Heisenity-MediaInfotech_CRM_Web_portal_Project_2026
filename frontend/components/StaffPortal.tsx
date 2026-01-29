@@ -1086,7 +1086,7 @@ export function StaffPortal() {
                       <CardTitle>HR Center</CardTitle>
                     </CardHeader>
                     <CardContent className="text-center py-10">
-                      <Button onClick={() => router.push('/hr')}>
+                      <Button onClick={() => router.push('/leave-management')}>
                         Open HR Center
                       </Button>
                     </CardContent>

@@ -39,7 +39,7 @@ export function ReEnableClockInDialog({ adminId }: { adminId: string }) {
         const API_BASE =
             process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1"
 
-        fetch(`${API_BASE}/attendance/admin/rejected`)
+        fetch(`${API_BASE}/attendance/admin/rejected`, { credentials: "include" })
             .then(res => res.json())
             .then(data => {
                 setRejectedAttendances(data.data || [])
@@ -58,16 +58,18 @@ export function ReEnableClockInDialog({ adminId }: { adminId: string }) {
         setLoading(true)
         try {
             const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1"
-            
+
             const res = await fetch(`${API_BASE}/attendance/admin/re-enable`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({
                     attendanceId,
                     adminId,
                     reason
                 })
             })
+
 
             const data = await res.json()
 
@@ -77,7 +79,9 @@ export function ReEnableClockInDialog({ adminId }: { adminId: string }) {
                 setAttendanceId("")
                 setReason("")
                 // Refresh the rejected attendances list
-                const rejectedRes = await fetch(`${API_BASE}/attendance/admin/rejected`)
+                const rejectedRes = await fetch(`${API_BASE}/attendance/admin/rejected`, {
+                    credentials: "include"
+                })
                 const rejectedData = await rejectedRes.json()
                 setRejectedAttendances(rejectedData.data || [])
             } else {

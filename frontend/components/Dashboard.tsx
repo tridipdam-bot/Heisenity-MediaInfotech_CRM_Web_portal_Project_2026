@@ -543,60 +543,6 @@ export function Dashboard() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Stock Overview - Keep as Mock Data */}
-        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-          <Card className="bg-white shadow-sm border-gray-200">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Package className="h-5 w-5 text-green-500" />
-                Stock Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <Package className="h-4 w-4 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Items In Stock</p>
-                      <p className="text-sm text-gray-500">Available inventory</p>
-                    </div>
-                  </div>
-                  <span className="text-2xl font-bold text-green-700">1,189</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-100 rounded-lg">
-                      <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Low Stock Items</p>
-                      <p className="text-sm text-gray-500">Need restocking</p>
-                    </div>
-                  </div>
-                  <span className="text-2xl font-bold text-amber-700">23</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Truck className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Pending Orders</p>
-                      <p className="text-sm text-gray-500">Orders in transit</p>
-                    </div>
-                  </div>
-                  <span className="text-2xl font-bold text-blue-700">7</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   )

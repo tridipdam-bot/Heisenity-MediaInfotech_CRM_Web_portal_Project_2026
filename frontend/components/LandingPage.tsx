@@ -326,16 +326,16 @@ export default function LandingPage({ onGetStarted, isLoggedIn = false, userProf
               <Phone className="h-12 w-12 text-blue-400 mx-auto mb-4" />
               <h3 className="text-xl font-bold mb-2">Phone</h3>
               <p className="text-gray-300 mb-4">Official Communications Line</p>
-              <p className="text-blue-400 font-semibold"> 6290867573</p>
-              <p className="text-gray-300 mb-4">Customer Care & Support</p>
               <p className="text-blue-400 font-semibold"> 7003896006</p>
+              <p className="text-gray-300 mb-4">Customer Care & Support</p>
+              <p className="text-blue-400 font-semibold"> 6290867573</p>
             </div>
             
             <div className="text-center p-8 bg-gray-800/50 rounded-2xl border border-gray-700">
               <Mail className="h-12 w-12 text-blue-400 mx-auto mb-4" />
               <h3 className="text-xl font-bold mb-2">Email Us</h3>
               <p className="text-gray-300 mb-4">Send us your questions</p>
-              <p className="text-blue-400 font-semibold">admin@mediainfotech@org</p>
+              <p className="text-blue-400 font-semibold">admin@mediainfotech.org</p>
             </div>
             
             <div className="text-center p-8 bg-gray-800/50 rounded-2xl border border-gray-700">
