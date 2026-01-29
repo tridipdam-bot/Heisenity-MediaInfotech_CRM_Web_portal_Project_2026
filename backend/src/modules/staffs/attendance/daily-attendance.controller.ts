@@ -174,7 +174,18 @@ export const reEnableAttendanceController = async (req: Request, res: Response) 
       })
     }
 
+    console.info('Re-enable attendance request', { attendanceId, adminId, reason: reason ? '[REDACTED]' : undefined })
     const result = await reEnableAttendance(attendanceId, adminId, reason)
+
+    if (!result.success) {
+      console.info('Re-enable attendance failed', { attendanceId, adminId, message: result.message })
+      // Map to appropriate HTTP status codes for better client handling
+      if (result.message && result.message.toLowerCase().includes('not found')) {
+        return res.status(404).json(result)
+      }
+      return res.status(400).json(result)
+    }
+
     return res.json(result)
   } catch (error) {
     console.error('Re-enable attendance error:', error)
